@@ -1,20 +1,21 @@
+;(function(){
 // ---------- 保牌AI：给每张牌算一个“保留等级”，数值越小越优先被打出 ----------
 // 0=孤立字牌 1=孤立中张(2,3,7,8) 2=孤立中张(4,5,6) 3=孤立幺九/嵌张
 // 4=刻子(三者中最先舍) 5=连张/搭子/三门齐保护 6=对子(最优先保留)
 function protectsThreeSuits(hand, tile) {
-    const suit = tileSuit(tile);
+    const suit = Game.tileSuit(tile);
     if (suit === '字') return false; // 字牌不影响三门齐
-    const suitsPresent = new Set(hand.filter(t => tileSuit(t) !== '字').map(tileSuit));
+    const suitsPresent = new Set(hand.filter(t => Game.tileSuit(t) !== '字').map(Game.tileSuit));
     if (suitsPresent.size < 3) return false; // 已经不是三门齐了，没必要为了保它牺牲效率
-    return hand.filter(t => tileSuit(t) === suit).length === 1; // 这门僅剩的一张，打了就断这门了
+    return hand.filter(t => Game.tileSuit(t) === suit).length === 1; // 这门僅剩的一张，打了就断这门了
 }
 
 // ---------- 记牌：统计场面上能看到的牌，判断某个搭子还有没有指望 ----------
 // 只数看得见的：弃牌堆 + 各家已经亮出的碰/吃/明杠/亮牌（暗杠盖着，不算"看得见"）
 function tileSeenCount(tile) {
-    let count = discardPile.filter(d => d.tile === tile).length;
-    for (const p of turnOrder) {
-        for (const m of exposedMelds[p]) {
+    let count = Game.discardPile.filter(d => d.tile === tile).length;
+    for (const p of Game.turnOrder) {
+        for (const m of Game.exposedMelds[p]) {
             if (m.type === 'gang' && m.concealed) continue; // 暗杠看不见，不计入
             count += m.tiles.filter(t => t === tile).length;
         }
@@ -33,7 +34,7 @@ function isTileDead(tile, ownHand) {
 // ---------- AI：精确结构向听（DFS 拆面子 + 剩余搭子评估） / 吃碰评估 ----------
 /** 牌面 → 0..33：万0-8 条9-17 筒18-26 字27-33 */
 function tileToIndex(t) {
-    const s = tileSuit(t), r = tileRank(t);
+    const s = Game.tileSuit(t), r = Game.tileRank(t);
     if (s === '万') return r - 1;
     if (s === '条') return 9 + r - 1;
     if (s === '筒') return 18 + r - 1;
@@ -283,7 +284,7 @@ function benchmarkMahjongAI(opt) {
         let ok = false;
         for (let i = 0; i < iterations; i++) {
             const s0 = _benchNow();
-            ok = checkHu([...hand, winTile], [], null);
+            ok = Game.checkHu([...hand, winTile], [], null);
             samples.push(_benchNow() - s0);
         }
         report.checkHu = {
@@ -293,34 +294,34 @@ function benchmarkMahjongAI(opt) {
     }
 
     // —— 3) chooseAiDiscardTile（需临时挂手牌环境）——
-    if (includeAiDiscard && typeof chooseAiDiscardTile === 'function') {
-        const savedHands = hands;
-        const savedExposed = exposedMelds;
-        const savedWait = aiWaitTiles;
+    if (includeAiDiscard && typeof Game.chooseAiDiscardTile === 'function') {
+        const savedHands = Game.hands;
+        const savedExposed = Game.exposedMelds;
+        const savedWait = Game.aiWaitTiles;
         try {
             const discSamples = {};
             for (const fx of fixtures) {
                 if (fx.concealed.length < 2) continue;
-                hands = {
+                Game.hands = {
                     top: fx.concealed.slice(),
                     left: fx.concealed.slice(),
                     right: fx.concealed.slice(),
                     bottom: fx.concealed.slice()
                 };
-                exposedMelds = {
+                Game.exposedMelds = {
                     top: fx.exposed.slice(),
                     left: fx.exposed.slice(),
                     right: fx.exposed.slice(),
                     bottom: fx.exposed.slice()
                 };
-                aiWaitTiles = { top: [], left: [], right: [] };
+                Game.aiWaitTiles = { top: [], left: [], right: [] };
                 const samples = [];
                 const t0 = _benchNow();
                 let pick = null;
                 const n = Math.min(iterations, 80); // 舍牌含多次向听，次数略降
                 for (let i = 0; i < n; i++) {
                     const s0 = _benchNow();
-                    pick = chooseAiDiscardTile(fx.concealed.slice(), 'top');
+                    pick = Game.chooseAiDiscardTile(fx.concealed.slice(), 'top');
                     samples.push(_benchNow() - s0);
                 }
                 discSamples[fx.name] = {
@@ -330,9 +331,9 @@ function benchmarkMahjongAI(opt) {
             }
             report.aiDiscard = discSamples;
         } finally {
-            hands = savedHands;
-            exposedMelds = savedExposed;
-            aiWaitTiles = savedWait;
+            Game.hands = savedHands;
+            Game.exposedMelds = savedExposed;
+            Game.aiWaitTiles = savedWait;
         }
     }
 
@@ -372,7 +373,7 @@ function benchmarkMahjongAI(opt) {
         }
         try {
             const avgShan = shanRows.reduce((s, r) => s + r.avgMs, 0) / (shanRows.length || 1);
-            logFlow('基准：向听均 ' + avgShan.toFixed(3) + 'ms；控制台看 benchmarkMahjongAI 详情');
+            Game.logFlow('基准：向听均 ' + avgShan.toFixed(3) + 'ms；控制台看 benchmarkMahjongAI 详情');
         } catch (e) { /* ignore */ }
     }
     return report;
@@ -380,3 +381,10 @@ function benchmarkMahjongAI(opt) {
 
 // 暴露到全局，便于手机远程调试 / 桌面控制台
 try { window.benchmarkMahjongAI = benchmarkMahjongAI; } catch (e) { /* non-browser */ }
+
+/* ---- 本文件对外接口（IIFE 收敛，唯一出口） ---- */
+Game.protectsThreeSuits = protectsThreeSuits;
+Game.isTileDead = isTileDead;
+Game.estimateShanten = estimateShanten;
+
+;})();

@@ -1,3 +1,4 @@
+;(function(){
 /* 15-stat-avatar-longpress.js
  * 四个状态栏小头像：仅长按保护（避免误触其它操作），四家均无动作
  * 调庄 hidden gem 已迁移到「东」大头像（见 09-turn-settlement.js 的 onAvatarPointerDown）：
@@ -86,3 +87,5 @@
         bind();
     }
 })();
+
+;})();

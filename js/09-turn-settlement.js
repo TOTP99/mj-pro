@@ -1,3 +1,4 @@
+;(function(){
 function canPeng(hand, tile) {
     return hand.filter(t => t === tile).length >= 2;
 }
@@ -9,9 +10,9 @@ function canGang(hand, tile) {
 // 返回可吃的组合（手牌中的两张），找不到返回 null
 // 返回所有可行的吃法组合(可能不止一种，比如摸到5万，手里有3万4万又有6万7万)
 function findChiCombos(hand, tile) {
-    const suit = tileSuit(tile);
+    const suit = Game.tileSuit(tile);
     if (suit === '字') return []; // 字牌没有顺子，不能吃
-    const rank = tileRank(tile);
+    const rank = Game.tileRank(tile);
     const combos = [[rank - 2, rank - 1], [rank - 1, rank + 1], [rank + 1, rank + 2]];
     const found = [];
     for (const [a, b] of combos) {
@@ -37,27 +38,28 @@ function seatLabel(p) {
 
 // 显示验胡结算画面：谁胡/自摸or点炮/完整手牌/吃碰杠亮/计分明细/每家加减分
 function showResultModal(winnerPlayer, mode, payer, bonus, result, winTile) {
+    Game.setPhase(Game.PHASE.SETTLING, 'showResultModal');
     // 例：东 猫 胡 / 自摸；或 东 猫 胡 / 南 狮 点炮
-    $('result-title').innerText = seatLabel(winnerPlayer) + ' 胡';
-    $('result-subtitle').innerText =
+    Game.$('result-title').innerText = seatLabel(winnerPlayer) + ' 胡';
+    Game.$('result-subtitle').innerText =
         mode === 'selfdraw' ? '自摸' : (seatLabel(payer) + ' 点炮');
 
-    const concealedSorted = [...hands[winnerPlayer]].sort(tileCompare);
+    const concealedSorted = [...Game.hands[winnerPlayer]].sort(Game.tileCompare);
     let winMarked = false;
-    $('result-concealed').innerHTML =
+    Game.$('result-concealed').innerHTML =
         concealedSorted.map(t => {
             const isWin = !winMarked && t === winTile;
             if (isWin) winMarked = true;
-            return `<div class="tile-wrap"><div class="tile-marker"></div><div class="tile exposed${isWin ? ' win-glow' : ''}">${tileImg(t)}</div></div>`;
+            return `<div class="tile-wrap"><div class="tile-marker"></div><div class="tile exposed${isWin ? ' win-glow' : ''}">${Game.tileImg(t)}</div></div>`;
         }).join('') || '（无）';
-    $('result-exposed').innerHTML =
-        exposedMelds[winnerPlayer].map(renderMeldGroup).join('') || '（无）';
+    Game.$('result-exposed').innerHTML =
+        Game.exposedMelds[winnerPlayer].map(Game.renderMeldGroup).join('') || '（无）';
 
     const lines = [mode === 'selfdraw' ? '底分 ×1' : '底分 ×2'];
     result.tags.forEach(t => lines.push(t.replace('×', ' ×')));
-    $('result-score-lines').innerHTML = lines.map(l => `<div>${l}</div>`).join('');
+    Game.$('result-score-lines').innerHTML = lines.map(l => `<div>${l}</div>`).join('');
 
-    lastSettlement = {
+    Game.lastSettlement = {
         mode,
         winner: winnerPlayer,
         payer: payer || null,
@@ -68,24 +70,24 @@ function showResultModal(winnerPlayer, mode, payer, bonus, result, winTile) {
         adjusting: false
     };
     renderSettlementView();
-    $('result-adjust-panel').style.display = 'none';
-    const btn = $('btn-toggle-adjust');
+    Game.$('result-adjust-panel').style.display = 'none';
+    const btn = Game.$('btn-toggle-adjust');
     if (btn) btn.textContent = '特殊情况：手动调分';
-    $('result-modal').classList.add('show');
-    flushSaveProgress(); // 结算后立刻落盘，防刷新丢分
+    Game.$('result-modal').classList.add('show');
+    Game.flushSaveProgress(); // 结算后立刻落盘，防刷新丢分
 }
 
 function renderSettlementView() {
-    if (!lastSettlement) return;
-    const pay = lastSettlement.payouts;
-    const noKaimenPlayers = lastSettlement.noKaimenPlayers || [];
-    const edited = turnOrder.some(p => pay[p] !== lastSettlement.systemPayouts[p]);
-    const sumWin = turnOrder.reduce((s, p) => s + Math.max(0, pay[p]), 0);
-    $('result-total').innerText =
+    if (!Game.lastSettlement) return;
+    const pay = Game.lastSettlement.payouts;
+    const noKaimenPlayers = Game.lastSettlement.noKaimenPlayers || [];
+    const edited = Game.turnOrder.some(p => pay[p] !== Game.lastSettlement.systemPayouts[p]);
+    const sumWin = Game.turnOrder.reduce((s, p) => s + Math.max(0, pay[p]), 0);
+    Game.$('result-total').innerText =
         (edited ? '调整后得分合计：' : '总分：') + sumWin + (edited ? '（已手动修改）' : '');
 
     // 默认只读展示
-    $('result-payouts').innerHTML = turnOrder.map(p => {
+    Game.$('result-payouts').innerHTML = Game.turnOrder.map(p => {
         const v = pay[p];
         const cls = v > 0 ? 'pos' : (v < 0 ? 'neg' : '');
         const sign = v > 0 ? '+' : '';
@@ -94,26 +96,26 @@ function renderSettlementView() {
     }).join('');
 
     // 调分面板（仅打开时可见）
-    $('result-payouts-edit').innerHTML = turnOrder.map(p => {
+    Game.$('result-payouts-edit').innerHTML = Game.turnOrder.map(p => {
         const v = pay[p];
         const cls = v > 0 ? 'pos' : (v < 0 ? 'neg' : '');
         const tag = noKaimenPlayers.includes(p) ? ' <span class="no-kaimen-tag">没开门</span>' : '';
         return `<div class="payout-row ${cls}">
             <span class="pname">${nameOf(p)}${tag}</span>
-            <button type="button" class="payout-btn" onclick="event.stopPropagation();adjustSettlementPayoutFactor('${p}', 0.5)">÷2</button>
+            <button type="button" class="payout-btn" onclick="event.stopPropagation();Game.adjustSettlementPayoutFactor('${p}', 0.5)">÷2</button>
             <input type="number" step="1" value="${v}" data-player="${p}"
-                onchange="onSettlementPayoutEdit(this)">
-            <button type="button" class="payout-btn" onclick="event.stopPropagation();adjustSettlementPayoutFactor('${p}', 2)">×2</button>
+                onchange="Game.onSettlementPayoutEdit(this)">
+            <button type="button" class="payout-btn" onclick="event.stopPropagation();Game.adjustSettlementPayoutFactor('${p}', 2)">×2</button>
         </div>`;
     }).join('');
 }
 
 function toggleSettlementAdjust() {
-    if (!lastSettlement) return;
-    lastSettlement.adjusting = !lastSettlement.adjusting;
-    const panel = $('result-adjust-panel');
-    const btn = $('btn-toggle-adjust');
-    if (lastSettlement.adjusting) {
+    if (!Game.lastSettlement) return;
+    Game.lastSettlement.adjusting = !Game.lastSettlement.adjusting;
+    const panel = Game.$('result-adjust-panel');
+    const btn = Game.$('btn-toggle-adjust');
+    if (Game.lastSettlement.adjusting) {
         panel.style.display = 'block';
         if (btn) btn.textContent = '收起手动调分';
         renderSettlementView();
@@ -125,7 +127,7 @@ function toggleSettlementAdjust() {
 
 // 改一家，其余按点炮/自摸关系自动联动
 function onSettlementPayoutEdit(input) {
-    if (!lastSettlement) return;
+    if (!Game.lastSettlement) return;
     const p = input.dataset.player;
     if (input.value.trim() === '' || input.value.trim() === '-') return; // 还在输入中（比如刚打了个负号），先不处理
     let v = parseInt(input.value, 10);
@@ -135,20 +137,20 @@ function onSettlementPayoutEdit(input) {
 
 // ×2 / ÷2 按钮：在当前值基础上直接乘/除，可反复点击
 function adjustSettlementPayoutFactor(p, factor) {
-    if (!lastSettlement) return;
-    const cur = lastSettlement.payouts[p];
+    if (!Game.lastSettlement) return;
+    const cur = Game.lastSettlement.payouts[p];
     const v = Math.round(cur * factor);
     applySettlementPayoutValue(p, v);
 }
 
 // 改一家，其余按点炮/自摸关系自动联动
 function applySettlementPayoutValue(p, v) {
-    if (!lastSettlement) return;
-    const old = lastSettlement.payouts[p];
+    if (!Game.lastSettlement) return;
+    const old = Game.lastSettlement.payouts[p];
     if (v === old) return;
 
-    const { mode, winner, payer } = lastSettlement;
-    const pay = lastSettlement.payouts;
+    const { mode, winner, payer } = Game.lastSettlement;
+    const pay = Game.lastSettlement.payouts;
 
     if (mode === 'dianpao') {
         // 点炮：只有赢家与点炮者，互为相反数
@@ -166,12 +168,12 @@ function applySettlementPayoutValue(p, v) {
         // 自摸：三家付钱，赢家收总和
         if (p === winner) {
             // 改赢家总分：按原系统付款比例（或均分）把差额摊到三家
-            const losers = turnOrder.filter(x => x !== winner);
+            const losers = Game.turnOrder.filter(x => x !== winner);
             const oldWin = old;
             const delta = v - oldWin;
             pay[winner] = v;
             // 按原付款绝对值比例分摊；若原都为 0 则均分
-            const weights = losers.map(x => Math.abs(lastSettlement.systemPayouts[x]) || 0);
+            const weights = losers.map(x => Math.abs(Game.lastSettlement.systemPayouts[x]) || 0);
             const wsum = weights.reduce((a, b) => a + b, 0);
             if (wsum === 0) {
                 const each = Math.trunc(delta / losers.length);
@@ -204,12 +206,12 @@ function applySettlementPayoutValue(p, v) {
 }
 
 function resetSettlementPayouts() {
-    if (!lastSettlement) return;
-    lastSettlement.payouts = {
-        top: lastSettlement.systemPayouts.top,
-        left: lastSettlement.systemPayouts.left,
-        right: lastSettlement.systemPayouts.right,
-        bottom: lastSettlement.systemPayouts.bottom
+    if (!Game.lastSettlement) return;
+    Game.lastSettlement.payouts = {
+        top: Game.lastSettlement.systemPayouts.top,
+        left: Game.lastSettlement.systemPayouts.left,
+        right: Game.lastSettlement.systemPayouts.right,
+        bottom: Game.lastSettlement.systemPayouts.bottom
     };
     renderSettlementView();
 }
@@ -217,15 +219,15 @@ function resetSettlementPayouts() {
 
 function closeResultModal() {
     // 若手动改过分，把差额补进 scores（系统分已在 settleScore 时写入）
-    if (lastSettlement) {
-        for (const p of turnOrder) {
-            const delta = lastSettlement.payouts[p] - lastSettlement.systemPayouts[p];
-            if (delta) scores[p] += delta;
+    if (Game.lastSettlement) {
+        for (const p of Game.turnOrder) {
+            const delta = Game.lastSettlement.payouts[p] - Game.lastSettlement.systemPayouts[p];
+            if (delta) Game.scores[p] += delta;
         }
-        lastSettlement = null;
+        Game.lastSettlement = null;
     }
-    $('result-modal').classList.remove('show');
-    if (gameOver) startGame();
+    Game.$('result-modal').classList.remove('show');
+    if (Game.gameOver) Game.startGame();
 }
 
 // 确认/放弃按钮的图标（内联 SVG：绿底对勾、红底叉；大小跟随 .claim-btn 的 font-size）
@@ -234,20 +236,20 @@ const ICON_CLAIM_NO = '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="1
 
 /** 吃碰杠时在桌面正中显示当前被叫的牌；无牌或非 claim/selfGang 时隐藏 */
 function updateClaimFocusTile() {
-    let el = $('claim-focus-tile');
+    let el = Game.$('claim-focus-tile');
     if (!el) {
-        const table = $('game-table');
+        const table = Game.$('game-table');
         if (!table) return;
         el = document.createElement('div');
         el.id = 'claim-focus-tile';
         el.setAttribute('aria-hidden', 'true');
         table.appendChild(el);
     }
-    const tile = (pendingClaim && pendingClaim.tile
-        && (pendingClaim.mode === 'claim' || pendingClaim.mode === 'selfGang'))
-        ? pendingClaim.tile : null;
-    if (tile && typeof tileImg === 'function') {
-        el.innerHTML = '<div class="tile-wrap"><div class="tile-marker"></div><div class="tile">' + tileImg(tile) + '</div></div>';
+    const tile = (Game.pendingClaim && Game.pendingClaim.tile
+        && (Game.pendingClaim.mode === 'claim' || Game.pendingClaim.mode === 'selfGang'))
+        ? Game.pendingClaim.tile : null;
+    if (tile && typeof Game.tileImg === 'function') {
+        el.innerHTML = '<div class="tile-wrap"><div class="tile-marker"></div><div class="tile">' + Game.tileImg(tile) + '</div></div>';
         el.classList.add('show');
     } else {
         el.innerHTML = '';
@@ -256,11 +258,11 @@ function updateClaimFocusTile() {
 }
 
 function showIndicator(text, interactive) {
-    const el = $('claim-indicator');
+    const el = Game.$('claim-indicator');
     if (interactive) {
         el.innerHTML = '<span class="claim-actions">'
-            + '<span class="claim-btn claim-yes" role="button" aria-label="确认" onclick="event.stopPropagation();acceptClaim()">' + ICON_CLAIM_YES + '</span>'
-            + '<span class="claim-btn claim-no" role="button" aria-label="过" onclick="event.stopPropagation();declineClaim()">' + ICON_CLAIM_NO + '</span>'
+            + '<span class="claim-btn claim-yes" role="button" aria-label="确认" onclick="event.stopPropagation();Game.acceptClaim()">' + ICON_CLAIM_YES + '</span>'
+            + '<span class="claim-btn claim-no" role="button" aria-label="过" onclick="event.stopPropagation();Game.declineClaim()">' + ICON_CLAIM_NO + '</span>'
             + '</span>'
             + '<span class="claim-label">' + text + '</span>';
     } else {
@@ -269,7 +271,7 @@ function showIndicator(text, interactive) {
     el.classList.add('show');
     try { updateClaimFocusTile(); } catch (e) {}
     if (document.body && document.body.classList.contains('portrait-layout')) {
-        const tip = $('tile-tooltip');
+        const tip = Game.$('tile-tooltip');
         if (tip) tip.classList.remove('show');
     }
     if (!(document.body && document.body.classList.contains('portrait-layout'))) {
@@ -278,61 +280,61 @@ function showIndicator(text, interactive) {
 }
 
 function hideIndicator() {
-    const el = $('claim-indicator');
+    const el = Game.$('claim-indicator');
     el.classList.remove('show');
     el.innerHTML = '';
     try { updateClaimFocusTile(); } catch (e) {}
     if (document.body && document.body.classList.contains('portrait-layout')
-        && typeof exposedInfoShownFor !== 'undefined' && exposedInfoShownFor) {
-        try { showExposedInfo(exposedInfoShownFor); } catch (e) {}
+        && typeof Game.exposedInfoShownFor !== 'undefined' && Game.exposedInfoShownFor) {
+        try { showExposedInfo(Game.exposedInfoShownFor); } catch (e) {}
     }
 }
 
 // ---- 竖屏副露：点击头像显示/隐藏（横屏仍用头像下常驻副露，不走此浮层）----
-let exposedInfoShownFor = null;
+Game.exposedInfoShownFor = null;
 
 function toggleExposedInfo(player) {
     if (!(document.body && document.body.classList.contains('portrait-layout'))) {
         return;
     }
-    if (exposedInfoShownFor === player) {
-        exposedInfoShownFor = null;
+    if (Game.exposedInfoShownFor === player) {
+        Game.exposedInfoShownFor = null;
         hideExposedInfo();
         return;
     }
-    exposedInfoShownFor = player;
+    Game.exposedInfoShownFor = player;
     showExposedInfo(player);
 }
 
 function showExposedInfo(player) {
-    const tooltip = $('tile-tooltip');
+    const tooltip = Game.$('tile-tooltip');
     if (!tooltip) return;
-    const melds = exposedMelds[player] || [];
+    const melds = Game.exposedMelds[player] || [];
     if (!melds.length) {
         tooltip.innerHTML = '';
         tooltip.classList.remove('show');
         return;
     }
-    const avatar = (typeof statAvatar !== 'undefined' && statAvatar[player]) ? statAvatar[player] : '';
+    const avatar = (typeof Game.statAvatar !== 'undefined' && Game.statAvatar[player]) ? Game.statAvatar[player] : '';
     const head = avatar ? `<div class="tt-avatar">${avatar}</div>` : '';
     const rows = melds.slice(0, 3).map(m => {
         let tilesHtml;
         if (m.type === 'gang' && m.concealed) {
-            tilesHtml = renderExposedFace(m.tiles[0]) + renderExposedBack() + renderExposedBack() + renderExposedBack();
+            tilesHtml = Game.renderExposedFace(m.tiles[0]) + Game.renderExposedBack() + Game.renderExposedBack() + Game.renderExposedBack();
         } else {
-            tilesHtml = m.tiles.map(renderExposedFace).join('');
+            tilesHtml = m.tiles.map(Game.renderExposedFace).join('');
         }
         return `<div class="tt-meld"><span class="tt-tiles">${tilesHtml}</span></div>`;
     }).join('');
     tooltip.innerHTML = head + rows;
-    const claimOn = $('claim-indicator') && $('claim-indicator').classList.contains('show');
+    const claimOn = Game.$('claim-indicator') && Game.$('claim-indicator').classList.contains('show');
     if (claimOn) tooltip.classList.remove('show');
     else tooltip.classList.add('show');
 }
 
 function hideExposedInfo() {
-    exposedInfoShownFor = null;
-    const tooltip = $('tile-tooltip');
+    Game.exposedInfoShownFor = null;
+    const tooltip = Game.$('tile-tooltip');
     if (tooltip) tooltip.classList.remove('show');
 }
 
@@ -357,9 +359,9 @@ const PLAYER_INTRO = {
 };
 
 const AVATAR_LONGPRESS_MS = 480;
-let _avatarLpTimer = 0;
-let _avatarLpFired = false;
-let _avatarLpPlayer = null;
+Game._avatarLpTimer = 0;
+Game._avatarLpFired = false;
+Game._avatarLpPlayer = null;
 
 function playerFromAvatarEl(el) {
     const p = el && el.closest && el.closest('.player');
@@ -370,11 +372,11 @@ function playerFromAvatarEl(el) {
 function showPlayerIntro(player) {
     const info = PLAYER_INTRO[player];
     if (!info) return;
-    const modal = $('player-intro-modal');
+    const modal = Game.$('player-intro-modal');
     if (!modal) return;
-    const t = $('player-intro-title');
-    const s = $('player-intro-sub');
-    const b = $('player-intro-body');
+    const t = Game.$('player-intro-title');
+    const s = Game.$('player-intro-sub');
+    const b = Game.$('player-intro-body');
     if (t) t.textContent = info.title;
     if (s) s.textContent = info.sub;
     if (b) b.textContent = info.body;
@@ -382,14 +384,14 @@ function showPlayerIntro(player) {
 }
 
 function closePlayerIntro() {
-    const modal = $('player-intro-modal');
+    const modal = Game.$('player-intro-modal');
     if (modal) modal.classList.remove('show');
 }
 
 function clearAvatarLongPress() {
-    if (_avatarLpTimer) {
-        clearTimeout(_avatarLpTimer);
-        _avatarLpTimer = 0;
+    if (Game._avatarLpTimer) {
+        clearTimeout(Game._avatarLpTimer);
+        Game._avatarLpTimer = 0;
     }
 }
 
@@ -399,17 +401,17 @@ function onAvatarPointerDown(e) {
     if (e.pointerType === 'mouse' && e.button != null && e.button !== 0) return;
     const player = playerFromAvatarEl(av);
     if (!player) return;
-    _avatarLpFired = false;
-    _avatarLpPlayer = player;
+    Game._avatarLpFired = false;
+    Game._avatarLpPlayer = player;
     clearAvatarLongPress();
-    _avatarLpTimer = setTimeout(() => {
-        _avatarLpTimer = 0;
-        _avatarLpFired = true;
+    Game._avatarLpTimer = setTimeout(() => {
+        Game._avatarLpTimer = 0;
+        Game._avatarLpFired = true;
         if (player === 'bottom') {
             // 东·大猫头：长按掉骰子调庄（原「小猫头」的 hidden gem 已迁移到这里）
             try {
-                if (typeof diceBusy !== 'undefined' && diceBusy) return;
-                if (typeof startDiceDealerRitual === 'function') startDiceDealerRitual();
+                if (typeof Game.diceBusy !== 'undefined' && Game.diceBusy) return;
+                if (typeof Game.startDiceDealerRitual === 'function') Game.startDiceDealerRitual();
             } catch (err) { /* ignore */ }
             return;
         }
@@ -424,10 +426,10 @@ function onAvatarPointerUp(e) {
 function onAvatarClickCapture(e) {
     const av = e.target && e.target.closest && e.target.closest('.avatar');
     if (!av) return;
-    if (_avatarLpFired) {
+    if (Game._avatarLpFired) {
         e.preventDefault();
         e.stopPropagation();
-        _avatarLpFired = false;
+        Game._avatarLpFired = false;
     }
 }
 
@@ -440,8 +442,8 @@ function onAvatarContextMenu(e) {
     if (!player) return;
     if (player === 'bottom') {
         try {
-            if (typeof diceBusy !== 'undefined' && diceBusy) return;
-            if (typeof startDiceDealerRitual === 'function') startDiceDealerRitual();
+            if (typeof Game.diceBusy !== 'undefined' && Game.diceBusy) return;
+            if (typeof Game.startDiceDealerRitual === 'function') Game.startDiceDealerRitual();
         } catch (err) { /* ignore */ }
         return;
     }
@@ -459,5 +461,27 @@ function onAvatarContextMenu(e) {
 
 function highlightActive(player) {
     document.querySelectorAll('.player').forEach(el => el.classList.remove('active'));
-    $('p-' + player).classList.add('active');
+    Game.$('p-' + player).classList.add('active');
 }
+
+/* ---- 本文件对外接口（IIFE 收敛，唯一出口） ---- */
+Game.canPeng = canPeng;
+Game.canGang = canGang;
+Game.findChiCombos = findChiCombos;
+Game.nameOf = nameOf;
+Game.seatLabel = seatLabel;
+Game.showResultModal = showResultModal;
+Game.toggleSettlementAdjust = toggleSettlementAdjust;
+Game.onSettlementPayoutEdit = onSettlementPayoutEdit;
+Game.adjustSettlementPayoutFactor = adjustSettlementPayoutFactor;
+Game.resetSettlementPayouts = resetSettlementPayouts;
+Game.closeResultModal = closeResultModal;
+Game.showIndicator = showIndicator;
+Game.hideIndicator = hideIndicator;
+Game.toggleExposedInfo = toggleExposedInfo;
+Game.showExposedInfo = showExposedInfo;
+Game.hideExposedInfo = hideExposedInfo;
+Game.closePlayerIntro = closePlayerIntro;
+Game.highlightActive = highlightActive;
+
+;})();

@@ -1,3 +1,4 @@
+;(function(){
 // ========== 三击桌面：黄金骰子仪式（清零 / 继续） ==========
 // 流程：连点空白处 3 次 → 3D 旋转 2s → 缩小消失 → 弹出清零菜单
 const DICE = {
@@ -24,20 +25,20 @@ const DICE = {
     }
 };
 
-let tableTapTimes = [];
-let diceBusy = false;
-let diceRafId = 0;
-let diceVanishTimer = 0;
-let diceSavedClaim = null; // 仪式期间暂存吃碰杠/流局提示
-let diceRitualMode = 'reset'; // 'reset' | 'dealer'
-let diceLastFace = 1;
+Game.tableTapTimes = [];
+Game.diceBusy = false;
+Game.diceRafId = 0;
+Game.diceVanishTimer = 0;
+Game.diceSavedClaim = null; // 仪式期间暂存吃碰杠/流局提示
+Game.diceRitualMode = 'reset'; // 'reset' | 'dealer'
+Game.diceLastFace = 1;
 
 function diceEls() {
     return {
-        stage: $('dice-stage'),
-        scene: $('dice-scene'),
-        cube: $('dice-cube'),
-        shadow: $('dice-shadow')
+        stage: Game.$('dice-stage'),
+        scene: Game.$('dice-scene'),
+        cube: Game.$('dice-cube'),
+        shadow: Game.$('dice-shadow')
     };
 }
 
@@ -91,17 +92,17 @@ function playDiceSound() {
 
 // ---------- 三击判定 / 旋转动画 / 清零菜单（原先放在 05-device-orientation.js，现与骰子常量放在一起） ----------
 function onTableTap(e) {
-    if (diceBusy) return;
-    if ($('result-modal').classList.contains('show')) return;
-    if ($('reveal-modal').classList.contains('show')) return;
-    if ($('chi-choice-modal').classList.contains('show')) return;
+    if (Game.diceBusy) return;
+    if (Game.$('result-modal').classList.contains('show')) return;
+    if (Game.$('reveal-modal').classList.contains('show')) return;
+    if (Game.$('chi-choice-modal').classList.contains('show')) return;
     if (e.target.closest('.tile, .tileback, .discardTile, .pool-tile, .player-label, button, .meld-group, #claim-indicator, #wall-count, #landscape-ctrl, #discard-query-btn, #discardWall, #pool-modal, img, .claim-btn, .reset-btn')) return;
 
     const now = Date.now();
-    tableTapTimes = tableTapTimes.filter(t => now - t < DICE.TAP_WINDOW);
-    tableTapTimes.push(now);
-    if (tableTapTimes.length >= 3) {
-        tableTapTimes = [];
+    Game.tableTapTimes = Game.tableTapTimes.filter(t => now - t < DICE.TAP_WINDOW);
+    Game.tableTapTimes.push(now);
+    if (Game.tableTapTimes.length >= 3) {
+        Game.tableTapTimes = [];
         startDiceRitual();
     }
 }
@@ -109,8 +110,8 @@ function onTableTap(e) {
 /** 重置骰子 DOM 状态（隐藏、清除动画类与内联 transform） */
 function resetDiceDom() {
     const { stage, scene, cube, shadow } = diceEls();
-    if (diceRafId) { cancelAnimationFrame(diceRafId); diceRafId = 0; }
-    if (diceVanishTimer) { clearTimeout(diceVanishTimer); diceVanishTimer = 0; }
+    if (Game.diceRafId) { cancelAnimationFrame(Game.diceRafId); Game.diceRafId = 0; }
+    if (Game.diceVanishTimer) { clearTimeout(Game.diceVanishTimer); Game.diceVanishTimer = 0; }
     stage.classList.remove('show', 'fade-out');
     scene.classList.remove('vanish');
     scene.style.transform = '';
@@ -134,13 +135,14 @@ function startDiceDealerRitual() {
 }
 
 function startDiceRitualWithMode(mode) {
-    if (diceBusy) return;
-    if ($('result-modal') && $('result-modal').classList.contains('show')) return;
-    diceBusy = true;
-    diceRitualMode = mode === 'dealer' ? 'dealer' : 'reset';
-    diceSavedClaim = pendingClaim;
-    pendingClaim = { mode: 'diceMenu' };
-    hideIndicator();
+    if (Game.diceBusy) return;
+    if (Game.$('result-modal') && Game.$('result-modal').classList.contains('show')) return;
+    Game.diceBusy = true;
+    Game.pushPhase(Game.PHASE.DICE_RITUAL, 'startDiceRitualWithMode');
+    Game.diceRitualMode = mode === 'dealer' ? 'dealer' : 'reset';
+    Game.diceSavedClaim = Game.pendingClaim;
+    Game.pendingClaim = { mode: 'diceMenu' };
+    Game.hideIndicator();
     resetDiceDom();
 
     const { stage, scene, cube, shadow } = diceEls();
@@ -148,7 +150,7 @@ function startDiceRitualWithMode(mode) {
     playDiceSound();
 
     const face = 1 + Math.floor(Math.random() * 6);
-    diceLastFace = face;
+    Game.diceLastFace = face;
     const end = DICE.FACE_ROT[face];
     /* 惯性：主轴转得多、衰减慢；副轴摩擦大更快停 */
     const spinsX = (5 + Math.floor(Math.random() * 6)) * 360;
@@ -233,11 +235,11 @@ function startDiceRitualWithMode(mode) {
         }
 
         if (t < 1) {
-            diceRafId = requestAnimationFrame(tick);
+            Game.diceRafId = requestAnimationFrame(tick);
             return;
         }
         // 落地定格 → 缩小消失
-        diceRafId = 0;
+        Game.diceRafId = 0;
         scene.style.transform = 'translateY(0) scale(1)';
         cube.style.transform = `rotateX(${end.x}deg) rotateY(${end.y}deg) rotateZ(0deg)`;
         cube.classList.add('settled');
@@ -248,28 +250,29 @@ function startDiceRitualWithMode(mode) {
         // 强制重绘一帧再加 vanish，确保 transition 生效
         void scene.offsetWidth;
         scene.classList.add('vanish');
-        diceVanishTimer = setTimeout(() => {
-            diceVanishTimer = 0;
+        Game.diceVanishTimer = setTimeout(() => {
+            Game.diceVanishTimer = 0;
             stage.classList.remove('show');
             scene.classList.remove('vanish');
             scene.style.transform = '';
             scene.style.opacity = '';
-            if (diceRitualMode === 'dealer') {
-                applyDealerFromDice(diceLastFace);
+            if (Game.diceRitualMode === 'dealer') {
+                applyDealerFromDice(Game.diceLastFace);
             } else {
                 showDiceResetMenu();
             }
         }, DICE.VANISH_MS);
     }
-    diceRafId = requestAnimationFrame(tick);
+    Game.diceRafId = requestAnimationFrame(tick);
 }
 
 function showDiceResetMenu() {
-    const el = $('claim-indicator');
+    Game.setPhase(Game.PHASE.DICE_MENU, 'showDiceResetMenu');
+    const el = Game.$('claim-indicator');
     el.innerHTML =
         '<div class="reset-menu">'
-        + '<button type="button" class="reset-btn" onclick="event.stopPropagation();confirmFullReset()">清零重启</button>'
-        + '<button type="button" class="reset-btn" onclick="event.stopPropagation();cancelDiceRitual()">继续加油</button>'
+        + '<button type="button" class="reset-btn" onclick="event.stopPropagation();Game.confirmFullReset()">清零重启</button>'
+        + '<button type="button" class="reset-btn" onclick="event.stopPropagation();Game.cancelDiceRitual()">继续加油</button>'
         + '</div>';
     el.classList.add('show');
 }
@@ -277,22 +280,23 @@ function showDiceResetMenu() {
 /** 继续加油：收起菜单，恢复仪式前的吃碰杠提示 */
 function cancelDiceRitual() {
     resetDiceDom();
-    hideIndicator();
-    diceBusy = false;
-    pendingClaim = diceSavedClaim;
-    diceSavedClaim = null;
-    if (!pendingClaim) return;
-    if (pendingClaim.mode === 'nextGame') {
-        showIndicator('下一局', true);
-    } else if (pendingClaim.mode === 'selfGang') {
-        showIndicator('杠', true);
-    } else if (pendingClaim.mode === 'claim') {
+    Game.hideIndicator();
+    Game.diceBusy = false;
+    Game.popPhase('cancelDiceRitual');
+    Game.pendingClaim = Game.diceSavedClaim;
+    Game.diceSavedClaim = null;
+    if (!Game.pendingClaim) return;
+    if (Game.pendingClaim.mode === 'nextGame') {
+        Game.showIndicator('下一局', true);
+    } else if (Game.pendingClaim.mode === 'selfGang') {
+        Game.showIndicator('杠', true);
+    } else if (Game.pendingClaim.mode === 'claim') {
         const options = [
-            pendingClaim.canGang ? '杠' : null,
-            pendingClaim.canPeng ? '碰' : null,
-            (pendingClaim.chiCombos && pendingClaim.chiCombos.length) ? '吃' : null
+            Game.pendingClaim.canGang ? '杠' : null,
+            Game.pendingClaim.canPeng ? '碰' : null,
+            (Game.pendingClaim.chiCombos && Game.pendingClaim.chiCombos.length) ? '吃' : null
         ].filter(Boolean).join('/');
-        showIndicator(options, true);
+        Game.showIndicator(options, true);
     }
 }
 
@@ -306,59 +310,75 @@ function cancelDiceRitual() {
  */
 function applyDealerFromDice(face) {
     resetDiceDom();
-    hideIndicator();
-    diceBusy = false;
-    const saved = diceSavedClaim;
-    diceSavedClaim = null;
-    pendingClaim = null;
+    Game.hideIndicator();
+    Game.diceBusy = false;
+    Game.phaseStack.length = 0; // 调庄另起一局，丢弃仪式前的压栈
+    Game.setPhase(Game.PHASE.DEALING, 'applyDealerFromDice');
+    const saved = Game.diceSavedClaim;
+    Game.diceSavedClaim = null;
+    Game.pendingClaim = null;
 
     const f = Math.max(1, Math.min(6, face | 0));
-    const start = turnOrder.indexOf('bottom');
+    const start = Game.turnOrder.indexOf('bottom');
     const idx = (start + (f - 1)) % 4;
-    dealer = turnOrder[idx];
-    try { markDealer(); } catch (e) {}
+    Game.dealer = Game.turnOrder[idx];
+    try { Game.markDealer(); } catch (e) {}
 
-    const who = (typeof seatLabel === 'function') ? seatLabel(dealer) : nameOf(dealer);
-    logFlow('调庄：骰子 ' + f + ' → ' + who + ' 做庄（保留积分开新局）');
+    const who = (typeof Game.seatLabel === 'function') ? Game.seatLabel(Game.dealer) : Game.nameOf(Game.dealer);
+    Game.logFlow('调庄：骰子 ' + f + ' → ' + who + ' 做庄（保留积分开新局）');
     try {
-        if (typeof speak === 'function') speak(nameOf(dealer) + '庄');
+        if (typeof Game.speak === 'function') Game.speak(Game.nameOf(Game.dealer) + '庄');
     } catch (e) {}
 
     // 关其它弹层，保留 scores
     try {
-        const rm = $('result-modal'); if (rm) rm.classList.remove('show');
-        const rv = $('reveal-modal'); if (rv) rv.classList.remove('show');
-        const cm = $('chi-choice-modal'); if (cm) cm.classList.remove('show');
+        const rm = Game.$('result-modal'); if (rm) rm.classList.remove('show');
+        const rv = Game.$('reveal-modal'); if (rv) rv.classList.remove('show');
+        const cm = Game.$('chi-choice-modal'); if (cm) cm.classList.remove('show');
     } catch (e) {}
-    lastSettlement = null;
-    winner = null;
-    gameOver = false;
-    selectedIndex = null;
-    lastDrawnIndex = null;
-    try { initGame(); } catch (e) {
-        logFlow('调庄发牌失败，请三击桌面重开');
-        pendingClaim = saved;
+    Game.lastSettlement = null;
+    Game.winner = null;
+    Game.gameOver = false;
+    Game.selectedIndex = null;
+    Game.lastDrawnIndex = null;
+    try { Game.initGame(); } catch (e) {
+        Game.logFlow('调庄发牌失败，请三击桌面重开');
+        Game.pendingClaim = saved;
     }
 }
 
 function confirmFullReset() {
     resetDiceDom();
-    hideIndicator();
-    $('result-modal').classList.remove('show');
-    $('reveal-modal').classList.remove('show');
-    $('chi-choice-modal').classList.remove('show');
-    diceBusy = false;
-    diceSavedClaim = null;
-    pendingClaim = null;
-    lastSettlement = null;
-    scores = { top: 0, left: 0, right: 0, bottom: 0 };
-    dealer = 'bottom';
+    Game.hideIndicator();
+    Game.$('result-modal').classList.remove('show');
+    Game.$('reveal-modal').classList.remove('show');
+    Game.$('chi-choice-modal').classList.remove('show');
+    Game.diceBusy = false;
+    Game.phaseStack.length = 0; // 清零另起一局，丢弃仪式前的压栈
+    Game.setPhase(Game.PHASE.DEALING, 'confirmFullReset');
+    Game.diceSavedClaim = null;
+    Game.pendingClaim = null;
+    Game.lastSettlement = null;
+    Game.scores = { top: 0, left: 0, right: 0, bottom: 0 };
+    Game.dealer = 'bottom';
     try {
-        localStorage.removeItem(MAHJONG_STORAGE_KEY);
+        localStorage.removeItem(Game.MAHJONG_STORAGE_KEY);
         localStorage.removeItem('qionghu_mahjong_progress_v1');
     } catch (e) { /* ignore */ }
-    winner = null;
-    gameOver = false;
-    initGame();
-    logFlow('已清零，新的一局开始');
+    Game.winner = null;
+    Game.gameOver = false;
+    Game.initGame();
+    Game.logFlow('已清零，新的一局开始');
 }
+
+/* ---- 本文件对外接口（IIFE 收敛，唯一出口） ---- */
+Game.initDicePips = initDicePips;
+Game.onTableTap = onTableTap;
+Game.startDiceDealerRitual = startDiceDealerRitual;
+Game.startDiceRitualWithMode = startDiceRitualWithMode;
+Game.showDiceResetMenu = showDiceResetMenu;
+Game.applyDealerFromDice = applyDealerFromDice;
+Game.cancelDiceRitual = cancelDiceRitual;
+Game.confirmFullReset = confirmFullReset;
+
+;})();

@@ -1,3 +1,4 @@
+;(function(){
 function isIOSDevice() {
     const ua = navigator.userAgent || '';
     return /iPad|iPhone|iPod/.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
@@ -114,13 +115,13 @@ function isPortraitOrientation() {
 }
 
 function placeClaimIndicatorForOrientation(isPortrait) {
-    const el = $('claim-indicator');
+    const el = Game.$('claim-indicator');
     if (!el) return;
     if (isPortrait) {
-        const table = $('game-table');
+        const table = Game.$('game-table');
         if (table && el.parentElement !== table) table.appendChild(el);
     } else {
-        const wall = $('wall-count');
+        const wall = Game.$('wall-count');
         if (wall && el.parentElement !== wall) wall.appendChild(el);
     }
 }
@@ -159,30 +160,30 @@ function checkPortraitGuard() {
     const body = document.body;
     if (!body) return;
     const wasPortrait = body.classList.contains('portrait-layout');
-    if (wasPortrait !== !!isPortrait) { try { orientTransitionCheck(); } catch (e) { /* 04 未加载时忽略 */ } } // 方向翻转：先隐藏牌桌再切换布局
+    if (wasPortrait !== !!isPortrait) { try { Game.orientTransitionCheck(); } catch (e) { /* 04 未加载时忽略 */ } } // 方向翻转：先隐藏牌桌再切换布局
     // 双布局：竖屏用 portrait-layout，横屏用默认横屏样式；不再强制拦截
     body.classList.toggle('portrait-layout', !!isPortrait);
     placeClaimIndicatorForOrientation(!!isPortrait);
     // 方向切换时刷新牌墙下列表（竖屏五行 / 横屏侧栏）
     if (wasPortrait !== !!isPortrait) {
-        try { hideExposedInfo(); } catch (e) {}
-        try { markDealer(); } catch (e) {}
-        try { render(); } catch (e) {}
+        try { Game.hideExposedInfo(); } catch (e) {}
+        try { Game.markDealer(); } catch (e) {}
+        try { Game.render(); } catch (e) {}
     }
-    setTimeout(() => { try { fitBottomHand(); } catch (e) {} }, 60);
-    if (isPortrait) setTimeout(() => { try { fitBottomHand(); } catch (e) {} }, 200);
+    setTimeout(() => { try { Game.fitBottomHand(); } catch (e) {} }, 60);
+    if (isPortrait) setTimeout(() => { try { Game.fitBottomHand(); } catch (e) {} }, 200);
     try { hardenResultModalInteract(); } catch (e) {}
 }
 
 /** 旋转/尺寸变化后多次复核（iOS 地址栏收起与旋转动画期间尺寸会变） */
 /** 旋转处理状态（Android Chrome 会连续触发 orientation + resize） */
-let _orientationHandling = false;
-let _lastOrientationKey = '';
-let _orientationTimers = [];
+Game._orientationHandling = false;
+Game._lastOrientationKey = '';
+Game._orientationTimers = [];
 
 function clearOrientationTimers() {
-    _orientationTimers.forEach(id => clearTimeout(id));
-    _orientationTimers = [];
+    Game._orientationTimers.forEach(id => clearTimeout(id));
+    Game._orientationTimers = [];
 }
 
 function getOrientationKey() {
@@ -203,17 +204,17 @@ function getOrientationKey() {
  * 并做防抖，避免一次旋转触发十几次重排。
  */
 function handleOrientationEvent(source) {
-    try { orientTransitionCheck(); } catch (e) { /* 04 未加载时忽略 */ } // 第一时间发现方向翻转，抢在浏览器绘制「半成品」布局之前隐藏
+    try { Game.orientTransitionCheck(); } catch (e) { /* 04 未加载时忽略 */ } // 第一时间发现方向翻转，抢在浏览器绘制「半成品」布局之前隐藏
     const key = getOrientationKey();
     // 同一稳定状态不重复打满定时器（resize 噪声多）
-    if (source === 'resize' && key === _lastOrientationKey && !_orientationHandling) {
+    if (source === 'resize' && key === Game._lastOrientationKey && !Game._orientationHandling) {
         syncAppViewportVars();
         return;
     }
-    _orientationHandling = true;
+    Game._orientationHandling = true;
     syncAppViewportVars();
     checkPortraitGuard();
-    try { fitBottomHand(); } catch (e) {}
+    try { Game.fitBottomHand(); } catch (e) {}
 
     clearOrientationTimers();
     const delays = isAndroidDevice()
@@ -223,14 +224,14 @@ function handleOrientationEvent(source) {
         const id = setTimeout(() => {
             syncAppViewportVars();
             checkPortraitGuard();
-            try { fitBottomHand(); } catch (e) {}
+            try { Game.fitBottomHand(); } catch (e) {}
             const nowKey = getOrientationKey();
             if (ms >= delays[delays.length - 1] - 50) {
-                _lastOrientationKey = nowKey;
-                _orientationHandling = false;
+                Game._lastOrientationKey = nowKey;
+                Game._orientationHandling = false;
             }
         }, ms);
-        _orientationTimers.push(id);
+        Game._orientationTimers.push(id);
     });
 }
 
@@ -321,3 +322,15 @@ try { placeClaimIndicatorForOrientation(isPortraitOrientation()); } catch (e) {}
         }
     } catch (e) {}
 })();
+
+/* ---- 本文件对外接口（IIFE 收敛，唯一出口） ---- */
+Game.isIOSDevice = isIOSDevice;
+Game.isAndroidDevice = isAndroidDevice;
+Game.applyDevicePlatformClass = applyDevicePlatformClass;
+Game.syncAppViewportVars = syncAppViewportVars;
+Game.isPortraitOrientation = isPortraitOrientation;
+Game.hardenResultModalInteract = hardenResultModalInteract;
+Game.checkPortraitGuard = checkPortraitGuard;
+Game.schedulePortraitGuardChecks = schedulePortraitGuardChecks;
+
+;})();

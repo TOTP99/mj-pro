@@ -1,3 +1,4 @@
+;(function(){
 // ---------- 胡牌判断 ----------
 // concealed: 手中暗牌数组；exposed: 已亮出的碰/吃/杠组合 [{type:'peng'|'chi'|'gang', tiles:[...]}]
 // player: 可选，传入后会应用该玩家的“亮牌”加成（东南西北/中发白亮牌 -> 算幺九+刻子但不算开门）
@@ -32,7 +33,7 @@ function analyzeHu(concealed, exposed = [], player = null) {
     );
     let dragonPairAsJiang = false;
     if (concealed.length === requiredLen) {
-        const sorted = [...concealed].sort(tileCompare);
+        const sorted = [...concealed].sort(Game.tileCompare);
         // 用计数表找对子，避免反复 filter
         const counts = {};
         for (const t of sorted) counts[t] = (counts[t] || 0) + 1;
@@ -49,27 +50,27 @@ function analyzeHu(concealed, exposed = [], player = null) {
                 structuralOk = true;
                 if (decomp.some(m => m.type === 'triplet')) kezi = true;
                 // 一对中/发/白做将：补刻子条件（不计分 ×2）
-                if (dragonTilesArr.includes(pairTile)) dragonPairAsJiang = true;
+                if (Game.dragonTilesArr.includes(pairTile)) dragonPairAsJiang = true;
             }
         }
     }
     const allTiles = [...concealed, ...exposed.flatMap(m => m.tiles)];
     // 字牌（含中发白）或数牌 1/9 即满足幺九
-    let yaojiu = allTiles.some(t => tileSuit(t) === '字' || tileRank(t) === 1 || tileRank(t) === 9);
-    const numberSuitsUsed = new Set(allTiles.filter(t => tileSuit(t) !== '字').map(tileSuit));
+    let yaojiu = allTiles.some(t => Game.tileSuit(t) === '字' || Game.tileRank(t) === 1 || Game.tileRank(t) === 9);
+    const numberSuitsUsed = new Set(allTiles.filter(t => Game.tileSuit(t) !== '字').map(Game.tileSuit));
     const sanmenqi = numberSuitsUsed.size === 3;
     const kaimen = isKaimen(exposed);
 
     if (dragonPairAsJiang) kezi = true;
     // 亮牌加成：只补幺九+刻子，不算开门
-    if (player && windDragonBonus[player]) { yaojiu = true; kezi = true; }
+    if (player && Game.windDragonBonus[player]) { yaojiu = true; kezi = true; }
 
     return { structuralOk, kaimen, sanmenqi, yaojiu, kezi };
 }
 
 function checkHu(concealed, exposed = [], player = null) {
     // 日常模式：旧版逻辑，一字不改
-    if (typeof isDailyMode === 'function' && isDailyMode()) {
+    if (typeof Game.isDailyMode === 'function' && Game.isDailyMode()) {
         const a = analyzeHu(concealed, exposed, player);
         return a.structuralOk && a.kaimen && a.sanmenqi && a.yaojiu && a.kezi;
     }
@@ -88,17 +89,17 @@ function isSevenPairs(concealed) {
 /** 高阶胡牌判定：按 7 开关组合（每项 ON=相对旧版放宽，OFF=旧版要求） */
 function checkHuAdvanced(concealed, exposed = [], player = null) {
     // 七小对优先（须无已亮明牌）
-    if (ruleAllowsSevenPairs() && (!exposed || exposed.length === 0) && isSevenPairs(concealed)) {
+    if (Game.ruleAllowsSevenPairs() && (!exposed || exposed.length === 0) && isSevenPairs(concealed)) {
         return true;
     }
     const a = analyzeHu(concealed, exposed, player);
     if (!a.structuralOk) return false;
     // 全关时：须开门/须幺九/须三门齐/须刻子，与日常旧版分支完全一致
-    if (ruleRequiresKaimen() && !a.kaimen) return false;
-    if (ruleRequiresYaojiu() && !a.yaojiu) return false;
-    if (ruleRequiresSanmenqi() && !a.sanmenqi) return false;
+    if (Game.ruleRequiresKaimen() && !a.kaimen) return false;
+    if (Game.ruleRequiresYaojiu() && !a.yaojiu) return false;
+    if (Game.ruleRequiresSanmenqi() && !a.sanmenqi) return false;
     // 平胡开关 ON=允许平胡（无刻子；中发白作将满足幺九+刻子）；OFF=须有刻子（旧版）
-    if (!ruleAllowsPinghu() && !a.kezi) return false;
+    if (!Game.ruleAllowsPinghu() && !a.kezi) return false;
     return true;
 }
 
@@ -108,8 +109,8 @@ function decompose(tiles) {
     if (tiles.length === 0) return [[]];
     const results = [];
     const t = tiles[0];
-    const suit = tileSuit(t);
-    const rank = tileRank(t);
+    const suit = Game.tileSuit(t);
+    const rank = Game.tileRank(t);
 
     // 尝试刻子
     const sameCount = tiles.filter(x => x === t).length;
@@ -136,3 +137,11 @@ function decompose(tiles) {
     }
     return results;
 }
+
+/* ---- 本文件对外接口（IIFE 收敛，唯一出口） ---- */
+Game.isKaimen = isKaimen;
+Game.analyzeHu = analyzeHu;
+Game.checkHu = checkHu;
+Game.decompose = decompose;
+
+;})();

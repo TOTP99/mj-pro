@@ -1,3 +1,4 @@
+;(function(){
 // ---------- 规则配置（2.0 一期） ----------
 // 两种模式：daily 日常（与旧版完全一致，不走配置）；advanced 高阶（走下方 7 开关）
 // 7 开关语义：每项 ON 都是相对旧版的额外许可/放宽，OFF 则严格等于旧版行为。
@@ -20,18 +21,18 @@ const DEFAULT_RULES = {
     sevenPairs: false,
 };
 
-let gameMode = 'daily'; // 'daily' | 'advanced'
-let rulesConfig = { ...DEFAULT_RULES };
+Game.gameMode = 'daily'; // 'daily' | 'advanced'
+Game.rulesConfig = { ...DEFAULT_RULES };
 
 function loadRulesConfig() {
     try {
         const raw = localStorage.getItem(RULES_STORAGE_KEY);
         if (raw) {
             const saved = JSON.parse(raw);
-            gameMode = saved.mode === 'advanced' ? 'advanced' : 'daily';
-            rulesConfig = { ...DEFAULT_RULES };
+            Game.gameMode = saved.mode === 'advanced' ? 'advanced' : 'daily';
+            Game.rulesConfig = { ...DEFAULT_RULES };
             for (const k of Object.keys(DEFAULT_RULES)) {
-                if (typeof saved.rules?.[k] === 'boolean') rulesConfig[k] = saved.rules[k];
+                if (typeof saved.rules?.[k] === 'boolean') Game.rulesConfig[k] = saved.rules[k];
             }
         }
     } catch (e) { /* 用默认 */ }
@@ -39,35 +40,35 @@ function loadRulesConfig() {
 
 function saveRulesConfig() {
     try {
-        localStorage.setItem(RULES_STORAGE_KEY, JSON.stringify({ mode: gameMode, rules: rulesConfig }));
+        localStorage.setItem(RULES_STORAGE_KEY, JSON.stringify({ mode: Game.gameMode, rules: Game.rulesConfig }));
     } catch (e) { /* 存档失败不阻断 */ }
 }
 
-function isDailyMode() { return gameMode !== 'advanced'; }
+function isDailyMode() { return Game.gameMode !== 'advanced'; }
 function setGameMode(mode) {
-    gameMode = mode === 'advanced' ? 'advanced' : 'daily';
+    Game.gameMode = mode === 'advanced' ? 'advanced' : 'daily';
     saveRulesConfig();
 }
-function getRules() { return { ...rulesConfig }; }
+function getRules() { return { ...Game.rulesConfig }; }
 function setRule(key, val) {
     if (key in DEFAULT_RULES) {
-        rulesConfig[key] = !!val;
+        Game.rulesConfig[key] = !!val;
         saveRulesConfig();
     }
 }
 
 // 高阶模式下 checkHu 用的判定开关；日常模式不走这里（直接用旧逻辑）
 // 全关时：须开门/须幺九/须三门齐/须刻子/不许七小对 ≡ 旧版
-function ruleRequiresKaimen() { return isDailyMode() ? true : !rulesConfig.kaimen; }
-function ruleAllowsPinghu() { return isDailyMode() ? false : rulesConfig.pinghu; }
-function ruleRequiresYaojiu() { return isDailyMode() ? true : !rulesConfig.yaojiu; }
-function ruleRequiresSanmenqi() { return isDailyMode() ? true : !rulesConfig.sanmenqi; }
-function ruleAllowsSevenPairs() { return isDailyMode() ? false : rulesConfig.sevenPairs; }
+function ruleRequiresKaimen() { return isDailyMode() ? true : !Game.rulesConfig.kaimen; }
+function ruleAllowsPinghu() { return isDailyMode() ? false : Game.rulesConfig.pinghu; }
+function ruleRequiresYaojiu() { return isDailyMode() ? true : !Game.rulesConfig.yaojiu; }
+function ruleRequiresSanmenqi() { return isDailyMode() ? true : !Game.rulesConfig.sanmenqi; }
+function ruleAllowsSevenPairs() { return isDailyMode() ? false : Game.rulesConfig.sevenPairs; }
 // kind: 'winds' | 'dragons'；firstTurn: 是否该家首巡
 function ruleAllowsReveal(kind, firstTurn) {
     if (isDailyMode()) return true; // 日常：调用方已限定首巡，沿用旧版
     if (firstTurn) return true;      // 高阶首巡：沿用旧版（两种都可亮）
-    return kind === 'dragons' ? rulesConfig.revealDragons : rulesConfig.revealWinds;
+    return kind === 'dragons' ? Game.rulesConfig.revealDragons : Game.rulesConfig.revealWinds;
 }
 
 // 启动时加载
@@ -75,16 +76,16 @@ loadRulesConfig();
 
 // ---------- 模式选择 UI ----------
 // 显示/隐藏弹窗（复用 .show 类）
-function showModal(id) { const el = $(id); if (el) el.classList.add('show'); }
-function hideModal(id) { const el = $(id); if (el) el.classList.remove('show'); }
+function showModal(id) { const el = Game.$(id); if (el) el.classList.add('show'); }
+function hideModal(id) { const el = Game.$(id); if (el) el.classList.remove('show'); }
 
 /** 牌桌中央提示条：模式/筹码选择时先亮提示、弹窗稍后跟上 */
 function showTablePrompt(text) {
-    const el = $('table-center-prompt');
+    const el = Game.$('table-center-prompt');
     if (el) { el.textContent = text; el.classList.add('show'); }
 }
 function hideTablePrompt() {
-    const el = $('table-center-prompt');
+    const el = Game.$('table-center-prompt');
     if (el) el.classList.remove('show');
 }
 /** 选择类弹窗的按钮呼吸发光；skipLast 跳过最后一个按钮（如取消） */
@@ -100,9 +101,10 @@ function clearSelectGlow() {
 }
 
 function openModeSelect() {
+    Game.setPhase(Game.PHASE.MODE_SELECT, 'openModeSelect');
     // 标出当前模式（打勾）
     document.querySelectorAll('#mode-select-modal .mode-option').forEach(function (b) {
-        b.classList.toggle('cur', b.getAttribute('data-mode') === gameMode);
+        b.classList.toggle('cur', b.getAttribute('data-mode') === Game.gameMode);
     });
     // 先在牌桌中央提示，弹窗稍后跟上，把注意力先引到牌桌
     showTablePrompt('请选择模式');
@@ -115,11 +117,12 @@ function chooseMode(mode) {
     clearSelectGlow();
     if (mode === 'advanced') {
         // 高阶：先显示规则页（带上次配置）
+        Game.setPhase(Game.PHASE.RULES_EDIT, 'chooseMode/advanced');
         syncRulesUI();
         showModal('rules-modal');
     } else {
         // 如果已有对局在进行，换模式开新局需先确认
-        if (typeof gameOver !== 'undefined' && !gameOver) {
+        if (typeof Game.gameOver !== 'undefined' && !Game.gameOver) {
             if (!confirm('切换到日常模式将重新开局，继续吗？')) return;
         }
         setGameMode('daily');
@@ -135,7 +138,7 @@ function setRuleYN(key, val) {
 function syncRuleYN(key) {
     const row = document.querySelector('.rule-row[data-rule="' + key + '"]');
     if (!row) return;
-    const on = !!rulesConfig[key];
+    const on = !!Game.rulesConfig[key];
     row.querySelectorAll('.yn-seg button').forEach(function (b) {
         b.classList.toggle('sel', (b.getAttribute('data-yn') === '1') === on);
     });
@@ -146,7 +149,7 @@ function syncRulesUI() {
 }
 
 function confirmRules() {
-    if (typeof gameOver !== 'undefined' && !gameOver) {
+    if (typeof Game.gameOver !== 'undefined' && !Game.gameOver) {
         if (!confirm('应用高阶规则将重新开局，继续吗？')) return;
     }
     hideModal('rules-modal');
@@ -156,6 +159,7 @@ function confirmRules() {
 
 function backToModeSelect() {
     hideModal('rules-modal');
+    Game.setPhase(Game.PHASE.MODE_SELECT, 'backToModeSelect');
     showTablePrompt('请选择模式');
     glowSelectButtons('mode-select-modal', false);
     showModal('mode-select-modal');
@@ -163,13 +167,35 @@ function backToModeSelect() {
 
 function startGameWithMode() {
     // 若未开场，先选金额
-    if (typeof fieldActive !== 'undefined' && !fieldActive) {
-        if (typeof showAmountModal === 'function') {
-            showAmountModal();
+    if (typeof Game.fieldActive !== 'undefined' && !Game.fieldActive) {
+        if (typeof Game.showAmountModal === 'function') {
+            Game.showAmountModal();
             return;
         }
     }
     // 按当前模式开新局
-    if (typeof startGame === 'function') startGame();
-    else if (typeof initGame === 'function') initGame();
+    if (typeof Game.startGame === 'function') Game.startGame();
+    else if (typeof Game.initGame === 'function') Game.initGame();
 }
+
+/* ---- 本文件对外接口（IIFE 收敛，唯一出口） ---- */
+Game.isDailyMode = isDailyMode;
+Game.setGameMode = setGameMode;
+Game.getRules = getRules;
+Game.setRule = setRule;
+Game.ruleRequiresKaimen = ruleRequiresKaimen;
+Game.ruleAllowsPinghu = ruleAllowsPinghu;
+Game.ruleRequiresYaojiu = ruleRequiresYaojiu;
+Game.ruleRequiresSanmenqi = ruleRequiresSanmenqi;
+Game.ruleAllowsSevenPairs = ruleAllowsSevenPairs;
+Game.ruleAllowsReveal = ruleAllowsReveal;
+Game.showTablePrompt = showTablePrompt;
+Game.glowSelectButtons = glowSelectButtons;
+Game.clearSelectGlow = clearSelectGlow;
+Game.openModeSelect = openModeSelect;
+Game.chooseMode = chooseMode;
+Game.setRuleYN = setRuleYN;
+Game.confirmRules = confirmRules;
+Game.backToModeSelect = backToModeSelect;
+
+;})();

@@ -1,3 +1,4 @@
+;(function(){
 // ---------- 场次与金额管理（2.0 二期） ----------
 // 场：从选定初始金额开始，到输光重开或手动重开为止
 // 每 16 局提醒一次，走骰子仪式重新调庄
@@ -5,10 +6,10 @@
 const FIELD_STORAGE_KEY = 'mahjong_field_v1';
 const FIELD_ROUNDS = 16;
 
-let fieldAmounts = { top: 0, left: 0, right: 0, bottom: 0 };
-let fieldGameCount = 0;
-let fieldActive = false; // 是否已开场（选过金额）
-let bustRestartPending = false; // 输光重开：选完金额后走骰子调庄（而非直接开局）
+Game.fieldAmounts = { top: 0, left: 0, right: 0, bottom: 0 };
+Game.fieldGameCount = 0;
+Game.fieldActive = false; // 是否已开场（选过金额）
+Game.bustRestartPending = false; // 输光重开：选完金额后走骰子调庄（而非直接开局）
 
 function loadField() {
     try {
@@ -16,9 +17,9 @@ function loadField() {
         if (raw) {
             const s = JSON.parse(raw);
             if (s && s.amounts) {
-                fieldAmounts = { ...s.amounts };
-                fieldGameCount = s.gameCount || 0;
-                fieldActive = !!s.active;
+                Game.fieldAmounts = { ...s.amounts };
+                Game.fieldGameCount = s.gameCount || 0;
+                Game.fieldActive = !!s.active;
             }
         }
     } catch (e) {}
@@ -27,7 +28,7 @@ function loadField() {
 function saveField() {
     try {
         localStorage.setItem(FIELD_STORAGE_KEY, JSON.stringify({
-            amounts: fieldAmounts, gameCount: fieldGameCount, active: fieldActive,
+            amounts: Game.fieldAmounts, gameCount: Game.fieldGameCount, active: Game.fieldActive,
         }));
     } catch (e) {}
 }
@@ -35,34 +36,34 @@ function saveField() {
 /** 开新场：四家以初始金额开场 */
 function startNewField(initialAmount) {
     const amt = Math.max(1, Math.floor(Number(initialAmount) || 50));
-    fieldAmounts = { top: amt, left: amt, right: amt, bottom: amt };
-    fieldGameCount = 0;
-    fieldActive = true;
+    Game.fieldAmounts = { top: amt, left: amt, right: amt, bottom: amt };
+    Game.fieldGameCount = 0;
+    Game.fieldActive = true;
     saveField();
     if (typeof renderFieldAmounts === 'function') renderFieldAmounts();
 }
 
 /** 结算后调用：更新金额、局数，检查输光与 16 局 */
 function onFieldGameSettled(payouts) {
-    if (!fieldActive) return;
+    if (!Game.fieldActive) return;
     if (payouts) {
         for (const p of ['top', 'left', 'right', 'bottom']) {
-            if (typeof payouts[p] === 'number') fieldAmounts[p] += payouts[p];
+            if (typeof payouts[p] === 'number') Game.fieldAmounts[p] += payouts[p];
         }
     }
-    fieldGameCount++;
+    Game.fieldGameCount++;
     saveField();
     if (typeof renderFieldAmounts === 'function') renderFieldAmounts();
 
     // 输光检查：任何一家金额变负
-    const busted = ['top', 'left', 'right', 'bottom'].find(p => fieldAmounts[p] < 0);
+    const busted = ['top', 'left', 'right', 'bottom'].find(p => Game.fieldAmounts[p] < 0);
     if (busted) {
         // 弹确认，不直接重开
         setTimeout(() => showBustModal(busted), 800);
         return;
     }
     // 16 局提醒
-    if (fieldGameCount % FIELD_ROUNDS === 0) {
+    if (Game.fieldGameCount % FIELD_ROUNDS === 0) {
         setTimeout(() => showRoundReminder(), 800);
     }
 }
@@ -73,74 +74,80 @@ function onFieldDraw() {
 }
 
 function showBustModal(player) {
-    const name = typeof nameOf === 'function' ? nameOf(player) : player;
-    const el = $('bust-modal');
+    const name = typeof Game.nameOf === 'function' ? Game.nameOf(player) : player;
+    const el = Game.$('bust-modal');
     if (!el) { resetFieldAfterBust(); return; }
-    $('bust-message').innerText = name + ' 金额已输光（' + fieldAmounts[player] + '），是否重新开场？';
+    // 覆盖式确认：800ms 后弹出时可能已开新局，压栈恢复才准确
+    Game.pushPhase(Game.PHASE.BUST, 'showBustModal');
+    Game.$('bust-message').innerText = name + ' 金额已输光（' + Game.fieldAmounts[player] + '），是否重新开场？';
     el.classList.add('show');
 }
 
 function confirmBustRestart() {
-    $('bust-modal').classList.remove('show');
+    Game.$('bust-modal').classList.remove('show');
+    Game.phaseStack.length = 0; // 确认重开：丢弃破产压栈，走选金额线性流程
     resetFieldAfterBust();
 }
 
 function cancelBustRestart() {
-    $('bust-modal').classList.remove('show');
+    Game.$('bust-modal').classList.remove('show');
+    Game.popPhase('cancelBustRestart'); // 回到弹窗下的原 phase（结算页或已开的新局）
     // 用户取消：继续当前场（金额为负也继续，由用户决定）
 }
 
 function resetFieldAfterBust() {
-    fieldActive = false;
+    Game.fieldActive = false;
     saveField();
     // 输光重开：选完金额后走骰子仪式重新调庄
-    bustRestartPending = true;
+    Game.bustRestartPending = true;
     // 重新选金额开场
     showAmountModal();
 }
 
 function showRoundReminder() {
-    const el = $('round-modal');
+    const el = Game.$('round-modal');
     if (!el) return;
-    $('round-message').innerText = '已打满 ' + fieldGameCount + ' 局，走骰子仪式重新调庄。';
+    Game.pushPhase(Game.PHASE.ROUND_END, 'showRoundReminder'); // 覆盖式提醒，压栈
+    Game.$('round-message').innerText = '已打满 ' + Game.fieldGameCount + ' 局，走骰子仪式重新调庄。';
     el.classList.add('show');
 }
 
 function confirmRoundReselect() {
-    $('round-modal').classList.remove('show');
+    Game.$('round-modal').classList.remove('show');
     // 走骰子仪式重新调庄
-    if (typeof startDiceRitualWithMode === 'function') {
-        startDiceRitualWithMode('dealer');
+    if (typeof Game.startDiceRitualWithMode === 'function') {
+        Game.startDiceRitualWithMode('dealer');
     }
 }
 
 /** 金额选择弹窗 */
 function showAmountModal() {
-    const el = $('amount-modal');
+    const el = Game.$('amount-modal');
     if (!el) { startNewField(50); return; }
-    showTablePrompt('请选择初始筹码');
-    glowSelectButtons('amount-modal', true); // 最后一个是取消，不发光
+    Game.setPhase(Game.PHASE.AMOUNT_SELECT, 'showAmountModal');
+    Game.showTablePrompt('请选择初始筹码');
+    Game.glowSelectButtons('amount-modal', true); // 最后一个是取消，不发光
     el.classList.add('show');
 }
 
 /** 署名行/横屏入口：直接选初始筹码 */
 function openAmountSelect() {
     // 对局进行中需先确认（重选会重新开场）
-    if (typeof gameOver !== 'undefined' && !gameOver) {
+    if (typeof Game.gameOver !== 'undefined' && !Game.gameOver) {
         if (!confirm('重新选择初始筹码将重新开场，继续吗？')) return;
     }
     showAmountModal();
 }
 
 function closeAmountModal() {
-    const el = $('amount-modal');
+    const el = Game.$('amount-modal');
     if (el) el.classList.remove('show');
-    if (typeof clearSelectGlow === 'function') clearSelectGlow();
+    if (typeof Game.clearSelectGlow === 'function') Game.clearSelectGlow();
 }
 
 function chooseAmount(amt) {
-    $('amount-modal').classList.remove('show');
-    if (typeof clearSelectGlow === 'function') clearSelectGlow();
+    Game.$('amount-modal').classList.remove('show');
+    if (typeof Game.clearSelectGlow === 'function') Game.clearSelectGlow();
     if (amt === 'custom') {
         const v = prompt('请输入初始金额：', '100');
         const n = Math.floor(Number(v));
@@ -150,27 +157,43 @@ function chooseAmount(amt) {
         startNewField(amt);
     }
     // 输光重开：选完金额先走骰子仪式重新调庄，再开始新场
-    if (bustRestartPending) {
-        bustRestartPending = false;
-        const rm = $('result-modal');
+    if (Game.bustRestartPending) {
+        Game.bustRestartPending = false;
+        const rm = Game.$('result-modal');
         if (rm) rm.classList.remove('show'); // 骰子仪式要求结算弹窗已关闭
-        if (typeof startDiceRitualWithMode === 'function') {
-            startDiceRitualWithMode('dealer');
+        if (typeof Game.startDiceRitualWithMode === 'function') {
+            Game.startDiceRitualWithMode('dealer');
             return;
         }
     }
     // 开新场后开新局
-    if (typeof startGame === 'function') startGame();
-    else if (typeof initGame === 'function') initGame();
+    if (typeof Game.startGame === 'function') Game.startGame();
+    else if (typeof Game.initGame === 'function') Game.initGame();
 }
 
 /** 界面显示局数（由 render 调用） */
 function renderFieldAmounts() {
-    const txt = '局 ' + fieldGameCount + '/' + FIELD_ROUNDS;
-    const a = $('field-count');
+    const txt = '局 ' + Game.fieldGameCount + '/' + FIELD_ROUNDS;
+    const a = Game.$('field-count');
     if (a) a.innerText = txt;
-    const b = $('field-count-ls');
+    const b = Game.$('field-count-ls');
     if (b) b.innerText = txt;
 }
 
 loadField();
+
+/* ---- 本文件对外接口（IIFE 收敛，唯一出口） ---- */
+Game.startNewField = startNewField;
+Game.onFieldGameSettled = onFieldGameSettled;
+Game.onFieldDraw = onFieldDraw;
+Game.showBustModal = showBustModal;
+Game.confirmBustRestart = confirmBustRestart;
+Game.cancelBustRestart = cancelBustRestart;
+Game.showRoundReminder = showRoundReminder;
+Game.confirmRoundReselect = confirmRoundReselect;
+Game.showAmountModal = showAmountModal;
+Game.openAmountSelect = openAmountSelect;
+Game.closeAmountModal = closeAmountModal;
+Game.chooseAmount = chooseAmount;
+
+;})();

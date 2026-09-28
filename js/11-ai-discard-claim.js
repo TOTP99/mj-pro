@@ -1,3 +1,4 @@
+;(function(){
 /** 向听缓存：向听数只取决于「暗牌多重集 + 还缺几个面子」，同一手牌在一次 AI 决策里会被反复计算，
  *  这里按 排序后暗牌 + 副露数 缓存，结果与 estimateShanten 完全一致，只是不重复跑 DFS */
 const _shantenCache = new Map();
@@ -5,7 +6,7 @@ function estimateShantenCached(concealed, exposed) {
     const key = concealed.slice().sort().join(',') + '|' + (exposed ? exposed.length : 0);
     let v = _shantenCache.get(key);
     if (v === undefined) {
-        v = estimateShanten(concealed, exposed);
+        v = Game.estimateShanten(concealed, exposed);
         if (_shantenCache.size > 4000) _shantenCache.clear();
         _shantenCache.set(key, v);
     }
@@ -25,11 +26,11 @@ function removeTilesFromHand(hand, tilesToRemove) {
 function suitDiversity(hand, exposed) {
     const suits = new Set();
     for (const t of hand) {
-        if (tileSuit(t) !== '字') suits.add(tileSuit(t));
+        if (Game.tileSuit(t) !== '字') suits.add(Game.tileSuit(t));
     }
     for (const m of (exposed || [])) {
         for (const t of m.tiles) {
-            if (tileSuit(t) !== '字') suits.add(tileSuit(t));
+            if (Game.tileSuit(t) !== '字') suits.add(Game.tileSuit(t));
         }
     }
     return suits.size;
@@ -40,20 +41,20 @@ function scoreChiCombo(hand, tile, combo, exposed, player) {
     const style = aiPersonality[player] || 'shrewd';
     const before = estimateShantenCached(hand, exposed);
     const handAfter = removeTilesFromHand(hand, combo);
-    const expAfter = exposed.concat([{ type: 'chi', tiles: [...combo, tile].sort(tileCompare) }]);
+    const expAfter = exposed.concat([{ type: 'chi', tiles: [...combo, tile].sort(Game.tileCompare) }]);
     const after = estimateShantenCached(handAfter, expAfter);
     let score = (before - after) * 10; // 向听改善越大越好
     // 未开门时，吃能开门有额外价值：没开门自摸要被单独×2惩罚、没开门点炮也×2，
     // 未开门代价比以前更高，这里把权重从 4 调到 6，让AI更愿意为了开门吃这口
-    if (!isKaimen(exposed)) score += 6;
+    if (!Game.isKaimen(exposed)) score += 6;
     // 三门齐
     const divBefore = suitDiversity(hand, exposed);
     const divAfter = suitDiversity(handAfter, expAfter);
     score += (divAfter - divBefore) * 3;
     if (divAfter >= 3) score += 2;
     // 穷胡专属条件（三门齐/幺九/刻子）完整度：标准向听改善之外，额外奖励真正推进胡牌资格的吃法
-    const qhBefore = analyzeHu(hand, exposed, player);
-    const qhAfter = analyzeHu(handAfter, expAfter, player);
+    const qhBefore = Game.analyzeHu(hand, exposed, player);
+    const qhAfter = Game.analyzeHu(handAfter, expAfter, player);
     if (!qhBefore.sanmenqi && qhAfter.sanmenqi) score += 3;
     if (!qhBefore.yaojiu && qhAfter.yaojiu) score += 3;
     if (!qhBefore.kezi && qhAfter.kezi) score += 2;
@@ -70,24 +71,24 @@ function scoreChiCombo(hand, tile, combo, exposed, player) {
 
 /** 是否应该吃：有正收益（或未开门且不太亏）。学习偏好：这个性格最近战绩好就放宽门槛，战绩差就收紧 */
 function shouldAiChi(player, tile, combo) {
-    if (isTenpai(player)) return false;
-    const exposed = exposedMelds[player];
+    if (Game.isTenpai(player)) return false;
+    const exposed = Game.exposedMelds[player];
     if (exposed.length >= 3) return false;
-    const score = scoreChiCombo(hands[player], tile, combo, exposed, player);
+    const score = scoreChiCombo(Game.hands[player], tile, combo, exposed, player);
     const style = aiPersonality[player] || 'shrewd';
-    const conf = (aiLearn.confidence[style] && aiLearn.confidence[style].callAggr) || 0;
-    const open = isKaimen(exposed);
+    const conf = (Game.aiLearn.confidence[style] && Game.aiLearn.confidence[style].callAggr) || 0;
+    const open = Game.isKaimen(exposed);
     // 开门：要有明显收益；未开门：新规则下没开门自摸/点炮都要多罚一倍，门槛降到 1，更愿意开门
     const baseThreshold = open ? 4 : 1;
     const actual = score >= baseThreshold - conf * 0.6;
     // 轴1归因：跟"没学过(conf=0)"时会不会选得不一样比一比，选得不一样说明这条轴真的起作用了
-    if (actual !== (score >= baseThreshold)) markAxisUsed(player, 'callAggr');
+    if (actual !== (score >= baseThreshold)) Game.markAxisUsed(player, 'callAggr');
     return actual;
 }
 
 function tileKeepTier(hand, tile, style, neutralHonor) {
-    const suit = tileSuit(tile);
-    const rank = tileRank(tile);
+    const suit = Game.tileSuit(tile);
+    const rank = Game.tileRank(tile);
     const sameCount = hand.filter(t => t === tile).length;
     let tier;
 
@@ -97,7 +98,7 @@ function tileKeepTier(hand, tile, style, neutralHonor) {
         // 轴5 字牌保留倾向：孤立字牌原本一律tier 0（最先丢），按性格+学习加一点保留倾向
         // （aggressive更愿意赌字牌刻子，conservative维持原来的0，不倒扣成负数）
         // neutralHonor=true 时强制当作没有这条轴（bias=0），给归因用的"没学过会怎么选"对照
-        const learn = aiLearn.confidence[style] || {};
+        const learn = Game.aiLearn.confidence[style] || {};
         const learnedBias = neutralHonor ? 0 : (learn.honorHold >= 1.5 ? 1 : (learn.honorHold <= -1.5 ? -1 : 0));
         const bias = neutralHonor ? 0 : (AI_TRAITS[style] || AI_TRAITS.shrewd).honorHoldBias;
         tier = Math.max(0, bias + learnedBias);
@@ -115,22 +116,22 @@ function tileKeepTier(hand, tile, style, neutralHonor) {
             // 连张/搭子（如45、56、67）：默认高优先级保留；但若是边张（12等3 / 89等7）
             // 且那张已经死绝（记牌确认4张都看得见了），就不用死守这个没指望的等张
             let edgeDeadWait = false;
-            if (rank === 1 && hand.includes(2 + suit) && isTileDead(3 + suit, hand)) edgeDeadWait = true;
-            if (rank === 2 && hand.includes(1 + suit) && isTileDead(3 + suit, hand)) edgeDeadWait = true;
-            if (rank === 8 && hand.includes(9 + suit) && isTileDead(7 + suit, hand)) edgeDeadWait = true;
-            if (rank === 9 && hand.includes(8 + suit) && isTileDead(7 + suit, hand)) edgeDeadWait = true;
+            if (rank === 1 && hand.includes(2 + suit) && Game.isTileDead(3 + suit, hand)) edgeDeadWait = true;
+            if (rank === 2 && hand.includes(1 + suit) && Game.isTileDead(3 + suit, hand)) edgeDeadWait = true;
+            if (rank === 8 && hand.includes(9 + suit) && Game.isTileDead(7 + suit, hand)) edgeDeadWait = true;
+            if (rank === 9 && hand.includes(8 + suit) && Game.isTileDead(7 + suit, hand)) edgeDeadWait = true;
             tier = edgeDeadWait ? 1 : 5;
         } else {
             // 嵌张（如4_6空档等5）：记牌检查缺的那张是不是已经死了，死了就不用留着盼了
             let deadWait = false;
-            if (hand.includes((rank - 2) + suit) && isTileDead((rank - 1) + suit, hand)) deadWait = true;
-            if (hand.includes((rank + 2) + suit) && isTileDead((rank + 1) + suit, hand)) deadWait = true;
+            if (hand.includes((rank - 2) + suit) && Game.isTileDead((rank - 1) + suit, hand)) deadWait = true;
+            if (hand.includes((rank + 2) + suit) && Game.isTileDead((rank + 1) + suit, hand)) deadWait = true;
             tier = deadWait ? 1 : 3;
         }
     }
 
     // 三门齐保护：这是本门(万/条/筒)僅剩的一张，且三门都还在，打了就彻底断这门了 —— 提高保留优先级
-    if (tier < 5 && protectsThreeSuits(hand, tile)) tier = 5;
+    if (tier < 5 && Game.protectsThreeSuits(hand, tile)) tier = 5;
     return tier;
 }
 
@@ -168,30 +169,30 @@ const AI_TRAITS = {
 };
 
 function prevPlayerOf(p) {
-    const idx = turnOrder.indexOf(p);
-    return turnOrder[(idx + turnOrder.length - 1) % turnOrder.length];
+    const idx = Game.turnOrder.indexOf(p);
+    return Game.turnOrder[(idx + Game.turnOrder.length - 1) % Game.turnOrder.length];
 }
 function acrossPlayerOf(p) {
-    const idx = turnOrder.indexOf(p);
-    return turnOrder[(idx + 2) % turnOrder.length];
+    const idx = Game.turnOrder.indexOf(p);
+    return Game.turnOrder[(idx + 2) % Game.turnOrder.length];
 }
 // 轴6兜底用：这张牌有几家能靠它胡（而不只是"有没有"），候选全是炮牌时挑数字最小的那张
 function dangerCount(player, tile) {
-    return turnOrder.filter(p => p !== player && checkHu([...hands[p], tile], exposedMelds[p], p)).length;
+    return Game.turnOrder.filter(p => p !== player && Game.checkHu([...Game.hands[p], tile], Game.exposedMelds[p], p)).length;
 }
 // 轴7a：这张牌会不会让下家吃/碰（下家是"你"时不受此轴约束——喂不喂你不算AI的"位置感"问题）
 function feedsXiajia(player, tile) {
     const next = nextPlayerOf(player);
     if (next === 'bottom') return false;
-    if (isTenpai(next)) return false; // 下家已听牌，危险度已经由 isTileDangerousFor 覆盖，这里不重复算
-    if (exposedMelds[next].length >= 3) return false;
-    if (canPeng(hands[next], tile)) return true;
-    return findChiCombos(hands[next], tile).length > 0;
+    if (Game.isTenpai(next)) return false; // 下家已听牌，危险度已经由 isTileDangerousFor 覆盖，这里不重复算
+    if (Game.exposedMelds[next].length >= 3) return false;
+    if (Game.canPeng(Game.hands[next], tile)) return true;
+    return Game.findChiCombos(Game.hands[next], tile).length > 0;
 }
 
 // 检查某玩家打出这张牌，是否会点炮给别的玩家（用于AI出牌时的危险牌回避）
 function isTileDangerousFor(player, tile) {
-    return turnOrder.some(p => p !== player && checkHu([...hands[p], tile], exposedMelds[p], p));
+    return Game.turnOrder.some(p => p !== player && Game.checkHu([...Game.hands[p], tile], Game.exposedMelds[p], p));
 }
 
 // 轴2扩展：对手"看起来要听牌了"的启发式风险分（不是读心，纯看得见的信号）——
@@ -199,13 +200,13 @@ function isTileDangerousFor(player, tile) {
 // 用来提前收一收，而不是等对方真听了才后知后觉
 function estimateTenpaiRisk(opponent) {
     let risk = 0;
-    const melds = exposedMelds[opponent] ? exposedMelds[opponent].length : 0;
+    const melds = Game.exposedMelds[opponent] ? Game.exposedMelds[opponent].length : 0;
     risk += melds * 0.35;
     if (melds >= 3) risk += 0.4; // 穷胡规则最多3组副露，到顶了基本就是在等最后一口
-    const recent = discardPile.filter(d => d.player === opponent).slice(-4);
+    const recent = Game.discardPile.filter(d => d.player === opponent).slice(-4);
     if (recent.length >= 3) {
         const midCount = recent.filter(d => {
-            const s = tileSuit(d.tile), r = tileRank(d.tile);
+            const s = Game.tileSuit(d.tile), r = Game.tileRank(d.tile);
             return s !== '字' && r >= 4 && r <= 6;
         }).length;
         if (midCount === recent.length) risk += 0.3; // 连续切中张：该扔的边张/字牌早扔完了，牌型收紧
@@ -217,13 +218,13 @@ function estimateTenpaiRisk(opponent) {
 function estimateHandValue(hand, exposed) {
     let mult = 1;
     const allTiles = [...hand, ...exposed.flatMap(m => m.tiles)];
-    const suits = new Set(allTiles.map(tileSuit));
+    const suits = new Set(allTiles.map(Game.tileSuit));
     if (isGoingForTriplets(hand)) mult += 1; // 碰碰胡苗头
     const numSuits = [...suits].filter(s => s !== '字');
     if (numSuits.length === 1 && !suits.has('字')) mult += 2; // 清一色苗头
     else if (numSuits.length === 1) mult += 1; // 混一色苗头
     mult += exposed.filter(m => m.type === 'gang').length; // 已经杠过的，牌越来越大
-    const yaojiuCount = allTiles.filter(t => { const r = tileRank(t), s = tileSuit(t); return s === '字' || r === 1 || r === 9; }).length;
+    const yaojiuCount = allTiles.filter(t => { const r = Game.tileRank(t), s = Game.tileSuit(t); return s === '字' || r === 1 || r === 9; }).length;
     if (allTiles.length && yaojiuCount / allTiles.length >= 0.5) mult += 0.5; // 幺九多，字牌/幺九加成有戏
     return mult;
 }
@@ -232,8 +233,8 @@ function estimateHandValue(hand, exposed) {
 // 保守=不惜多跳档也要找安全牌；激进=只在最该舍弃那档找，找不到就照打求效率；精明=折中，最多跳3档
 // 牌墙剩余量的紧迫感：越接近荒牌墙，大家都更求稳（多跳几档也要找安全牌）
 function wallUrgencyBonus(style, wcConfOverride) {
-    const remaining = deck.length - DEAD_WALL;
-    const learn = aiLearn.confidence[style] || {};
+    const remaining = Game.deck.length - Game.DEAD_WALL;
+    const learn = Game.aiLearn.confidence[style] || {};
     const wcConf = wcConfOverride !== undefined ? wcConfOverride : (learn.wallCaution || 0);
     const wcDelta = wcConf >= 1.5 ? 2 : (wcConf <= -1.5 ? -2 : 0); // 学习部分：在静态阈值上再多/少2张
     const at = Math.max(2, (AI_TRAITS[style] || AI_TRAITS.shrewd).wallCautionAt + wcDelta);
@@ -249,12 +250,12 @@ const _winTilesCache = new Map();
 function getWinningTilesOf(concealed, exposed, player) {
     const neededLen = (4 - exposed.length) * 3 + 2;
     if (concealed.length !== neededLen - 1) return [];
-    const key = (player || '') + (player && windDragonBonus[player] ? '+' : '-') + '|'
+    const key = (player || '') + (player && Game.windDragonBonus[player] ? '+' : '-') + '|'
         + concealed.slice().sort().join(',') + '|'
         + exposed.map(m => m.type + (m.concealed ? 'c' : '') + m.tiles.join('')).join(';');
     let res = _winTilesCache.get(key);
     if (res === undefined) {
-        res = allTileTypes().filter(t => checkHu([...concealed, t], exposed, player));
+        res = Game.allTileTypes().filter(t => Game.checkHu([...concealed, t], exposed, player));
         if (_winTilesCache.size > 3000) _winTilesCache.clear();
         _winTilesCache.set(key, res);
     }
@@ -266,15 +267,15 @@ function getWinningTilesOf(concealed, exposed, player) {
 function ukeireCount(hand, exposed) {
     const shan = estimateShantenCached(hand, exposed);
     let count = 0;
-    for (const t of allTileTypes()) {
-        if (isTileDead(t, hand)) continue; // 已经死绝的牌（含自己手里的）摸不到，没有实际意义
+    for (const t of Game.allTileTypes()) {
+        if (Game.isTileDead(t, hand)) continue; // 已经死绝的牌（含自己手里的）摸不到，没有实际意义
         if (estimateShantenCached([...hand, t], exposed) < shan) count++;
     }
     return count;
 }
 
 function chooseAiDiscardTile(hand, player) {
-    const exposed = exposedMelds[player];
+    const exposed = Game.exposedMelds[player];
     const style = aiPersonality[player] || 'shrewd';
 
     // —— 已上听 / 摸牌后仍可保听：优先打出后仍听的牌，且尽量不换听口 ——
@@ -286,7 +287,7 @@ function chooseAiDiscardTile(hand, player) {
         remain.splice(ix, 1);
         const wins = getWinningTilesOf(remain, exposed, player);
         if (!wins.length) continue;
-        const prev = aiWaitTiles[player] || [];
+        const prev = Game.aiWaitTiles[player] || [];
         const overlap = prev.length ? wins.filter(w => prev.includes(w)).length : wins.length;
         keepTenpai.push({
             tile: t,
@@ -308,11 +309,11 @@ function chooseAiDiscardTile(hand, player) {
         // 在同档最优里随机，避免死板
         const top = pool.filter(x => x.overlap === best.overlap && x.waitCount === best.waitCount);
         const chosen = top[Math.floor(Math.random() * top.length)];
-        aiWaitTiles[player] = chosen.wins;
+        Game.aiWaitTiles[player] = chosen.wins;
         return chosen.tile;
     }
     // 已无法保听（或尚未上听）→ 清空听口记忆；按「向听优先 + 安全 + 保留档」舍牌
-    aiWaitTiles[player] = [];
+    Game.aiWaitTiles[player] = [];
 
     const candidates = [];
     for (const t of hand) {
@@ -322,7 +323,7 @@ function chooseAiDiscardTile(hand, player) {
         const safe = !isTileDangerousFor(player, t);
         const feedsNext = feedsXiajia(player, t); // 轴7a：这张牌会不会喂下家吃/碰
         // 穷胡专属条件：打出这张后，三门齐/幺九/刻子还保不保得住（标准向听算法看不到这三条，靠这里补）
-        const qh = analyzeHu(remain, exposed, player);
+        const qh = Game.analyzeHu(remain, exposed, player);
         let qhPenalty = 0;
         if (!qh.sanmenqi) qhPenalty += 2;
         if (!qh.yaojiu) qhPenalty += 2;
@@ -345,7 +346,7 @@ function chooseAiDiscardTile(hand, player) {
     const handValue = estimateHandValue(hand, exposed);
     if (style === 'aggressive' && handValue >= 2) shanSlack += 1;
     if (style === 'shrewd' && handValue >= 1.5) shanSlack += 1;
-    const learn = aiLearn.confidence[style] || {};
+    const learn = Game.aiLearn.confidence[style] || {};
     const urgency = wallUrgencyBonus(style);
     let pool = candidates.filter(c => c.shan <= bestShan + shanSlack);
     // 轴2(防守让牌)的学习值
@@ -359,11 +360,11 @@ function chooseAiDiscardTile(hand, player) {
     const confident = defenseConf >= 1.5;
     // 没开门点炮×2：自己还没开门时点炮要多付一倍，安全牌优先级必须更硬，
     // 不受性格/战绩自信影响——哪怕是激进/战绩好的AI，没开门也不能对危险牌掉以轻心
-    const notOpen = !isKaimen(exposed);
+    const notOpen = !Game.isKaimen(exposed);
     // 轴2扩展：对手有没有"看起来要听牌"的信号（副露数/连续切中张），门槛按性格+学习值调
     // （战绩差的更神经质、更容易转防守；战绩好的更迟钝一点）
     const riskAt = Math.max(0.3, (AI_TRAITS[style] || AI_TRAITS.shrewd).riskDefenseAt - Math.round(defenseConf) * 0.15);
-    const highRiskNow = turnOrder.some(p => p !== player && estimateTenpaiRisk(p) >= riskAt);
+    const highRiskNow = Game.turnOrder.some(p => p !== player && estimateTenpaiRisk(p) >= riskAt);
     const safeFilterActive = (u, c, cf, hr) => (u >= 1 || c || notOpen || hr) || (style !== 'aggressive' && !cf);
     const actualFilterOn = safeFilterActive(urgency, cautious, confident, highRiskNow);
     const safePoolNow = pool.filter(c => c.safe);
@@ -375,16 +376,16 @@ function chooseAiDiscardTile(hand, player) {
         // 归因：defense / wallCaution / 位置感 / 对手风险信号 分别单独归零（只改这一个、其它保持实际值），
         // 看开关会不会翻——翻了说明这条轴自己就能决定这一把的选择
         if (safeFilterActive(urgency, 0 <= -1.5 - posSlack, false, highRiskNow) !== actualFilterOn) {
-            markAxisUsed(player, 'defense');
+            Game.markAxisUsed(player, 'defense');
         }
         if (safeFilterActive(wallUrgencyBonus(style, 0), cautious, confident, highRiskNow) !== actualFilterOn) {
-            markAxisUsed(player, 'wallCaution');
+            Game.markAxisUsed(player, 'wallCaution');
         }
         if (safeFilterActive(urgency, defenseConf <= -1.5, confident, highRiskNow) !== actualFilterOn) {
-            markAxisUsed(player, 'position');
+            Game.markAxisUsed(player, 'position');
         }
         if (safeFilterActive(urgency, cautious, confident, false) !== actualFilterOn) {
-            markAxisUsed(player, 'defense'); // 对手风险信号算在防守这条轴上
+            Game.markAxisUsed(player, 'defense'); // 对手风险信号算在防守这条轴上
         }
     }
     // 轴6 炮牌截留：上面"求稳"已经把pool收紧到安全牌了；这里补的是剩下那种情形——
@@ -397,7 +398,7 @@ function chooseAiDiscardTile(hand, player) {
         const bestTierHasSafe = pool.some(c => c.tier === curBestTier && c.safe);
         if (!bestTierHasSafe) {
             const widened = pool.filter(c => c.tier <= curBestTier + cannonHoldTier && c.safe);
-            if (widened.length) { pool = widened; markAxisUsed(player, 'cannonHold'); }
+            if (widened.length) { pool = widened; Game.markAxisUsed(player, 'cannonHold'); }
         }
     }
     // 轴7a 不喂下家：跟轴6同样的"退让几档tier"思路，只不过换成躲"会喂下家"的牌而不是"危险牌"
@@ -408,7 +409,7 @@ function chooseAiDiscardTile(hand, player) {
         const bestTierFeedsNext = pool.filter(c => c.tier === curBestTier).every(c => c.feedsNext);
         if (bestTierFeedsNext) {
             const widened = pool.filter(c => c.tier <= curBestTier + blockXiajiaTier && !c.feedsNext);
-            if (widened.length) { pool = widened; markAxisUsed(player, 'position'); }
+            if (widened.length) { pool = widened; Game.markAxisUsed(player, 'position'); }
         }
     }
     // 在池内按 tier 升序（先丢不保的）
@@ -435,59 +436,59 @@ function chooseAiDiscardTile(hand, player) {
     const chosen = finalPool[Math.floor(Math.random() * finalPool.length)].tile;
     // 轴5归因（事后判定）：如果最终选中的这张恰好是一张"因为性格+学习倾向而被抬过tier"的孤立字牌，
     // 且没有这条倾向时tier会不一样，就算这条轴真的影响了这次的选择
-    if (tileSuit(chosen) === '字' && hand.filter(x => x === chosen).length === 1) {
+    if (Game.tileSuit(chosen) === '字' && hand.filter(x => x === chosen).length === 1) {
         const withBias = tileKeepTier(hand, chosen, style, false);
         const withoutBias = tileKeepTier(hand, chosen, style, true);
-        if (withBias !== withoutBias) markAxisUsed(player, 'honorHold');
+        if (withBias !== withoutBias) Game.markAxisUsed(player, 'honorHold');
     }
     return chosen;
 }
 
 function aiDiscard(player) {
-    if (gameOver) return;
-    const hand = hands[player];
+    if (Game.gameOver) return;
+    const hand = Game.hands[player];
     if (hand.length === 0) { advanceTurn(); return; } // 防御性检查：正常情况下不会发生
     // AI 加杠 / 暗杠：未听牌时执行（加杠需处理抢杠；暗杠不计抢杠）
-    if (!isTenpai(player)) {
-        for (const meld of exposedMelds[player]) {
+    if (!Game.isTenpai(player)) {
+        for (const meld of Game.exposedMelds[player]) {
             if (meld.type === 'peng' && hand.includes(meld.tiles[0])) {
                 const gTile = meld.tiles[0];
                 const robber = findRonPriority(player, gTile);
                 if (robber) {
-                    const ix = hands[player].indexOf(gTile);
-                    if (ix > -1) hands[player].splice(ix, 1);
+                    const ix = Game.hands[player].indexOf(gTile);
+                    if (ix > -1) Game.hands[player].splice(ix, 1);
                     if (robber === 'bottom') {
-                        offerHu({ mode: 'dianpao', tile: gTile, fromPlayer: player, robGang: true });
+                        Game.offerHu({ mode: 'dianpao', tile: gTile, fromPlayer: player, robGang: true });
                         return;
                     }
-                    hands[robber].push(gTile);
-                    gameOver = true;
-                    winner = robber;
-                    const before = [...hands[robber]];
+                    Game.hands[robber].push(gTile);
+                    Game.gameOver = true;
+                    Game.winner = robber;
+                    const before = [...Game.hands[robber]];
                     before.splice(before.indexOf(gTile), 1);
-                    const bonus = scoreWinningHand(before, gTile, exposedMelds[robber], false, false);
-                    const result = settleScore(robber, 'dianpao', player, bonus);
-                    clearKongFlags();
-                    logFlow(nameOf(robber) + ' 抢杠胡了 ' + nameOf(player) + '！' + result.detail);
-                    speak('胡了，' + voiceName(player) + '点炮');
-                    learnFromWin(robber, player, { fan: bonus.mult, turns: handTurnCount });
-                    render();
-                    showResultModal(robber, 'dianpao', player, bonus, result, gTile);
+                    const bonus = Game.scoreWinningHand(before, gTile, Game.exposedMelds[robber], false, false);
+                    const result = Game.settleScore(robber, 'dianpao', player, bonus);
+                    Game.clearKongFlags();
+                    Game.logFlow(Game.nameOf(robber) + ' 抢杠胡了 ' + Game.nameOf(player) + '！' + result.detail);
+                    Game.speak('胡了，' + Game.voiceName(player) + '点炮');
+                    Game.learnFromWin(robber, player, { fan: bonus.mult, turns: Game.handTurnCount });
+                    Game.render();
+                    Game.showResultModal(robber, 'dianpao', player, bonus, result, gTile);
                     return;
                 }
-                const ix = hands[player].indexOf(gTile);
-                if (ix > -1) hands[player].splice(ix, 1);
+                const ix = Game.hands[player].indexOf(gTile);
+                if (ix > -1) Game.hands[player].splice(ix, 1);
                 meld.type = 'gang';
                 meld.tiles.push(gTile);
                 meld.concealed = false;
-                logFlow(nameOf(player) + ' 加杠 ' + tileGlyph(gTile));
-                speak('杠' + tileName(gTile));
-                render();
+                Game.logFlow(Game.nameOf(player) + ' 加杠 ' + Game.tileGlyph(gTile));
+                Game.speak('杠' + Game.tileName(gTile));
+                Game.render();
                 aiDrawReplacement(player);
                 return;
             }
         }
-        if (exposedMelds[player].length < 3) {
+        if (Game.exposedMelds[player].length < 3) {
             const counts = {};
             for (const t of hand) counts[t] = (counts[t] || 0) + 1;
             let gangTile = null;
@@ -496,13 +497,13 @@ function aiDiscard(player) {
             }
             if (gangTile) {
                 for (let i = 0; i < 4; i++) {
-                    const ix = hands[player].indexOf(gangTile);
-                    if (ix > -1) hands[player].splice(ix, 1);
+                    const ix = Game.hands[player].indexOf(gangTile);
+                    if (ix > -1) Game.hands[player].splice(ix, 1);
                 }
-                exposedMelds[player].push({ type: 'gang', tiles: [gangTile, gangTile, gangTile, gangTile], concealed: true });
-                logFlow(nameOf(player) + ' 暗杠 ' + tileGlyph(gangTile));
-                speak('杠' + tileName(gangTile));
-                render();
+                Game.exposedMelds[player].push({ type: 'gang', tiles: [gangTile, gangTile, gangTile, gangTile], concealed: true });
+                Game.logFlow(Game.nameOf(player) + ' 暗杠 ' + Game.tileGlyph(gangTile));
+                Game.speak('杠' + Game.tileName(gangTile));
+                Game.render();
                 aiDrawReplacement(player);
                 return;
             }
@@ -511,39 +512,39 @@ function aiDiscard(player) {
     // 保牌策略：孤立字牌 > 孤立中张(非4/5/6优先) > ... > 对子最后才拆，同等级优先选不点炮的
     const tile = chooseAiDiscardTile(hand, player);
     hand.splice(hand.indexOf(tile), 1);
-    markKongDiscardIfNeeded(player);
-    discardPile.push({ player, tile });
-    validateHandCounts('aiDiscard');
-    render();
-    speak(tileName(tile));
+    Game.markKongDiscardIfNeeded(player);
+    Game.discardPile.push({ player, tile });
+    Game.validateHandCounts('aiDiscard');
+    Game.render();
+    Game.speak(Game.tileName(tile));
 
     // 多家可以胡的话，按下家方向离出牌人最近的先胡
     const ronPlayer = findRonPriority(player, tile);
     if (ronPlayer === 'bottom') {
-        offerHu({ mode: 'dianpao', tile, fromPlayer: player });
+        Game.offerHu({ mode: 'dianpao', tile, fromPlayer: player });
         return;
     }
     if (ronPlayer) {
-        discardPile.pop();
-        hands[ronPlayer].push(tile);
-        gameOver = true;
-        winner = ronPlayer;
-        const before = [...hands[ronPlayer]];
+        Game.discardPile.pop();
+        Game.hands[ronPlayer].push(tile);
+        Game.gameOver = true;
+        Game.winner = ronPlayer;
+        const before = [...Game.hands[ronPlayer]];
         before.splice(before.indexOf(tile), 1);
-        const bonus = scoreWinningHand(before, tile, exposedMelds[ronPlayer], false, false);
-        applyKongBonuses(bonus, ronPlayer, 'dianpao', player);
-        const result = settleScore(ronPlayer, 'dianpao', player, bonus);
-        clearKongFlags();
-        logFlow(nameOf(player) + ' 点炮，' + nameOf(ronPlayer) + ' 胡了！' + result.detail);
-        speak('胡了，' + voiceName(player) + '点炮');
-        learnFromWin(ronPlayer, player, { fan: bonus.mult, turns: handTurnCount });
-        render();
-        showResultModal(ronPlayer, 'dianpao', player, bonus, result, tile);
+        const bonus = Game.scoreWinningHand(before, tile, Game.exposedMelds[ronPlayer], false, false);
+        Game.applyKongBonuses(bonus, ronPlayer, 'dianpao', player);
+        const result = Game.settleScore(ronPlayer, 'dianpao', player, bonus);
+        Game.clearKongFlags();
+        Game.logFlow(Game.nameOf(player) + ' 点炮，' + Game.nameOf(ronPlayer) + ' 胡了！' + result.detail);
+        Game.speak('胡了，' + Game.voiceName(player) + '点炮');
+        Game.learnFromWin(ronPlayer, player, { fan: bonus.mult, turns: Game.handTurnCount });
+        Game.render();
+        Game.showResultModal(ronPlayer, 'dianpao', player, bonus, result, tile);
         return;
     }
 
     // 无人点炮：杠后点炮标记失效
-    if (afterKongDiscardPlayer === player) afterKongDiscardPlayer = null;
+    if (Game.afterKongDiscardPlayer === player) Game.afterKongDiscardPlayer = null;
     checkClaimOrAdvance(player, tile);
 }
 
@@ -556,7 +557,7 @@ function aiDiscard(player) {
 // 手里还有没有连张(同花色相邻的牌)？没有的话说明这手牌天然在往碰碰胡(飘,8倍)方向走
 function isGoingForTriplets(hand) {
     for (const t of hand) {
-        const suit = tileSuit(t), rank = tileRank(t);
+        const suit = Game.tileSuit(t), rank = Game.tileRank(t);
         if (suit === '字') continue;
         if (hand.includes((rank + 1) + suit)) return false;
     }
@@ -565,17 +566,17 @@ function isGoingForTriplets(hand) {
 
 function shouldAiPeng(p, tile, overrides) {
     overrides = overrides || {};
-    if (isTenpai(p)) return false; // 已上听不碰，避免拆听
+    if (Game.isTenpai(p)) return false; // 已上听不碰，避免拆听
     const style = aiPersonality[p] || 'shrewd';
-    const learn = aiLearn.confidence[style] || {};
+    const learn = Game.aiLearn.confidence[style] || {};
     // conf=轴1(吃碰激进度)的学习值；chaseConf=轴3(特殊牌型追逐)的学习值；两条轴分开学，互不影响
     const conf = overrides.callAggr !== undefined ? overrides.callAggr : (learn.callAggr || 0);
     const chaseConf = overrides.chaseSpecial !== undefined ? overrides.chaseSpecial : (learn.chaseSpecial || 0);
-    const exposed = exposedMelds[p];
+    const exposed = Game.exposedMelds[p];
     const openCount = exposed.length;
     if (openCount >= 3) return false; // 穷胡：不能手把一
 
-    const hand = hands[p];
+    const hand = Game.hands[p];
     const handAfter = removeTilesFromHand(hand, [tile, tile]);
     const expAfter = exposed.concat([{ type: 'peng', tiles: [tile, tile, tile] }]);
     const shanBefore = estimateShantenCached(hand, exposed);
@@ -583,16 +584,16 @@ function shouldAiPeng(p, tile, overrides) {
 
     const otherPairs = [...new Set(hand)].filter(t => t !== tile && hand.filter(x => x === t).length >= 2);
     // 中发白可作将，也可直接算有价值字牌
-    const isDragon = dragonTilesArr.includes(tile);
-    const isWind = windTilesArr.includes(tile);
+    const isDragon = Game.dragonTilesArr.includes(tile);
+    const isWind = Game.windTilesArr.includes(tile);
     const isHonorValue = isDragon || isWind;
     const keepsJiang = otherPairs.length > 0 || isDragon;
     const chasingPengPeng = isGoingForTriplets(hand);
 
     // 穷胡专属条件：碰完是否补上了原本缺的三门齐/幺九/刻子
     // 缺的条件补上了就值得放宽一档向听要求
-    const qhBefore = analyzeHu(hand, exposed, p);
-    const qhAfter = analyzeHu(handAfter, expAfter, p);
+    const qhBefore = Game.analyzeHu(hand, exposed, p);
+    const qhAfter = Game.analyzeHu(handAfter, expAfter, p);
     const qhGain = (!qhBefore.sanmenqi && qhAfter.sanmenqi)
         || (!qhBefore.yaojiu && qhAfter.yaojiu)
         || (!qhBefore.kezi && qhAfter.kezi);
@@ -640,13 +641,13 @@ function shouldAiPeng(p, tile, overrides) {
 function findAiPeng(discarder, tile) {
     for (const p of ['top', 'left', 'right']) {
         if (p === discarder) continue;
-        if (exposedMelds[p].length >= 3) continue; // 穷胡规则：不能手把一，最多3组面子在外
-        if (!canPeng(hands[p], tile)) continue;
+        if (Game.exposedMelds[p].length >= 3) continue; // 穷胡规则：不能手把一，最多3组面子在外
+        if (!Game.canPeng(Game.hands[p], tile)) continue;
         const actual = shouldAiPeng(p, tile);
         // 归因：把轴1/轴3的学习值分别归零，看这个决定是不是因为学到的东西才变了
         // （分别只归零一条、另一条保持实际值，这样才是这条轴自己的影响，不会互相混)
-        if (shouldAiPeng(p, tile, { callAggr: 0 }) !== actual) markAxisUsed(p, 'callAggr');
-        if (shouldAiPeng(p, tile, { chaseSpecial: 0 }) !== actual) markAxisUsed(p, 'chaseSpecial');
+        if (shouldAiPeng(p, tile, { callAggr: 0 }) !== actual) Game.markAxisUsed(p, 'callAggr');
+        if (shouldAiPeng(p, tile, { chaseSpecial: 0 }) !== actual) Game.markAxisUsed(p, 'chaseSpecial');
         if (actual) return p;
     }
     return null;
@@ -654,34 +655,34 @@ function findAiPeng(discarder, tile) {
 
 // 多家能胡这张牌时，按下家方向（离出牌人最近的下家优先）找第一个能胡的玩家，找不到返回null
 function findRonPriority(discarder, tile) {
-    const idx = turnOrder.indexOf(discarder);
+    const idx = Game.turnOrder.indexOf(discarder);
     for (let step = 1; step <= 3; step++) {
-        const p = turnOrder[(idx + step) % turnOrder.length];
-        const hand = p === 'bottom' ? [...hands.bottom, tile] : [...hands[p], tile];
-        if (checkHu(hand, exposedMelds[p], p)) return p;
+        const p = Game.turnOrder[(idx + step) % Game.turnOrder.length];
+        const hand = p === 'bottom' ? [...Game.hands.bottom, tile] : [...Game.hands[p], tile];
+        if (Game.checkHu(hand, Game.exposedMelds[p], p)) return p;
     }
     return null;
 }
 
 function nextPlayerOf(p) {
-    const idx = turnOrder.indexOf(p);
-    return turnOrder[(idx + 1) % turnOrder.length];
+    const idx = Game.turnOrder.indexOf(p);
+    return Game.turnOrder[(idx + 1) % Game.turnOrder.length];
 }
 
 // 只有出牌者的下家能吃；如果下家是AI，检查AI是否能吃
 function findAiChi(discarder, tile) {
     const next = nextPlayerOf(discarder);
     if (next === 'bottom') return null; // 你的吃已经在别处处理
-    if (isTenpai(next)) return null; // 已上听不吃，避免拆听
-    if (exposedMelds[next].length >= 3) return null; // 穷胡规则：不能手把一
-    const combos = findChiCombos(hands[next], tile);
+    if (Game.isTenpai(next)) return null; // 已上听不吃，避免拆听
+    if (Game.exposedMelds[next].length >= 3) return null; // 穷胡规则：不能手把一
+    const combos = Game.findChiCombos(Game.hands[next], tile);
     if (!combos.length) return null;
     // 在多种吃法里选评分最高且 shouldAiChi 通过的
     let best = null;
     let bestScore = -Infinity;
     for (const combo of combos) {
         if (!shouldAiChi(next, tile, combo)) continue;
-        const sc = scoreChiCombo(hands[next], tile, combo, exposedMelds[next], next);
+        const sc = scoreChiCombo(Game.hands[next], tile, combo, Game.exposedMelds[next], next);
         if (sc > bestScore) {
             bestScore = sc;
             best = combo;
@@ -691,73 +692,77 @@ function findAiChi(discarder, tile) {
 }
 
 function aiPengClaim(p, tile) {
-    discardPile.pop();
-    lastCallTurn[p] = handTurnCount; // 归因细化：记这次碰/杠发生在第几巡
-    const cnt = hands[p].filter(x => x === tile).length;
+    Game.discardPile.pop();
+    Game.lastCallTurn[p] = Game.handTurnCount; // 归因细化：记这次碰/杠发生在第几巡
+    const cnt = Game.hands[p].filter(x => x === tile).length;
     const useGang = cnt >= 3; // 凑齐3张暗的+这张，直接杠比碰更优
     const takeCount = useGang ? 3 : 2;
     takeTilesFromHand(p, tile, takeCount);
-    currentIndex = turnOrder.indexOf(p);
+    Game.currentIndex = Game.turnOrder.indexOf(p);
     if (useGang) {
-        exposedMelds[p].push({ type: 'gang', tiles: [tile, tile, tile, tile], concealed: false });
-        logFlow(nameOf(p) + ' 杠了 ' + tileGlyph(tile));
-        speak('杠' + tileName(tile));
-        render();
+        Game.exposedMelds[p].push({ type: 'gang', tiles: [tile, tile, tile, tile], concealed: false });
+        Game.logFlow(Game.nameOf(p) + ' 杠了 ' + Game.tileGlyph(tile));
+        Game.speak('杠' + Game.tileName(tile));
+        Game.render();
         aiDrawReplacement(p);
     } else {
-        exposedMelds[p].push({ type: 'peng', tiles: [tile, tile, tile] });
-        logFlow(nameOf(p) + ' 碰了 ' + tileGlyph(tile));
-        speak('碰' + tileName(tile));
-        render();
-        gameTimeout(() => aiDiscard(p), 700);
+        Game.exposedMelds[p].push({ type: 'peng', tiles: [tile, tile, tile] });
+        Game.logFlow(Game.nameOf(p) + ' 碰了 ' + Game.tileGlyph(tile));
+        Game.speak('碰' + Game.tileName(tile));
+        Game.render();
+        Game.setPhase(Game.PHASE.WAIT_DISCARD, 'aiPengClaim');
+        Game.gameTimeout(() => aiDiscard(p), 700);
     }
 }
 
 function aiChiClaim(p, tile, combo) {
-    discardPile.pop();
-    lastCallTurn[p] = handTurnCount; // 归因细化：记这次吃发生在第几巡
+    Game.discardPile.pop();
+    Game.lastCallTurn[p] = Game.handTurnCount; // 归因细化：记这次吃发生在第几巡
     combo.forEach(t => {
-        const idx = hands[p].indexOf(t);
-        if (idx > -1) hands[p].splice(idx, 1);
+        const idx = Game.hands[p].indexOf(t);
+        if (idx > -1) Game.hands[p].splice(idx, 1);
     });
-    const meldTiles = [...combo, tile].sort(tileCompare);
-    exposedMelds[p].push({ type: 'chi', tiles: meldTiles });
-    currentIndex = turnOrder.indexOf(p);
-    logFlow(nameOf(p) + ' 吃了 ' + tileGlyph(tile));
-    speak('吃' + tileName(tile));
-    render();
-    gameTimeout(() => aiDiscard(p), 700);
+    const meldTiles = [...combo, tile].sort(Game.tileCompare);
+    Game.exposedMelds[p].push({ type: 'chi', tiles: meldTiles });
+    Game.currentIndex = Game.turnOrder.indexOf(p);
+    Game.logFlow(Game.nameOf(p) + ' 吃了 ' + Game.tileGlyph(tile));
+    Game.speak('吃' + Game.tileName(tile));
+    Game.render();
+    Game.setPhase(Game.PHASE.WAIT_DISCARD, 'aiChiClaim');
+    Game.gameTimeout(() => aiDiscard(p), 700);
 }
 
 // AI杠后摸替补牌，检查杠上开花，否则继续正常出牌
 function aiDrawReplacement(p) {
-    if (deck.length <= DEAD_WALL) { declareDraw(); return; }
-    const drawn = deck.pop();
-    const isLastTile = deck.length === DEAD_WALL;
-    hands[p].push(drawn);
-    hands[p].sort(tileCompare);
-    lastDrawnTile[p] = drawn;
-    lastDrawWasFinal[p] = isLastTile;
-    markKongDraw(p);
-    validateHandCounts('aiDrawReplacement');
-    render();
-    if (checkHu(hands[p], exposedMelds[p], p)) {
-        gameOver = true;
-        winner = p;
-        const before = [...hands[p]];
+    Game.setPhase(Game.PHASE.REPLACEMENT, 'aiDrawReplacement');
+    if (Game.deck.length <= Game.DEAD_WALL) { Game.declareDraw(); return; }
+    const drawn = Game.deck.pop();
+    const isLastTile = Game.deck.length === Game.DEAD_WALL;
+    Game.hands[p].push(drawn);
+    Game.hands[p].sort(Game.tileCompare);
+    Game.lastDrawnTile[p] = drawn;
+    Game.lastDrawWasFinal[p] = isLastTile;
+    Game.markKongDraw(p);
+    Game.validateHandCounts('aiDrawReplacement');
+    Game.render();
+    if (Game.checkHu(Game.hands[p], Game.exposedMelds[p], p)) {
+        Game.gameOver = true;
+        Game.winner = p;
+        const before = [...Game.hands[p]];
         before.splice(before.indexOf(drawn), 1);
-        const bonus = scoreWinningHand(before, drawn, exposedMelds[p], true, isLastTile);
-        applyKongBonuses(bonus, p, 'selfdraw', null);
-        const result = settleScore(p, 'selfdraw', null, bonus);
-        clearKongFlags();
-        logFlow(nameOf(p) + ' 杠上开花！自摸胡牌！' + result.detail);
-        speak('胡了，自摸');
-        learnFromWin(p, null, { fan: bonus.mult, turns: handTurnCount });
-        render();
-        showResultModal(p, 'selfdraw', null, bonus, result, drawn);
+        const bonus = Game.scoreWinningHand(before, drawn, Game.exposedMelds[p], true, isLastTile);
+        Game.applyKongBonuses(bonus, p, 'selfdraw', null);
+        const result = Game.settleScore(p, 'selfdraw', null, bonus);
+        Game.clearKongFlags();
+        Game.logFlow(Game.nameOf(p) + ' 杠上开花！自摸胡牌！' + result.detail);
+        Game.speak('胡了，自摸');
+        Game.learnFromWin(p, null, { fan: bonus.mult, turns: Game.handTurnCount });
+        Game.render();
+        Game.showResultModal(p, 'selfdraw', null, bonus, result, drawn);
         return;
     }
-    gameTimeout(() => aiDiscard(p), 700);
+    Game.setPhase(Game.PHASE.WAIT_DISCARD, 'aiDrawReplacement');
+    Game.gameTimeout(() => aiDiscard(p), 700);
 }
 
 // 你放弃碰/吃/杠（或没有机会）之后：先看有没有AI能碰/杠，再看下家AI能不能吃，否则正常进入下一家
@@ -771,15 +776,16 @@ function resolveAiPengOrAdvance(discarder, tile) {
 
 function checkClaimOrAdvance(player, tile) {
     // 检查你是否可以碰/杠/吃这张牌（穷胡规则：不能手把一，最多3组面子在外，第4组必须留在手里）
-    const canClaimMore = exposedMelds.bottom.length < 3;
-    const canP = canClaimMore && canPeng(hands.bottom, tile);
-    const canG = canClaimMore && canGang(hands.bottom, tile);
-    const chiCombos = (canClaimMore && player === 'left') ? findChiCombos(hands.bottom, tile) : []; // 只能吃上家的牌
+    const canClaimMore = Game.exposedMelds.bottom.length < 3;
+    const canP = canClaimMore && Game.canPeng(Game.hands.bottom, tile);
+    const canG = canClaimMore && Game.canGang(Game.hands.bottom, tile);
+    const chiCombos = (canClaimMore && player === 'left') ? Game.findChiCombos(Game.hands.bottom, tile) : []; // 只能吃上家的牌
     if (canP || canG || chiCombos.length) {
-        pendingClaim = { tile, fromPlayer: player, canPeng: canP, canGang: canG, chiCombos, mode: 'claim' };
+        Game.pendingClaim = { tile, fromPlayer: player, canPeng: canP, canGang: canG, chiCombos, mode: 'claim' };
+        Game.setPhase(Game.PHASE.CLAIM_PROMPT, 'checkClaimOrAdvance');
         const options = [canG ? '杠' : null, canP ? '碰' : null, chiCombos.length ? '吃' : null].filter(Boolean).join('/');
-        showIndicator(options, true);
-        logFlow('可以' + options + '，点确认执行 / 点过');
+        Game.showIndicator(options, true);
+        Game.logFlow('可以' + options + '，点确认执行 / 点过');
         return;
     }
     resolveAiPengOrAdvance(player, tile);
@@ -788,7 +794,7 @@ function checkClaimOrAdvance(player, tile) {
 /** 从指定玩家手牌里移除最多 count 张指定牌（自家/AI 碰杠共用，从末尾往前找） */
 function takeTilesFromHand(player, tile, count) {
     let removed = 0;
-    const hand = hands[player];
+    const hand = Game.hands[player];
     for (let i = hand.length - 1; i >= 0 && removed < count; i--) {
         if (hand[i] === tile) { hand.splice(i, 1); removed++; }
     }
@@ -796,8 +802,21 @@ function takeTilesFromHand(player, tile, count) {
 }
 
 function advanceTurn() {
-    if (gameOver) return;
-    currentIndex = (currentIndex + 1) % turnOrder.length;
-    gameTimeout(() => nextTurn(), 500);
+    if (Game.gameOver) return;
+    Game.currentIndex = (Game.currentIndex + 1) % Game.turnOrder.length;
+    Game.gameTimeout(() => Game.nextTurn(), 500);
 }
 
+
+/* ---- 本文件对外接口（IIFE 收敛，唯一出口） ---- */
+Game.aiPersonality = aiPersonality;
+Game.getWinningTilesOf = getWinningTilesOf;
+Game.chooseAiDiscardTile = chooseAiDiscardTile;
+Game.aiDiscard = aiDiscard;
+Game.findRonPriority = findRonPriority;
+Game.nextPlayerOf = nextPlayerOf;
+Game.resolveAiPengOrAdvance = resolveAiPengOrAdvance;
+Game.checkClaimOrAdvance = checkClaimOrAdvance;
+Game.takeTilesFromHand = takeTilesFromHand;
+
+;})();

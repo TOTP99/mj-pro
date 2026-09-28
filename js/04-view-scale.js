@@ -1,3 +1,4 @@
+;(function(){
 // ---------- 横屏自动适配开关 ----------
 // true：横屏时自动算出缩放比例并上下居中，牌桌始终完整落在当前可视区域内，不用再手动"缩小到80%+上下调整"；
 // false：恢复纯手动（缩放下限也回到 70%）。竖屏不受影响。
@@ -13,32 +14,32 @@ const VIEW_SCALE_STEP = 0.05;
 const VIEW_SCALE_STORAGE_KEY = 'qionghu_mahjong_view_scale_v1';
 const VIEW_ORIGINAL_STORAGE_KEY = 'qionghu_mahjong_view_original_v1';
 
-let viewScale = ORIGINAL_VIEW_SCALE;
+Game.viewScale = ORIGINAL_VIEW_SCALE;
 /** 启动时记录的桌面原始像素尺寸（供对照/恢复） */
-let originalViewRecord = null;
+Game.originalViewRecord = null;
 
 function captureOriginalViewSize() {
-    if (originalViewRecord) return originalViewRecord;
+    if (Game.originalViewRecord) return Game.originalViewRecord;
     const frame = document.getElementById('table-frame');
     const wrap = document.getElementById('table-wrap');
     let w = 0, h = 0;
     if (frame) {
         const r = frame.getBoundingClientRect();
         // 若当前已缩放，反推未缩放尺寸
-        const s = viewScale || 1;
+        const s = Game.viewScale || 1;
         w = r.width / s;
         h = r.height / s;
     }
-    originalViewRecord = {
+    Game.originalViewRecord = {
         scale: ORIGINAL_VIEW_SCALE,
         width: Math.round(w * 10) / 10,
         height: Math.round(h * 10) / 10,
         capturedAt: Date.now()
     };
     try {
-        localStorage.setItem(VIEW_ORIGINAL_STORAGE_KEY, JSON.stringify(originalViewRecord));
+        localStorage.setItem(VIEW_ORIGINAL_STORAGE_KEY, JSON.stringify(Game.originalViewRecord));
     } catch (e) { /* ignore */ }
-    return originalViewRecord;
+    return Game.originalViewRecord;
 }
 
 function loadSavedViewScale() {
@@ -54,12 +55,12 @@ function loadSavedViewScale() {
 }
 
 function applyViewScale() {
-    viewScale = Math.round(viewScale * 1000) / 1000;
-    if (viewScale > VIEW_SCALE_MAX) viewScale = VIEW_SCALE_MAX;
-    if (viewScale < VIEW_SCALE_MIN) viewScale = VIEW_SCALE_MIN;
-    document.documentElement.style.setProperty('--view-scale', String(viewScale));
+    Game.viewScale = Math.round(Game.viewScale * 1000) / 1000;
+    if (Game.viewScale > VIEW_SCALE_MAX) Game.viewScale = VIEW_SCALE_MAX;
+    if (Game.viewScale < VIEW_SCALE_MIN) Game.viewScale = VIEW_SCALE_MIN;
+    document.documentElement.style.setProperty('--view-scale', String(Game.viewScale));
     try {
-        localStorage.setItem(VIEW_SCALE_STORAGE_KEY, String(viewScale));
+        localStorage.setItem(VIEW_SCALE_STORAGE_KEY, String(Game.viewScale));
     } catch (e) { /* ignore */ }
     syncViewScaleButtons();
     // 兜底：部分安卓 WebView 在缩放瞬间会出现"金边框已更新、内部圆角裁剪内容未同步重绘"
@@ -74,35 +75,35 @@ function applyViewScale() {
         if (wrapEl) void wrapEl.offsetHeight;
         if (frameEl) void frameEl.offsetHeight;
     });
-    setTimeout(() => { try { fitBottomHand(); } catch (e) {} }, 120);
+    setTimeout(() => { try { Game.fitBottomHand(); } catch (e) {} }, 120);
 }
 
 /** delta: +0.05 扩大 / -0.05 缩小；相对「原始正常大小」等比缩放 */
 function adjustViewScale(delta) {
-    if (!originalViewRecord) captureOriginalViewSize();
+    if (!Game.originalViewRecord) captureOriginalViewSize();
     // 已达原始最大尺寸时，扩大无效
-    if (delta > 0 && viewScale >= viewScaleUpper() - 1e-9) {
-        logFlow(_autoFitMax != null && AUTO_FIT_LANDSCAPE
+    if (delta > 0 && Game.viewScale >= viewScaleUpper() - 1e-9) {
+        Game.logFlow(Game._autoFitMax != null && AUTO_FIT_LANDSCAPE
             ? '已是自动适配的最大尺寸（刚好放满可视区域），无法再扩大'
-            : (viewScale > ORIGINAL_VIEW_SCALE + 1e-9 ? '已放大到上限，无法再扩大' : '已是原始正常大小，无法再扩大'));
+            : (Game.viewScale > ORIGINAL_VIEW_SCALE + 1e-9 ? '已放大到上限，无法再扩大' : '已是原始正常大小，无法再扩大'));
         applyViewScale();
         return;
     }
-    if (delta < 0 && viewScale <= VIEW_SCALE_MIN + 1e-9) {
-        logFlow('已缩小到原始大小的 ' + Math.round(VIEW_SCALE_MIN * 100) + '%，无法再缩');
+    if (delta < 0 && Game.viewScale <= VIEW_SCALE_MIN + 1e-9) {
+        Game.logFlow('已缩小到原始大小的 ' + Math.round(VIEW_SCALE_MIN * 100) + '%，无法再缩');
         applyViewScale();
         return;
     }
-    viewScale = viewScale + delta;
-    if (delta > 0) viewScale = Math.min(viewScale, viewScaleUpper()); // 不超过自动适配的最大值
+    Game.viewScale = Game.viewScale + delta;
+    if (delta > 0) Game.viewScale = Math.min(Game.viewScale, viewScaleUpper()); // 不超过自动适配的最大值
     applyViewScale();
-    const pct = Math.round(viewScale * 100);
-    if (Math.abs(viewScale - ORIGINAL_VIEW_SCALE) < 1e-9) {
-        logFlow('已恢复原始正常大小（100%）');
+    const pct = Math.round(Game.viewScale * 100);
+    if (Math.abs(Game.viewScale - ORIGINAL_VIEW_SCALE) < 1e-9) {
+        Game.logFlow('已恢复原始正常大小（100%）');
     } else if (delta < 0) {
-        logFlow('整体（含头像）缩小至 ' + pct + '%（原始=100%）');
+        Game.logFlow('整体（含头像）缩小至 ' + pct + '%（原始=100%）');
     } else {
-        logFlow('整体（含头像）扩大至 ' + pct + '%（原始=100%）');
+        Game.logFlow('整体（含头像）扩大至 ' + pct + '%（原始=100%）');
     }
 }
 
@@ -115,33 +116,33 @@ function adjustViewScale(delta) {
  * 触发：启动、旋转、窗口大小/可视区域变化、进出全屏、弹窗关闭后。
  * 手动的 缩小/扩大/拖动 仍然可用，效果保留到下一次上述事件（或刷新）为止。
  * 竖屏完全不处理。 */
-let _autoFitApplied = false; // 已经自动适配过一次（第一次直接到位不做动画）
-let _autoFitReady = false;   // 13 启动段准备好之后才允许自动适配（避免脚本还没加载完就被 resize 事件触发）
-let _autoFitTimers = [];
-let _autoFitMax = null;     // 最近一次自动适配算出的缩放比例 = 刚好放满可视区域的最大值；手动「扩大」不允许超过它（超过就会被裁掉）
+Game._autoFitApplied = false; // 已经自动适配过一次（第一次直接到位不做动画）
+Game._autoFitReady = false;   // 13 启动段准备好之后才允许自动适配（避免脚本还没加载完就被 resize 事件触发）
+Game._autoFitTimers = [];
+Game._autoFitMax = null;     // 最近一次自动适配算出的缩放比例 = 刚好放满可视区域的最大值；手动「扩大」不允许超过它（超过就会被裁掉）
 /** 「扩大」按钮/操作的上限：自动适配生效时是 _autoFitMax，否则是 VIEW_SCALE_MAX */
 function viewScaleUpper() {
-    return (AUTO_FIT_LANDSCAPE && _autoFitMax != null) ? Math.min(VIEW_SCALE_MAX, _autoFitMax) : VIEW_SCALE_MAX;
+    return (AUTO_FIT_LANDSCAPE && Game._autoFitMax != null) ? Math.min(VIEW_SCALE_MAX, Game._autoFitMax) : VIEW_SCALE_MAX;
 }
 
 function syncViewScaleButtons() {
     const btnIn = document.getElementById('btn-view-zoom-in');
     const btnOut = document.getElementById('btn-view-zoom-out');
-    if (btnIn) btnIn.disabled = viewScale >= viewScaleUpper() - 1e-9;
-    if (btnOut) btnOut.disabled = viewScale <= VIEW_SCALE_MIN + 1e-9;
+    if (btnIn) btnIn.disabled = Game.viewScale >= viewScaleUpper() - 1e-9;
+    if (btnOut) btnOut.disabled = Game.viewScale <= VIEW_SCALE_MIN + 1e-9;
 }
 
 function autoFitLandscapeView() {
-    if (!AUTO_FIT_LANDSCAPE || !_autoFitReady) return false;
+    if (!AUTO_FIT_LANDSCAPE || !Game._autoFitReady) return false;
     try {
         const body = document.body;
         const wrap = document.getElementById('table-wrap');
         const frame = document.getElementById('table-frame');
         if (!body || !wrap || !frame) return false;
         if (body.classList.contains('portrait-layout')) return false; // 竖屏不动
-        if (typeof isPortraitOrientation === 'function' && isPortraitOrientation()) return false;
+        if (typeof Game.isPortraitOrientation === 'function' && Game.isPortraitOrientation()) return false;
         if (body.classList.contains('modal-open')) return false;      // 弹窗打开时页面被固定，弹窗关闭后会再触发
-        if (typeof panDrag !== 'undefined' && panDrag) return false;  // 正在拖动牌桌
+        if (typeof Game.panDrag !== 'undefined' && Game.panDrag) return false;  // 正在拖动牌桌
 
         const root = document.documentElement.style;
         wrap.classList.add('panning');                // 关闭过渡，读到的就是最终位置而不是动画中间值
@@ -173,10 +174,10 @@ function autoFitLandscapeView() {
         pan = Math.max(-240, Math.min(240, pan));
         if (Math.abs(pan) < 0.5) pan = 0;
 
-        const prevS = viewScale, prevP = viewPanY;    // 上一次生效的值（用来做平滑过渡）
-        _autoFitMax = s;                              // 这就是当前可视区域下的最大尺寸
-        viewScale = s;
-        viewPanY = pan;
+        const prevS = Game.viewScale, prevP = Game.viewPanY;    // 上一次生效的值（用来做平滑过渡）
+        Game._autoFitMax = s;                              // 这就是当前可视区域下的最大尺寸
+        Game.viewScale = s;
+        Game.viewPanY = pan;
         root.setProperty('--view-scale', String(s));
         root.setProperty('--view-pan-y', pan.toFixed(1) + 'px');
         // 放大到 >100% 时不锁定栅格化比例（will-change:transform 会让放大后的文字发虚）；≤100% 保持样式表里的设置
@@ -185,8 +186,8 @@ function autoFitLandscapeView() {
         try { autoUiScale('full'); } catch (e) {}     // 牌桌大小定了，再算头像/手牌等的放大系数
         // 平滑：非首次、非旋转过渡中、且数值确实变了 → 先回到旧位置（无过渡），再打开过渡设成新值，牌桌会平滑地变到新大小
         const hiding = document.documentElement.classList.contains('orient-changing');
-        const animate = _autoFitApplied && !hiding && (Math.abs(prevS - s) > 0.002 || Math.abs(prevP - pan) > 0.5);
-        _autoFitApplied = true;
+        const animate = Game._autoFitApplied && !hiding && (Math.abs(prevS - s) > 0.002 || Math.abs(prevP - pan) > 0.5);
+        Game._autoFitApplied = true;
         if (animate) {
             root.setProperty('--view-scale', String(prevS));
             root.setProperty('--view-pan-y', prevP.toFixed(1) + 'px');
@@ -199,7 +200,7 @@ function autoFitLandscapeView() {
             requestAnimationFrame(() => wrap.classList.remove('panning'));
         }
         syncViewScaleButtons();
-        setTimeout(() => { try { fitBottomHand(); } catch (e) {} }, 60);
+        setTimeout(() => { try { Game.fitBottomHand(); } catch (e) {} }, 60);
         return true;
     } catch (e) {
         try { document.getElementById('table-wrap').classList.remove('panning'); } catch (e2) {}
@@ -210,8 +211,8 @@ function autoFitLandscapeView() {
 /** 视口刚变化时尺寸还没稳定（旋转/全屏动画），在几个时间点各量一次，最后一次为准 */
 function scheduleAutoFitBurst() {
     if (!AUTO_FIT_LANDSCAPE) return;
-    _autoFitTimers.forEach(clearTimeout);
-    _autoFitTimers = [80, 350, 900, 1800].map(ms => setTimeout(autoFitLandscapeView, ms));
+    Game._autoFitTimers.forEach(clearTimeout);
+    Game._autoFitTimers = [80, 350, 900, 1800].map(ms => setTimeout(autoFitLandscapeView, ms));
 }
 window.addEventListener('resize', scheduleAutoFitBurst);
 window.addEventListener('orientationchange', scheduleAutoFitBurst);
@@ -229,12 +230,12 @@ const ORIENT_SMOOTH = true;
 const ORIENT_MIN_MS = 160;    // 至少隐藏这么久
 const ORIENT_POLL_MS = 60;    // 检查尺寸是否稳定的间隔
 const ORIENT_MAX_MS = 900;    // 最长隐藏时间（保险）
-let _orientLast = null;       // 上一次判断的方向（true=竖屏）；第一次只记录，不触发过渡
-let _orientTimer = 0, _orientStart = 0, _orientSizeKey = '', _orientStable = 0;
+Game._orientLast = null;       // 上一次判断的方向（true=竖屏）；第一次只记录，不触发过渡
+Game._orientTimer = 0; Game._orientStart = 0; Game._orientSizeKey = ''; Game._orientStable = 0;
 
 function _orientIsPortrait() {
     try {
-        if (typeof isPortraitOrientation === 'function') return !!isPortraitOrientation();
+        if (typeof Game.isPortraitOrientation === 'function') return !!Game.isPortraitOrientation();
     } catch (e) { /* ignore */ }
     return window.innerHeight >= window.innerWidth;
 }
@@ -247,41 +248,41 @@ function _orientSize() {
 function orientTransitionCheck() {
     if (!ORIENT_SMOOTH) return;
     const p = _orientIsPortrait();
-    if (_orientLast === null) { _orientLast = p; return; }
-    if (p === _orientLast) return;
-    _orientLast = p;
+    if (Game._orientLast === null) { Game._orientLast = p; return; }
+    if (p === Game._orientLast) return;
+    Game._orientLast = p;
     beginOrientTransition();
 }
 
 function beginOrientTransition() {
     document.documentElement.classList.add('orient-changing');
-    _orientStart = Date.now();
-    _orientSizeKey = _orientSize();
-    _orientStable = 0;
-    clearTimeout(_orientTimer);
-    _orientTimer = setTimeout(orientPoll, ORIENT_POLL_MS);
+    Game._orientStart = Date.now();
+    Game._orientSizeKey = _orientSize();
+    Game._orientStable = 0;
+    clearTimeout(Game._orientTimer);
+    Game._orientTimer = setTimeout(orientPoll, ORIENT_POLL_MS);
 }
 
 function orientPoll() {
-    const elapsed = Date.now() - _orientStart;
+    const elapsed = Date.now() - Game._orientStart;
     const key = _orientSize();
-    if (key === _orientSizeKey) _orientStable++; else { _orientSizeKey = key; _orientStable = 0; }
-    if ((elapsed >= ORIENT_MIN_MS && _orientStable >= 2) || elapsed >= ORIENT_MAX_MS) { endOrientTransition(); return; }
-    _orientTimer = setTimeout(orientPoll, ORIENT_POLL_MS);
+    if (key === Game._orientSizeKey) Game._orientStable++; else { Game._orientSizeKey = key; Game._orientStable = 0; }
+    if ((elapsed >= ORIENT_MIN_MS && Game._orientStable >= 2) || elapsed >= ORIENT_MAX_MS) { endOrientTransition(); return; }
+    Game._orientTimer = setTimeout(orientPoll, ORIENT_POLL_MS);
 }
 
 function endOrientTransition() {
-    clearTimeout(_orientTimer);
+    clearTimeout(Game._orientTimer);
     const html = document.documentElement;
     try {
-        if (typeof checkPortraitGuard === 'function') checkPortraitGuard();
-        if (document.body.classList.contains('portrait-layout')) fitBottomHand();
+        if (typeof Game.checkPortraitGuard === 'function') Game.checkPortraitGuard();
+        if (document.body.classList.contains('portrait-layout')) Game.fitBottomHand();
         else autoFitLandscapeView();
-        if (typeof hardenResultModalInteract === 'function') hardenResultModalInteract();
+        if (typeof Game.hardenResultModalInteract === 'function') Game.hardenResultModalInteract();
     } catch (e) { /* 出任何问题都要继续去显示 */ }
     requestAnimationFrame(() => requestAnimationFrame(() => {
         html.classList.remove('orient-changing');
-        try { if (typeof hardenResultModalInteract === 'function') hardenResultModalInteract(); } catch (e2) {}
+        try { if (typeof Game.hardenResultModalInteract === 'function') Game.hardenResultModalInteract(); } catch (e2) {}
     }));
 }
 
@@ -299,9 +300,9 @@ const UI_K_MAX = 2;           // 放大上限
 const UI_GAP = 2;             // 各区域之间至少留的空隙（牌桌自身像素）
 const UI_SAFETY = 0.998;      // 在算出的最大值上只留 0.2% 余量（再复核一次，仍冲突就继续减小）
 const UI_SAMPLE_LOG = '可以暗杠 三万，点确认杠 / 点过或直接出牌'; // 按较长的一句提示来预留高度
-let uiScaleK = 1;
-let _uiSig = '';
-let _uiBaseExtra = new Set(); // 系数=1 时就已经和「牌墙统计栏 W / 弃牌区 D」重叠的组合（原布局如此，不当作放大造成的冲突）
+Game.uiScaleK = 1;
+Game._uiSig = '';
+Game._uiBaseExtra = new Set(); // 系数=1 时就已经和「牌墙统计栏 W / 弃牌区 D」重叠的组合（原布局如此，不当作放大造成的冲突）
 
 (function ensureUiScaleCss() {
     try {
@@ -315,7 +316,7 @@ let _uiBaseExtra = new Set(); // 系数=1 时就已经和「牌墙统计栏 W / 
 })();
 
 function uiSetK(k) {
-    uiScaleK = k;
+    Game.uiScaleK = k;
     document.documentElement.style.setProperty('--ui-k', String(k));
 }
 
@@ -338,7 +339,7 @@ function uiHasConflict(blocks, gap) {
     for (const n of names) {
         for (const x of ['W', 'D']) {
             const a = blocks[n], b = blocks[x];
-            if (a && b && !_uiBaseExtra.has(n + x) && uiRectsOverlap(a, b, gap)) return true;
+            if (a && b && !Game._uiBaseExtra.has(n + x) && uiRectsOverlap(a, b, gap)) return true;
         }
     }
     const f = blocks.frame, tol = 0.5;
@@ -402,22 +403,22 @@ function autoUiScale(mode) {
     const body = document.body;
     if (!body) return;
     if (!AUTO_UI_SCALE || body.classList.contains('portrait-layout')) {
-        if (uiScaleK !== 1) { uiSetK(1); try { fitBottomHand(); } catch (e) {} }
+        if (Game.uiScaleK !== 1) { uiSetK(1); try { Game.fitBottomHand(); } catch (e) {} }
         return;
     }
     if (body.classList.contains('modal-open')) return; // 弹窗期间页面被固定，关闭后会再触发
-    if (typeof hands === 'undefined' || !hands.bottom || !hands.bottom.length) return; // 还没发牌
-    const prev = uiScaleK;
+    if (typeof Game.hands === 'undefined' || !Game.hands.bottom || !Game.hands.bottom.length) return; // 还没发牌
+    const prev = Game.uiScaleK;
     try {
         // 先在系数=1（原尺寸）下记下哪些区域本来就和牌墙栏/弃牌区重叠
-        _uiBaseExtra = new Set();
+        Game._uiBaseExtra = new Set();
         const b1 = uiMeasure(1), f1 = b1.frame;
         if (f1 && f1.width > 0) {
             const fe = document.getElementById('table-frame');
             const s1 = (fe && fe.offsetWidth) ? f1.width / fe.offsetWidth : 1;
             for (const n of ['T', 'L', 'R', 'B']) {
                 for (const x of ['W', 'D']) {
-                    if (b1[n] && b1[x] && uiRectsOverlap(b1[n], b1[x], UI_GAP * (s1 > 0 ? s1 : 1))) _uiBaseExtra.add(n + x);
+                    if (b1[n] && b1[x] && uiRectsOverlap(b1[n], b1[x], UI_GAP * (s1 > 0 ? s1 : 1))) Game._uiBaseExtra.add(n + x);
                 }
             }
         }
@@ -429,33 +430,33 @@ function autoUiScale(mode) {
     } catch (e) {
         uiSetK(1); // 出任何问题都退回原尺寸
     }
-    try { fitBottomHand(); } catch (e) {}
+    try { Game.fitBottomHand(); } catch (e) {}
 }
 
 /** 每次 render 后调用：局数变化或副露减少 → 重新算（可放大）；副露增加 → 只允许缩小 */
 function uiScaleOnRender() {
     if (!AUTO_UI_SCALE) return;
-    const epoch = (typeof gameEpoch !== 'undefined') ? gameEpoch : 0;
-    const counts = PLAYERS.map(p => ((exposedMelds[p] && exposedMelds[p].length) || 0));
+    const epoch = (typeof Game.gameEpoch !== 'undefined') ? Game.gameEpoch : 0;
+    const counts = Game.PLAYERS.map(p => ((Game.exposedMelds[p] && Game.exposedMelds[p].length) || 0));
     const total = counts.reduce((a, b) => a + b, 0);
     const sig = epoch + '|' + counts.join(',');
-    if (sig === _uiSig) return;
-    const prevParts = _uiSig ? _uiSig.split('|') : null;
+    if (sig === Game._uiSig) return;
+    const prevParts = Game._uiSig ? Game._uiSig.split('|') : null;
     const prevTotal = prevParts ? prevParts[1].split(',').reduce((a, b) => a + (+b), 0) : -1;
     const newGame = !prevParts || prevParts[0] !== String(epoch);
-    _uiSig = sig;
+    Game._uiSig = sig;
     autoUiScale(newGame || total < prevTotal ? 'full' : 'shrink');
 }
 
 async function toggleLandscapeMaximize() {
     // 横屏调整 = 恢复原始正常大小 + 尽量全屏横屏
-    if (!originalViewRecord) captureOriginalViewSize();
-    viewScale = ORIGINAL_VIEW_SCALE;
+    if (!Game.originalViewRecord) captureOriginalViewSize();
+    Game.viewScale = ORIGINAL_VIEW_SCALE;
     applyViewScale();
-    applyDevicePlatformClass();
+    Game.applyDevicePlatformClass();
     const body = document.body;
-    const ios = isIOSDevice();
-    const android = isAndroidDevice();
+    const ios = Game.isIOSDevice();
+    const android = Game.isAndroidDevice();
     let fsOk = false;
     try {
         if (!ios) {
@@ -489,58 +490,74 @@ async function toggleLandscapeMaximize() {
             try { window.scrollTo(0, 1); } catch (e) {}
         }
         body.classList.add('landscape-max');
-        syncAppViewportVars();
+        Game.syncAppViewportVars();
         if (ios) {
-            logFlow(isPortraitOrientation()
+            Game.logFlow(Game.isPortraitOrientation()
                 ? '请横向持机；可在设置中关闭竖屏锁定'
                 : '已横屏铺满（iOS 可将网页「添加到主屏幕」以隐藏地址栏）');
         } else if (android) {
-            logFlow(fsOk
+            Game.logFlow(fsOk
                 ? '已全屏横屏（Android）'
                 : '已横屏铺满；可再点一次尝试全屏，或「添加到主屏幕」');
         } else {
-            logFlow(fsOk ? '已最大化' : '已最大化（可尝试全屏或添加到主屏幕）');
+            Game.logFlow(fsOk ? '已最大化' : '已最大化（可尝试全屏或添加到主屏幕）');
         }
     } catch (e) {
         body.classList.add('landscape-max');
-        syncAppViewportVars();
-        logFlow('已最大化');
+        Game.syncAppViewportVars();
+        Game.logFlow('已最大化');
     }
     if (!fsOk) {
         [60, 200, 400, 800, 1200].forEach(ms => {
             setTimeout(() => {
                 try { window.scrollTo(0, 1); } catch (e) {}
-                syncAppViewportVars();
-                fitBottomHand();
+                Game.syncAppViewportVars();
+                Game.fitBottomHand();
             }, ms);
         });
     } else if (android) {
         // 全屏成功后仍同步几次，适配系统栏动画
         [100, 300, 600].forEach(ms => {
-            setTimeout(() => { syncAppViewportVars(); fitBottomHand(); }, ms);
+            setTimeout(() => { Game.syncAppViewportVars(); Game.fitBottomHand(); }, ms);
         });
     }
-    setTimeout(() => { try { fitBottomHand(); } catch (e) {} }, 180);
-    setTimeout(() => { try { fitBottomHand(); } catch (e) {} }, 450);
+    setTimeout(() => { try { Game.fitBottomHand(); } catch (e) {} }, 180);
+    setTimeout(() => { try { Game.fitBottomHand(); } catch (e) {} }, 450);
     scheduleAutoFitBurst();
 }
 document.addEventListener('fullscreenchange', () => {
-    syncAppViewportVars();
+    Game.syncAppViewportVars();
     scheduleAutoFitBurst();
     if (!document.fullscreenElement && !document.webkitFullscreenElement) {
         // 仅退出全屏时不必强制退出横屏铺满（用户可能仍横持）
         setTimeout(() => {
-            syncAppViewportVars();
-            fitBottomHand();
-            schedulePortraitGuardChecks();
+            Game.syncAppViewportVars();
+            Game.fitBottomHand();
+            Game.schedulePortraitGuardChecks();
         }, 120);
     } else {
         document.body.classList.add('landscape-max');
-        setTimeout(() => { syncAppViewportVars(); fitBottomHand(); }, 100);
+        setTimeout(() => { Game.syncAppViewportVars(); Game.fitBottomHand(); }, 100);
     }
 });
 document.addEventListener('webkitfullscreenchange', () => {
-    syncAppViewportVars();
+    Game.syncAppViewportVars();
     scheduleAutoFitBurst();
-    schedulePortraitGuardChecks();
+    Game.schedulePortraitGuardChecks();
 });
+
+/* ---- 本文件对外接口（IIFE 收敛，唯一出口） ---- */
+Game.AUTO_FIT_LANDSCAPE = AUTO_FIT_LANDSCAPE;
+Game.ORIGINAL_VIEW_SCALE = ORIGINAL_VIEW_SCALE;
+Game.VIEW_SCALE_STEP = VIEW_SCALE_STEP;
+Game.captureOriginalViewSize = captureOriginalViewSize;
+Game.loadSavedViewScale = loadSavedViewScale;
+Game.applyViewScale = applyViewScale;
+Game.adjustViewScale = adjustViewScale;
+Game.autoFitLandscapeView = autoFitLandscapeView;
+Game.scheduleAutoFitBurst = scheduleAutoFitBurst;
+Game.orientTransitionCheck = orientTransitionCheck;
+Game.uiScaleOnRender = uiScaleOnRender;
+Game.toggleLandscapeMaximize = toggleLandscapeMaximize;
+
+;})();

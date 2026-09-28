@@ -1,3 +1,4 @@
+;(function(){
 const windTilesArr = ['1字', '2字', '3字', '4字'];
 const dragonTilesArr = ['5字', '6字', '7字'];
 
@@ -29,7 +30,7 @@ function hasSiGuiYi(decomp, exposed) {
 // 在所有能胡的分解方式里取倍数最高的一种（对玩家最有利）
 /** 计算和牌番型倍数（不含自摸/点炮/庄家，那些在 settleScore） */
 function scoreWinningHand(concealedBeforeWin, winTile, exposed, isSelfDraw, isLastTile) {
-    const concealed = [...concealedBeforeWin, winTile].sort(tileCompare);
+    const concealed = [...concealedBeforeWin, winTile].sort(Game.tileCompare);
     const neededSets = 4 - exposed.length;
     let best = { mult: 1, tags: [] };
     const counts = {};
@@ -43,7 +44,7 @@ function scoreWinningHand(concealedBeforeWin, winTile, exposed, isSelfDraw, isLa
             if (t === pairTile && skipped < 2) { skipped++; continue; }
             rest.push(t);
         }
-        const decompositions = decompose(rest);
+        const decompositions = Game.decompose(rest);
         for (const decomp of decompositions) {
             if (decomp.length !== neededSets) continue;
 
@@ -54,7 +55,7 @@ function scoreWinningHand(concealedBeforeWin, winTile, exposed, isSelfDraw, isLa
             } else {
                 for (const m of decomp) {
                     if (m.type === 'sequence' && m.tiles.includes(winTile)) {
-                        const ranks = m.tiles.map(tileRank);
+                        const ranks = m.tiles.map(Game.tileRank);
                         if (winTile === m.tiles[1]) waitType = 'kanchan'; // 中间那张：夹张
                         else if (winTile === m.tiles[0] && ranks[2] === 9) waitType = 'bianzhang'; // 7,8,9缺7
                         else if (winTile === m.tiles[2] && ranks[0] === 1) waitType = 'bianzhang'; // 1,2,3缺3
@@ -97,11 +98,11 @@ function scoreWinningHand(concealedBeforeWin, winTile, exposed, isSelfDraw, isLa
 /** 杠上开花 / 杠后点炮：在 settleScore 前调用，就地改 bonus.mult/tags */
 function applyKongBonuses(bonus, winner, mode, payer) {
     if (!bonus) return bonus;
-    if (mode === 'selfdraw' && afterKongDrawPlayer === winner) {
+    if (mode === 'selfdraw' && Game.afterKongDrawPlayer === winner) {
         bonus.mult *= 2;
         if (!bonus.tags.includes('杠上开花×2')) bonus.tags.push('杠上开花×2');
     }
-    if (mode === 'dianpao' && payer && afterKongDiscardPlayer === payer) {
+    if (mode === 'dianpao' && payer && Game.afterKongDiscardPlayer === payer) {
         bonus.mult *= 2;
         if (!bonus.tags.includes('杠后点炮×2')) bonus.tags.push('杠后点炮×2');
     }
@@ -109,21 +110,21 @@ function applyKongBonuses(bonus, winner, mode, payer) {
 }
 
 function clearKongFlags() {
-    afterKongDrawPlayer = null;
-    afterKongDiscardPlayer = null;
+    Game.afterKongDrawPlayer = null;
+    Game.afterKongDiscardPlayer = null;
 }
 
 /** 杠后补牌完成 */
 function markKongDraw(player) {
-    afterKongDrawPlayer = player;
-    afterKongDiscardPlayer = null;
+    Game.afterKongDrawPlayer = player;
+    Game.afterKongDiscardPlayer = null;
 }
 
 /** 该玩家若刚杠过补牌，出牌后改为「杠后点炮」待结算 */
 function markKongDiscardIfNeeded(player) {
-    if (afterKongDrawPlayer === player) {
-        afterKongDiscardPlayer = player;
-        afterKongDrawPlayer = null;
+    if (Game.afterKongDrawPlayer === player) {
+        Game.afterKongDiscardPlayer = player;
+        Game.afterKongDrawPlayer = null;
     }
 }
 
@@ -133,27 +134,27 @@ function markKongDiscardIfNeeded(player) {
  * - 已出牌等待: (4-副露数)*3+1
  */
 function expectedConcealedLen(player, mustDiscard) {
-    const n = 4 - ((exposedMelds[player] && exposedMelds[player].length) || 0);
+    const n = 4 - ((Game.exposedMelds[player] && Game.exposedMelds[player].length) || 0);
     return mustDiscard ? n * 3 + 2 : n * 3 + 1;
 }
 
 /** 实时检查四家暗牌张数；异常时写流程提示 + console */
 function validateHandCounts(reason) {
-    if (gameOver) return true;
+    if (Game.gameOver) return true;
     let ok = true;
-    for (const p of PLAYERS) {
-        const len = (hands[p] && hands[p].length) || 0;
-        const expN = (exposedMelds[p] && exposedMelds[p].length) || 0;
+    for (const p of Game.PLAYERS) {
+        const len = (Game.hands[p] && Game.hands[p].length) || 0;
+        const expN = (Game.exposedMelds[p] && Game.exposedMelds[p].length) || 0;
         const needDiscard = (len % 3 === 2);
         const expect = expectedConcealedLen(p, needDiscard);
         // 允许「待出牌」或「已出牌」两种合法态；其它一律异常
         const alt = expectedConcealedLen(p, !needDiscard);
         if (len !== expect && len !== alt) {
             ok = false;
-            const msg = '【异常】手牌张数异常 ' + nameOf(p) + ' 暗牌' + len + '张/副露' + expN
+            const msg = '【异常】手牌张数异常 ' + Game.nameOf(p) + ' 暗牌' + len + '张/副露' + expN
                 + '（期望' + expect + '或' + alt + '）' + (reason ? ' @' + reason : '');
-            try { logFlow(msg); } catch (e) {}
-            try { console.warn('[hand-check]', msg, hands[p], exposedMelds[p]); } catch (e2) {}
+            try { Game.logFlow(msg); } catch (e) {}
+            try { console.warn('[hand-check]', msg, Game.hands[p], Game.exposedMelds[p]); } catch (e2) {}
         }
     }
     return ok;
@@ -169,8 +170,8 @@ function settleScore(winner, mode, payer, bonus) {
     // 点炮时，只看点炮者一人是否没开门。
     let noKaimenPlayers = [];
     if (mode === 'selfdraw') {
-        noKaimenPlayers = turnOrder.filter(p => p !== winner && !isKaimen(exposedMelds[p]));
-    } else if (mode === 'dianpao' && payer && !isKaimen(exposedMelds[payer])) {
+        noKaimenPlayers = Game.turnOrder.filter(p => p !== winner && !Game.isKaimen(Game.exposedMelds[p]));
+    } else if (mode === 'dianpao' && payer && !Game.isKaimen(Game.exposedMelds[payer])) {
         noKaimenPlayers = [payer];
     }
 
@@ -183,9 +184,9 @@ function settleScore(winner, mode, payer, bonus) {
         // 赢家必须已开门才能胡（checkHu 要求 kaimen），与此无关
         if (noKaimenPlayers.length) { mult *= 2; tags.push('没开门点炮×2'); }
     }
-    const dealerWinBonus = winner === dealer;
+    const dealerWinBonus = winner === Game.dealer;
     if (dealerWinBonus) { mult *= 2; tags.push('庄家×2'); }
-    const dealerPayBonus = mode === 'dianpao' && payer === dealer;
+    const dealerPayBonus = mode === 'dianpao' && payer === Game.dealer;
     if (dealerPayBonus) { mult *= 2; tags.push('庄点炮×2'); }
 
     const baseScore = mode === 'selfdraw' ? 1 : 2; // 自摸底分1，点炮底分2
@@ -195,43 +196,43 @@ function settleScore(winner, mode, payer, bonus) {
     let detail, total;
     if (mode === 'selfdraw') {
         total = 0;
-        for (const p of turnOrder) {
+        for (const p of Game.turnOrder) {
             if (p === winner) continue;
             let pay = unit;
-            if (p === dealer) pay *= 2; // 自摸时，庄家作为付款方单独再翻倍(只影响这一位的具体金额，不重复计入上面的倍数说明)
+            if (p === Game.dealer) pay *= 2; // 自摸时，庄家作为付款方单独再翻倍(只影响这一位的具体金额，不重复计入上面的倍数说明)
             if (noKaimenPlayers.includes(p)) pay *= 2; // 没开门的输家单独再翻倍，只影响这一位
-            scores[p] -= pay;
+            Game.scores[p] -= pay;
             payouts[p] = -pay;
             total += pay;
         }
-        scores[winner] += total;
+        Game.scores[winner] += total;
         payouts[winner] = total;
         detail = '自摸' + tagText + '，合计 ' + total + ' 分';
     } else {
         let pay = unit; // 点炮只出自己这一份，不用把另外两家的份额也包了
-        scores[payer] -= pay;
-        scores[winner] += pay;
+        Game.scores[payer] -= pay;
+        Game.scores[winner] += pay;
         payouts[payer] = -pay;
         payouts[winner] = pay;
         total = pay;
-        detail = nameOf(payer) + ' 点炮' + tagText + '，付 ' + pay + ' 分';
+        detail = Game.nameOf(payer) + ' 点炮' + tagText + '，付 ' + pay + ' 分';
     }
     // 2.0 二期：结算后通知场次管理（更新金额/局数/输光检查）
-    if (typeof onFieldGameSettled === 'function') {
-        try { onFieldGameSettled(payouts); } catch (e) {}
+    if (typeof Game.onFieldGameSettled === 'function') {
+        try { Game.onFieldGameSettled(payouts); } catch (e) {}
     }
     return { detail, payouts, total, tags, dealerWinBonus, noKaimenPlayers };
 }
 
 // 判断某玩家是否听牌：暗牌数刚好比“完整手牌”少一张，且存在某张牌补上就能胡
 // 所有可能的牌种：万条筒1-9 + 字牌1-7（缓存，减轻听牌扫描分配）
-let _allTileTypesCache = null;
+Game._allTileTypesCache = null;
 function allTileTypes() {
-    if (_allTileTypesCache) return _allTileTypesCache;
+    if (Game._allTileTypesCache) return Game._allTileTypesCache;
     const types = [];
-    for (const s of suits) for (let r = 1; r <= 9; r++) types.push(r + s);
-    for (let r = 1; r <= honors.length; r++) types.push(r + '字');
-    _allTileTypesCache = types;
+    for (const s of Game.suits) for (let r = 1; r <= 9; r++) types.push(r + s);
+    for (let r = 1; r <= Game.honors.length; r++) types.push(r + '字');
+    Game._allTileTypesCache = types;
     return types;
 }
 
@@ -241,5 +242,20 @@ function isTenpai(player) {
 
 // 某玩家当前听哪些牌（不听返回空数组）
 function getWinningTiles(player) {
-    return getWinningTilesOf(hands[player], exposedMelds[player], player);
+    return Game.getWinningTilesOf(Game.hands[player], Game.exposedMelds[player], player);
 }
+
+/* ---- 本文件对外接口（IIFE 收敛，唯一出口） ---- */
+Game.windTilesArr = windTilesArr;
+Game.dragonTilesArr = dragonTilesArr;
+Game.scoreWinningHand = scoreWinningHand;
+Game.applyKongBonuses = applyKongBonuses;
+Game.clearKongFlags = clearKongFlags;
+Game.markKongDraw = markKongDraw;
+Game.markKongDiscardIfNeeded = markKongDiscardIfNeeded;
+Game.validateHandCounts = validateHandCounts;
+Game.settleScore = settleScore;
+Game.allTileTypes = allTileTypes;
+Game.isTenpai = isTenpai;
+
+;})();

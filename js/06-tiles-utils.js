@@ -1,22 +1,23 @@
+;(function(){
 // 你的这张牌会不会点炮给某个 AI：等价于「该 AI 的听牌列表里有这张牌」。
 // 原先每张牌、每次渲染都要对三家各跑一次完整 checkHu；改用带缓存的 getWinningTilesOf，
 // 结果一致（getWinningTilesOf 要求暗牌张数=完整手牌-1，与 checkHu([...手牌, tile]) 的张数要求相同），
 // 同一副手牌命中缓存后不再重复计算。
 function isDangerousTile(tile) {
-    return ['top', 'left', 'right'].some(p => getWinningTilesOf(hands[p], exposedMelds[p], p).includes(tile));
+    return ['top', 'left', 'right'].some(p => Game.getWinningTilesOf(Game.hands[p], Game.exposedMelds[p], p).includes(tile));
 }
 
 function buildDeck() {
-    deck = [];
-    for (let s of suits) {
+    Game.deck = [];
+    for (let s of Game.suits) {
         for (let n = 1; n <= 9; n++) {
-            for (let i = 0; i < 4; i++) deck.push(n + s);
+            for (let i = 0; i < 4; i++) Game.deck.push(n + s);
         }
     }
-    for (let n = 1; n <= honors.length; n++) {
-        for (let i = 0; i < 4; i++) deck.push(n + '字');
+    for (let n = 1; n <= Game.honors.length; n++) {
+        for (let i = 0; i < 4; i++) Game.deck.push(n + '字');
     }
-    shuffle(deck);
+    shuffle(Game.deck);
 }
 
 function shuffle(array) {
@@ -31,7 +32,7 @@ function tileRank(t){ return parseInt(t.slice(0, -1), 10); }
 
 const rankChinese = ['一','二','三','四','五','六','七','八','九'];
 function tileName(t) {
-    if (tileSuit(t) === '字') return honors[tileRank(t) - 1];
+    if (tileSuit(t) === '字') return Game.honors[tileRank(t) - 1];
     return rankChinese[tileRank(t) - 1] + tileSuit(t);
 }
 
@@ -66,9 +67,21 @@ function tileBackImg() {
 (function preloadTileImages() {
     try {
         const all = [];
-        for (const s of suits) for (let n = 1; n <= 9; n++) all.push(n + s);
-        for (let n = 1; n <= honors.length; n++) all.push(n + '字');
+        for (const s of Game.suits) for (let n = 1; n <= 9; n++) all.push(n + s);
+        for (let n = 1; n <= Game.honors.length; n++) all.push(n + '字');
         all.forEach(t => { const im = new Image(); im.src = tileImgSrc(t); });
         const bk = new Image(); bk.src = TILE_IMG_DIR + 'back.webp';
     } catch (e) {}
 })();
+
+/* ---- 本文件对外接口（IIFE 收敛，唯一出口） ---- */
+Game.isDangerousTile = isDangerousTile;
+Game.buildDeck = buildDeck;
+Game.tileSuit = tileSuit;
+Game.tileRank = tileRank;
+Game.tileName = tileName;
+Game.tileGlyph = tileGlyph;
+Game.tileImg = tileImg;
+Game.tileBackImg = tileBackImg;
+
+;})();

@@ -1,3 +1,4 @@
+;(function(){
 /* 14-credit-clock.js
  * 接管 #credit-label / #credit-label-2 的全部内容（仅竖屏可见，横屏由 CSS 隐藏）：
  *   第一行（金字）：TP制作➸369❖❁ + 模式选择 + 初始筹码（纯文字符号，不用 emoji，各平台显示稳定）
@@ -47,7 +48,7 @@
         accumulate();               // 先结算切换前的时间
         visible = !document.hidden;
         lastTick = Date.now();
-        render();
+        Game.render();
     });
 
     function pad(n) { return n < 10 ? '0' + n : '' + n; }
@@ -76,8 +77,8 @@
         // 第一行：署名 + 模式选择/初始筹码（按钮只建一次；桌面不再放这些入口）
         if (!el1.querySelector('.credit-text')) {
             el1.innerHTML = '<span class="credit-text">' + LINE1 + '</span>' +
-                '<button type="button" class="credit-btn" onclick="openModeSelect()">模式选择</button>' +
-                '<button type="button" class="credit-btn" onclick="openAmountSelect()">初始筹码</button>' +
+                '<button type="button" class="credit-btn" onclick="Game.openModeSelect()">模式选择</button>' +
+                '<button type="button" class="credit-btn" onclick="Game.openAmountSelect()">初始筹码</button>' +
                 '<span id="field-count" class="field-rounds">局 0/16</span>';
         }
         if (html2 !== lastHtml2) { el2.innerHTML = html2; lastHtml2 = html2; }
@@ -93,3 +94,5 @@
     render();
     setInterval(render, 1000);
 })();
+
+;})();
