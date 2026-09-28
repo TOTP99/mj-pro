@@ -97,101 +97,26 @@
         margin-bottom: 0; color: #c5d4e0; font-weight: normal; letter-spacing: 0; text-align: center;
         font-size: 8px; white-space: nowrap;
     }
-    #landscape-ctrl {
-        position: relative;
-        left: auto; top: auto;
-        transform: none;
-        z-index: 7;
-        width: auto; height: auto;
-        min-width: 0; min-height: 0;
-        padding: 0 2px;
-        display: inline;
-        border: none;
-        border-radius: 0;
-        background: transparent !important;
-        box-shadow: none !important;
-        color: var(--gold);
-        font-size: 8px;
-        font-weight: 600;
-        letter-spacing: 0.08em;
-        line-height: 1.2;
-        font-family: inherit;
-        cursor: pointer;
-        user-select: none;
-        white-space: nowrap;
+    /* 模式选择/初始筹码/黄线滑杆：同一行不拆散，滑杆轨道与按钮垂直居中 */
+    #mode-size-row {
+        display: inline-flex; align-items: center; gap: 5px;
         flex-shrink: 0;
-        transition: color 0.15s, opacity 0.15s;
     }
-    /* 热区略微扩大，不影响视觉尺寸 */
-    #landscape-ctrl::after {
-        content: '';
-        position: absolute;
-        inset: -4px -3px;
-    }
-    #landscape-ctrl:active {
-        background: transparent !important;
-        box-shadow: none !important;
-        transform: none;
-        opacity: 0.7;
-        color: var(--ice);
-    }
-    #view-scale-btns {
-        display: flex; align-items: center; justify-content: center; gap: 5px;
-    }
-    #view-scale-btns button {
-        position: relative;
-        margin: 0;
-        padding: 2px 7px;
-        min-width: 30px;
-        border: 1px solid var(--gold-dim);
-        border-radius: 4px;
-        background: transparent;
-        color: var(--text-muted);
-        font-size: 8px;
-        font-weight: 600;
-        letter-spacing: 0.06em;
-        font-family: inherit;
-        line-height: 1.35;
-        cursor: pointer;
-        user-select: none;
-        box-shadow: none;
-        transition: color 0.12s, border-color 0.12s, background 0.12s;
-    }
-    /* 热区略微扩大，不影响视觉尺寸 */
-    #view-scale-btns button::after {
-        content: '';
-        position: absolute;
-        inset: -4px -2px;
-    }
-    #view-scale-btns button:active {
-        color: var(--gold);
-        border-color: var(--gold);
-        background: rgba(212, 175, 55, 0.1);
-    }
-    #view-scale-btns button:disabled {
-        opacity: 0.35;
-        cursor: not-allowed;
-    }
-    /* 呼吸量滑杆：金色细杆，与缩放按钮同一行 */
-    #breath-ctrl {
-        display: inline-flex; align-items: center; gap: 4px;
-        color: var(--text-muted); font-size: 8px; font-weight: 600; letter-spacing: 0.06em;
-        user-select: none;
-    }
-    #breath-slider {
+    /* 横屏牌桌大小滑杆：金色细杆，80%~110% 相对默认，刷新恢复默认 */
+    #size-slider {
         -webkit-appearance: none; appearance: none;
         width: 72px; height: 3px; margin: 0; padding: 0;
         border-radius: 2px; background: rgba(212, 175, 55, 0.35);
-        outline: none; cursor: pointer;
+        outline: none; cursor: pointer; flex-shrink: 0;
     }
-    #breath-slider::-webkit-slider-thumb {
+    #size-slider::-webkit-slider-thumb {
         -webkit-appearance: none; appearance: none;
         width: 11px; height: 11px; border-radius: 50%;
         background: var(--gold, #d4af37);
         border: 1px solid rgba(0, 0, 0, 0.4);
         box-shadow: 0 0 4px rgba(212, 175, 55, 0.6);
     }
-    #breath-slider::-moz-range-thumb {
+    #size-slider::-moz-range-thumb {
         width: 11px; height: 11px; border-radius: 50%;
         background: var(--gold, #d4af37);
         border: 1px solid rgba(0, 0, 0, 0.4);

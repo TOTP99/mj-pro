@@ -13,9 +13,9 @@
         box-sizing: border-box;
     }
     body.portrait-layout #table-frame {
-        /* 随视口伸缩，尽量占满可用区域且保持牌桌比例；再各减呼吸量，四周留白 */
-        width: min(calc(92vw - var(--table-breath, 10px) * 2), calc(62vh - var(--sat) - var(--sab) - var(--table-breath, 10px) * 2));
-        height: min(calc(82vh - var(--sat) - var(--sab) - var(--table-breath, 10px) * 2), calc(132vw - var(--table-breath, 10px) * 2));
+        /* 随视口伸缩，尽量占满可用区域且保持牌桌比例 */
+        width: min(92vw, calc(62vh - var(--sat) - var(--sab)));
+        height: min(calc(82vh - var(--sat) - var(--sab)), 132vw);
         max-width: calc(100vw - var(--sal) - var(--sar) - 8px);
         max-height: calc(100vh - var(--sat) - var(--sab) - 8px);
         border-radius: 22px;
@@ -190,8 +190,7 @@
         height: 8px;
     }
     /* 横屏专用控件：竖屏隐藏 */
-    body.portrait-layout #landscape-ctrl,
-    body.portrait-layout #view-scale-btns {
+    body.portrait-layout #size-slider {
         display: none !important;
     }
     /* 竖屏：废牌池上方「点击查询牌池」，功能与横屏相同 */

@@ -50,8 +50,8 @@
             padding: 4px;
         }
         body:not(.portrait-layout) #table-frame {
-            width: min(calc(96vw - var(--table-breath, 10px) * 2), calc(100vh - var(--table-breath, 10px) * 2));
-            height: min(calc(72vh - var(--table-breath, 10px) * 2), calc(140vw - var(--table-breath, 10px) * 2));
+            width: min(96vw, 100vh);
+            height: min(72vh, 140vw);
             border-radius: 16px;
         }
         body:not(.portrait-layout) .left { left: calc(8% + 20px); top: calc(42% - 20px); }
@@ -66,8 +66,6 @@
         #wall-count-row { gap: 2px 3px; }
         #img-display-badge { font-size: 8px; }
         #wall-count-text { font-size: 8px; }
-        #landscape-ctrl { font-size: 8px; }
-        #view-scale-btns button { font-size: 7px; padding: 2px 5px; min-width: 26px; }
         .result-box { width: min(88vw, 200px); }
         .hu-box { width: min(88vw, 240px); }
     }
@@ -82,8 +80,8 @@
         }
     }
 
-    /* 安全区（刘海 / Home 指示条）：非最大化时给 body 留白 */
-    body:not(.landscape-max) {
+    /* 安全区（刘海 / Home 指示条）：给 body 留白 */
+    body {
         padding-top: var(--sat);
         padding-right: var(--sar);
         padding-bottom: var(--sab);
@@ -125,4 +123,14 @@
     @media screen and (orientation: landscape) {
         .credit-btn-ls { display: inline; }
         #field-count-ls { display: inline; }
+    }
+
+    /* Android 横屏矮屏：收紧控件字号，避免挡牌（原 05-landscape-max.css，横屏最大功能已删，规则保留） */
+    @media screen and (orientation: landscape) and (max-height: 420px) {
+        html.is-android #img-display-badge,
+        body.is-android #img-display-badge,
+        html.is-android #wall-count-text,
+        body.is-android #wall-count-text { font-size: 8px; }
+        html.is-android #discard-query-btn,
+        body.is-android #discard-query-btn { font-size: 8px; }
     }

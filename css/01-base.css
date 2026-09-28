@@ -3,7 +3,6 @@
         --gold: #d4af37;
         --gold-soft: rgba(212, 175, 55, 0.55);
         --gold-dim: rgba(212, 175, 55, 0.28);
-        --table-breath: 10px; /* 牌桌四周留白（呼吸量），滑杆可调 0~28px，JS 会按存档覆盖 */
         --ice: #8ec8f0;
         --text: #d6e4f0;
         --text-muted: #8aa0b5;

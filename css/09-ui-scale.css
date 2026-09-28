@@ -47,7 +47,7 @@ body:not(.portrait-layout) .player-score {
 body:not(.portrait-layout) .stat-line {
     font-size: calc(var(--statline-fs-base) * var(--ui-k, 1));
 }
-/* is-android 排除在外：05-landscape-max.css 里矮屏(max-height:420px)专门把这个元素字号收紧到9px防挡牌，
+/* is-android 排除在外：06-media-landscape.css 里矮屏(max-height:420px)专门把这个元素字号收紧到8px防挡牌，
    是刻意收缩、不是"忘了接ui-k"，直接排除避免盖掉那条规则 */
 body:not(.portrait-layout):not(.is-android) #wall-count-text {
     font-size: calc(var(--wallcount-fs-base) * var(--ui-k, 1));
