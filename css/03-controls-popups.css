@@ -12,6 +12,7 @@
     }
     /* 高阶规则页分组 */
     .rules-group { margin: 12px 0; text-align: left; }
+    .rules-hint { font-size: 12px; opacity: 0.65; text-align: left; margin: 4px 0 0; line-height: 1.5; }
     .rules-group-title { font-weight: bold; color: var(--gold); margin-bottom: 6px; font-size: 14px; }
     .rule-row { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 8px 4px; border-bottom: 1px solid rgba(255,255,255,0.08); }
     .rule-row .rule-name { font-size: 14px; }
@@ -59,6 +60,10 @@
         padding: 0 2px; cursor: pointer; white-space: nowrap; flex-shrink: 0;
     }
     .credit-btn-ls:active { opacity: 0.6; }
+    /* 局数显示：跟在"初始筹码"按钮后面 */
+    .field-rounds { color: var(--gold); font-size: 11px; font-weight: 600; white-space: nowrap; margin-left: 6px; vertical-align: baseline; }
+    /* 横屏顶栏里的局数：竖屏隐藏，横屏跟按钮一起显示 */
+    #field-count-ls { display: none; }
     /* 左侧顶栏：TP制作 + 牌墙 + 横屏调整；下方 扩大/缩小 */
     #img-display-badge {
         position: static;
@@ -934,4 +939,28 @@
     line-height: 1.6;
     color: var(--text);
     letter-spacing: 0.02em;
+}
+
+/* ===== 牌桌中央提示条（模式/筹码选择时先亮提示） ===== */
+#table-center-prompt {
+    position: absolute; left: 50%; top: 50%; z-index: 30;
+    transform: translate(-50%, -50%) scale(.92);
+    padding: 10px 26px; border-radius: 999px; white-space: nowrap;
+    background: rgba(10, 16, 26, .85);
+    border: 1px solid var(--gold, #d4af37);
+    color: var(--gold, #d4af37);
+    font-size: 17px; letter-spacing: 3px;
+    opacity: 0; pointer-events: none;
+    transition: opacity .35s ease, transform .35s ease;
+}
+#table-center-prompt.show { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+
+/* ===== 选择类按钮呼吸发光 ===== */
+@keyframes btnGlowPulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(212, 175, 55, .15); }
+    50% { box-shadow: 0 0 20px 5px rgba(212, 175, 55, .55); }
+}
+.btn-glow {
+    animation: btnGlowPulse 1.6s ease-in-out infinite;
+    border-color: var(--gold, #d4af37) !important;
 }
