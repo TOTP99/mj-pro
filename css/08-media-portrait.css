@@ -1,8 +1,8 @@
     /* —— 竖屏响应式细化：矮屏 / 窄屏 / 大屏 —— */
     @media screen and (orientation: portrait) and (max-height: 700px) {
         body.portrait-layout #table-frame {
-            width: min(94vw, calc(70vh - var(--sat) - var(--sab)));
-            height: min(calc(86vh - var(--sat) - var(--sab)), 128vw);
+            width: min(calc(94vw - var(--table-breath, 10px) * 2), calc(70vh - var(--sat) - var(--sab) - var(--table-breath, 10px) * 2));
+            height: min(calc(86vh - var(--sat) - var(--sab) - var(--table-breath, 10px) * 2), calc(128vw - var(--table-breath, 10px) * 2));
             border-radius: 16px;
         }
         body.portrait-layout .bottom .avatar img {
@@ -12,32 +12,32 @@
         body.portrait-layout .bottom #flow-log {
             margin-top: 6px;
             min-height: 22px;
-            font-size: 11px;
+            font-size: 9px;
             padding: 2px 6px;
         }
         body.portrait-layout #discard-query-btn {
             top: calc(26% - 11.5px);
-            font-size: 10px;
+            font-size: 8px;
         }
         body.portrait-layout #wall-count {
-            font-size: 10px;
+            font-size: 8px;
         }
     }
     @media screen and (orientation: portrait) and (max-height: 580px) {
         body.portrait-layout #table-frame {
-            width: min(96vw, calc(78vh - var(--sat) - var(--sab)));
-            height: min(calc(90vh - var(--sat) - var(--sab)), 120vw);
+            width: min(calc(96vw - var(--table-breath, 10px) * 2), calc(78vh - var(--sat) - var(--sab) - var(--table-breath, 10px) * 2));
+            height: min(calc(90vh - var(--sat) - var(--sab) - var(--table-breath, 10px) * 2), calc(120vw - var(--table-breath, 10px) * 2));
             border-radius: 12px;
         }
         body.portrait-layout .bottom .hand .tile {
             width: 26px !important;
             height: 35px !important;
-            font-size: 26px !important;
+            font-size: 24px !important;
         }
         body.portrait-layout .bottom .hand {
             --tile-w: 26px;
             --tile-h: 35px;
-            --tile-fs: 26px;
+            --tile-fs: 24px;
         }
         body.portrait-layout {
             --hand-tile-h: 35px;
@@ -46,12 +46,12 @@
             width: 34px;
             height: 34px;
         }
-        body.portrait-layout #claim-indicator .claim-btn { font-size: 22px; }
-        body.portrait-layout #claim-indicator .claim-label { font-size: 11px; padding: 1px 8px; }
+        body.portrait-layout #claim-indicator .claim-btn { font-size: 20px; }
+        body.portrait-layout #claim-indicator .claim-label { font-size: 9px; padding: 1px 8px; }
     }
     @media screen and (orientation: portrait) and (max-width: 360px) {
         body.portrait-layout #table-frame {
-            width: min(98vw, 70vh);
+            width: min(calc(98vw - var(--table-breath, 10px) * 2), calc(70vh - var(--table-breath, 10px) * 2));
         }
         body.portrait-layout .bottom {
             max-width: 98%;
@@ -60,17 +60,17 @@
         body.portrait-layout #wall-count {
             left: 4px;
             top: 4px;
-            font-size: 10px;
+            font-size: 8px;
         }
         body.portrait-layout .stat-cell {
             width: 16px;
-            font-size: 10px;
+            font-size: 8px;
         }
     }
     /* 竖屏大屏：略放大牌桌，仍不超过视口 */
     @media screen and (orientation: portrait) and (min-height: 820px) and (min-width: 400px) {
         body.portrait-layout #table-frame {
-            width: min(90vw, 58vh);
-            height: min(80vh, 130vw);
+            width: min(calc(90vw - var(--table-breath, 10px) * 2), calc(58vh - var(--table-breath, 10px) * 2));
+            height: min(calc(80vh - var(--table-breath, 10px) * 2), calc(130vw - var(--table-breath, 10px) * 2));
         }
     }

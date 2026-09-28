@@ -3,6 +3,7 @@
         --gold: #d4af37;
         --gold-soft: rgba(212, 175, 55, 0.55);
         --gold-dim: rgba(212, 175, 55, 0.28);
+        --table-breath: 10px; /* 牌桌四周留白（呼吸量），滑杆可调 0~28px，JS 会按存档覆盖 */
         --ice: #8ec8f0;
         --text: #d6e4f0;
         --text-muted: #8aa0b5;
@@ -12,7 +13,7 @@
         /* 侧区牌面 = 手牌基准 29×39 的 66% */
         --side-tile-w: 19.14px;
         --side-tile-h: 25.74px;
-        --side-tile-fs: 19.14px;
+        --side-tile-fs: 17.14px;
         --side-tileback-w: 11.3px;
         --side-tileback-h: 16px;
         --side-tileback-fs: 7.3px;
@@ -99,7 +100,7 @@
     #claim-focus-tile .tile {
         width: 29px;
         height: 39px;
-        font-size: 29px;
+        font-size: 27px;
         border-radius: 5px;
         border: 1px solid rgba(180, 165, 120, 0.65);
         box-shadow:
@@ -117,5 +118,5 @@
     body.portrait-layout #claim-focus-tile .tile {
         width: 29px;
         height: 39px;
-        font-size: 29px;
+        font-size: 27px;
     }

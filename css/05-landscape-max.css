@@ -37,11 +37,11 @@
         html.is-android #img-display-badge,
         body.is-android #img-display-badge,
         html.is-android #wall-count-text,
-        body.is-android #wall-count-text { font-size: 9px; }
+        body.is-android #wall-count-text { font-size: 8px; }
         html.is-android #discard-query-btn,
-        body.is-android #discard-query-btn { font-size: 9px; }
+        body.is-android #discard-query-btn { font-size: 8px; }
         html.is-android #view-scale-btns button,
-        body.is-android #view-scale-btns button { font-size: 8px; min-width: 26px; }
+        body.is-android #view-scale-btns button { font-size: 7px; min-width: 26px; }
     }
     body.landscape-max #table-wrap {
         width: var(--app-width, 100%);

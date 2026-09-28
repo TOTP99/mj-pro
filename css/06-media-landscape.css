@@ -7,11 +7,11 @@
             border-radius: 12px;
         }
         .avatar img { width: 36px; height: 36px; }
-        .player-score { font-size: 10px; }
-        #wall-count { font-size: 10px; top: 5%; height: 88%; }
+        .player-score { font-size: 8px; }
+        #wall-count { font-size: 8px; top: 5%; height: 88%; }
         #discardWall { top: calc(5% + 1.3em + 12.87px); height: 50%; }
         .bottom { padding: 2px 4px 1px; }
-        #flow-log { font-size: 10px; min-height: 24px; padding: 2px 6px; }
+        #flow-log { font-size: 8px; min-height: 24px; padding: 2px 6px; }
         .result-box, .hu-box { max-height: min(88vh, 360px); }
     }
 
@@ -24,10 +24,10 @@
         .avatar img { width: 30px; height: 30px; }
         .left { left: calc(18% + 40px); top: calc(50% - 36px); }
         .right { right: calc(18% + 40px); top: calc(50% - 36px); }
-        #wall-count { width: 15%; font-size: 9px; }
+        #wall-count { width: 15%; font-size: 8px; }
         #discardWall { width: 15%; }
         .bottom .hand {
-            --tile-w: 26px; --tile-h: 34px; --tile-fs: 26px;
+            --tile-w: 26px; --tile-h: 34px; --tile-fs: 24px;
         }
         .bottom { --hand-tile-h: 34px; }
     }
@@ -40,8 +40,8 @@
             border-radius: 20px;
         }
         .avatar img { width: 48px; height: 48px; }
-        #wall-count { font-size: 12px; }
-        .stat-line { font-size: 12px; }
+        #wall-count { font-size: 10px; }
+        .stat-line { font-size: 10px; }
     }
 
     /* 竖屏兜底：仅在尚未挂上 portrait-layout 时生效（避免与竖屏专用布局冲突） */
@@ -50,13 +50,13 @@
             padding: 4px;
         }
         body:not(.portrait-layout) #table-frame {
-            width: min(96vw, 100vh);
-            height: min(72vh, 140vw);
+            width: min(calc(96vw - var(--table-breath, 10px) * 2), calc(100vh - var(--table-breath, 10px) * 2));
+            height: min(calc(72vh - var(--table-breath, 10px) * 2), calc(140vw - var(--table-breath, 10px) * 2));
             border-radius: 16px;
         }
         body:not(.portrait-layout) .left { left: calc(8% + 20px); top: calc(42% - 20px); }
         body:not(.portrait-layout) .right { right: calc(8% + 20px); top: calc(42% - 20px); }
-        body:not(.portrait-layout) #wall-count { width: 22%; left: 1%; top: 6%; height: 70%; font-size: 10px; }
+        body:not(.portrait-layout) #wall-count { width: 22%; left: 1%; top: 6%; height: 70%; font-size: 8px; }
         body:not(.portrait-layout) #discardWall { width: 22%; right: 1%; top: calc(6% + 1.3em + 12.87px); height: 48%; }
         body:not(.portrait-layout) .bottom { max-width: 98%; }
     }
@@ -64,10 +64,10 @@
     /* 很窄宽度（弹窗字号放大后，宽度相应放宽） */
     @media screen and (max-width: 520px) {
         #wall-count-row { gap: 2px 3px; }
-        #img-display-badge { font-size: 9px; }
-        #wall-count-text { font-size: 9px; }
-        #landscape-ctrl { font-size: 9px; }
-        #view-scale-btns button { font-size: 8px; padding: 2px 5px; min-width: 26px; }
+        #img-display-badge { font-size: 8px; }
+        #wall-count-text { font-size: 8px; }
+        #landscape-ctrl { font-size: 8px; }
+        #view-scale-btns button { font-size: 7px; padding: 2px 5px; min-width: 26px; }
         .result-box { width: min(88vw, 200px); }
         .hu-box { width: min(88vw, 240px); }
     }

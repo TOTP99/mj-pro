@@ -108,7 +108,7 @@
         border: 1px solid var(--gold);
         border-radius: 5px;
         background: transparent;
-        color: var(--text); font-size: 11px; font-weight: 600;
+        color: var(--text); font-size: 9px; font-weight: 600;
         letter-spacing: 0.12em; font-family: inherit;
         cursor: pointer; user-select: none;
         box-shadow: 0 0 8px rgba(212, 175, 55, 0.2);
@@ -144,7 +144,7 @@
         -webkit-backdrop-filter: blur(12px);
     }
     .hu-title {
-        font-size: 12px; font-weight: 700; letter-spacing: 0.08em;
+        font-size: 10px; font-weight: 700; letter-spacing: 0.08em;
         color: var(--ice); margin: 0 0 8px;
     }
     .hu-options {
@@ -157,7 +157,7 @@
         padding: 6px 10px; border-radius: 6px;
         border: 1px solid var(--gold-dim);
         background: transparent;
-        color: var(--text-muted); font-size: 12px; cursor: not-allowed;
+        color: var(--text-muted); font-size: 10px; cursor: not-allowed;
         transition: background 0.15s, border-color 0.15s, transform 0.12s;
     }
     .hu-opt.enabled {
@@ -171,7 +171,7 @@
     }
     .hu-opt.enabled:active { transform: scale(0.98); }
     .hu-opt .tile {
-        width: 18px; height: 24.5px; font-size: 16.5px; border-radius: 2px;
+        width: 18px; height: 24.5px; font-size: 14.5px; border-radius: 2px;
         cursor: inherit;
     }
     .hu-opt .tile-marker { height: 0; font-size: 0; }
@@ -180,7 +180,7 @@
         margin: 0; padding: 6px 14px; min-height: 32px; border-radius: 5px; cursor: pointer;
         border: 1px solid var(--gold);
         background: transparent;
-        color: var(--text); font-size: 12px; font-family: inherit;
+        color: var(--text); font-size: 10px; font-family: inherit;
         transition: background 0.15s, box-shadow 0.15s;
     }
     .hu-actions button:active {

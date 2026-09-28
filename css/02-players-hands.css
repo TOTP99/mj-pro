@@ -1,5 +1,5 @@
     .player { position: absolute; padding: 3px 6px; background: transparent; border: none;
-        text-align: center; font-size: 13px; color: var(--text); }
+        text-align: center; font-size: 11px; color: var(--text); }
     .top { top: 1%; left: 50%; transform: translateX(-50%); }
     .left { left: calc(20% + 54px); top: calc(50% - 48px); transform: translateY(-50%) rotate(90deg); }
     .right { right: calc(20% + 54px); top: calc(50% - 48px); transform: translateY(-50%) rotate(90deg); }
@@ -86,7 +86,7 @@
         position: relative; z-index: 8; pointer-events: auto;
     }
     .avatar {
-        font-size: 27px;
+        font-size: 25px;
         position: relative;
         display: inline-block;
         border-radius: 50%;
@@ -133,7 +133,7 @@
         border-radius: 999px;
         background: rgba(14, 22, 34, 0.55);
         color: var(--text-muted, #8a9bb0);
-        font-size: 14px;
+        font-size: 12px;
         line-height: 1;
         cursor: pointer;
         user-select: none;
@@ -187,13 +187,13 @@
         transition: opacity 0.2s ease;
     }
     .player-score {
-        font-size: 13.2px; font-weight: 700; letter-spacing: 0.02em;
+        font-size: 11.2px; font-weight: 700; letter-spacing: 0.02em;
         color: var(--ice); opacity: 0.95;
         text-shadow: 0 1px 2px rgba(0,0,0,0.45);
     }
     .hand { display: flex; flex-wrap: nowrap; gap: 1px; margin-top: 5px; justify-content: center; overflow: visible; }
     .bottom .hand {
-        --tile-w: 31px; --tile-h: 41px; --tile-fs: 31px;
+        --tile-w: 31px; --tile-h: 41px; --tile-fs: 29px;
         flex-wrap: nowrap; overflow-x: hidden; overflow-y: hidden; justify-content: center;
         width: 100%;
         -webkit-overflow-scrolling: touch;
@@ -207,14 +207,14 @@
     .bottom .hand .tileback { width: calc(var(--tile-w) * 0.59); height: calc(var(--tile-h) * 0.62); font-size: calc(var(--tile-fs) * 0.38); }
     .bottom .hand .tile-marker { font-size: calc(var(--tile-fs) * 0.34); height: calc(var(--tile-fs) * 0.41); }
     .tile-wrap { display: flex; flex-direction: column; align-items: center; flex-shrink: 0; }
-    .tile-marker { font-size: 11px; line-height: 1; height: 13px; color: var(--gold); }
+    .tile-marker { font-size: 9px; line-height: 1; height: 13px; color: var(--gold); }
     .tile {
         width: 31px; height: 41px; cursor: pointer; flex-shrink: 0; border-radius: 5px;
         background: linear-gradient(160deg, #fbfaf3 0%, #ece7d6 55%, #ddd6bd 100%);
         border: 1px solid rgba(180,165,120,0.55);
         box-shadow: 0 2px 3px rgba(0,0,0,0.4), inset 0 1px 1px rgba(255,255,255,0.85);
         display: flex; justify-content: center; align-items: center;
-        font-size: 31px; line-height: 1; color: #2a2a2a;
+        font-size: 29px; line-height: 1; color: #2a2a2a;
     }
     .tile.disabled { cursor: default; }
     .tile.exposed { opacity: 0.85; }
@@ -247,7 +247,7 @@
     #wall-count {
         position: absolute; top: 7%; left: 1.5%; width: 16%; height: 84%; z-index: 6;
         padding: 0;
-        font-size: 12px; color: #c5d4e0; text-align: left;
+        font-size: 10px; color: #c5d4e0; text-align: left;
         background: transparent;
         border: none;
         box-shadow: none;
@@ -259,10 +259,10 @@
     }
     #wall-count-gap { height: 12px; }
     #player-stats { display: flex; flex-direction: column; gap: 4px; }
-    .stat-line { font-size: 13px; line-height: 1.3; color: #c5d4e0; white-space: nowrap; letter-spacing: 0.02em; }
+    .stat-line { font-size: 11px; line-height: 1.3; color: #c5d4e0; white-space: nowrap; letter-spacing: 0.02em; }
     .stat-row { display: none; gap: 5px; }
-    .stat-cell { width: 19px; font-size: 12px; line-height: 1.3; color: #c5d4e0; }
-    .stat-row.avatar-row .stat-cell { font-size: 14px; }
+    .stat-cell { width: 19px; font-size: 10px; line-height: 1.3; color: #c5d4e0; }
+    .stat-row.avatar-row .stat-cell { font-size: 12px; }
     #table-wrap {
         position: relative;
         display: flex;
@@ -293,11 +293,11 @@
         height: 52px;
     }
     body.portrait-layout #wall-count {
-        font-size: 13px;
+        font-size: 11px;
     }
     body.portrait-layout .stat-line {
-        font-size: 14px;
+        font-size: 12px;
     }
     body.portrait-layout .player {
-        font-size: 14px;
+        font-size: 12px;
     }

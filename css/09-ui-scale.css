@@ -154,7 +154,7 @@ html.orient-changing #table-wrap {
     backdrop-filter: blur(8px);
     -webkit-backdrop-filter: blur(8px);
     color: var(--text, #e8eef6);
-    font-size: 12px;
+    font-size: 10px;
     line-height: 1.5;
     white-space: nowrap;
     overflow: hidden;

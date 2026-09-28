@@ -12,15 +12,15 @@
     }
     /* 高阶规则页分组 */
     .rules-group { margin: 12px 0; text-align: left; }
-    .rules-hint { font-size: 12px; opacity: 0.65; text-align: left; margin: 4px 0 0; line-height: 1.5; }
-    .rules-group-title { font-weight: bold; color: var(--gold); margin-bottom: 6px; font-size: 14px; }
+    .rules-hint { font-size: 10px; opacity: 0.65; text-align: left; margin: 4px 0 0; line-height: 1.5; }
+    .rules-group-title { font-weight: bold; color: var(--gold); margin-bottom: 6px; font-size: 12px; }
     .rule-row { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 8px 4px; border-bottom: 1px solid rgba(255,255,255,0.08); }
-    .rule-row .rule-name { font-size: 14px; }
+    .rule-row .rule-name { font-size: 12px; }
     /* 规则 是/否 二选（选中打勾） */
     .yn-seg { display: inline-flex; border: 1px solid rgba(212,175,55,0.45); border-radius: 6px; overflow: hidden; flex-shrink: 0; }
     .yn-seg button {
         background: transparent; border: none; border-radius: 0; margin: 0;
-        color: #c5d4e0; font-size: 14px; font-family: inherit;
+        color: #c5d4e0; font-size: 12px; font-family: inherit;
         padding: 7px 16px; min-height: 32px; cursor: pointer; white-space: nowrap;
     }
     .yn-seg button + button { border-left: 1px solid rgba(212,175,55,0.25); }
@@ -36,16 +36,16 @@
         font-family: inherit; cursor: pointer; text-align: left;
     }
     .mode-option:active { background: rgba(212,175,55,0.12); }
-    .mode-option .mode-check { width: 20px; flex-shrink: 0; font-size: 16px; font-weight: 700; color: var(--gold); }
+    .mode-option .mode-check { width: 20px; flex-shrink: 0; font-size: 14px; font-weight: 700; color: var(--gold); }
     .mode-option.cur .mode-check::before { content: '✓'; }
     .mode-option .mode-text { display: flex; flex-direction: column; gap: 2px; }
-    .mode-option .mode-text b { font-size: 14px; }
-    .mode-option .mode-text i { font-style: normal; font-size: 11px; opacity: 0.65; }
+    .mode-option .mode-text b { font-size: 12px; }
+    .mode-option .mode-text i { font-style: normal; font-size: 9px; opacity: 0.65; }
     /* 署名行按钮：模式选择 / 初始筹码（竖屏 #credit-label 内，接在署名后面） */
     #credit-label .credit-btn {
         pointer-events: auto;
         background: transparent; border: none; border-radius: 0;
-        color: var(--gold); font-size: 11px; font-weight: 600;
+        color: var(--gold); font-size: 9px; font-weight: 600;
         letter-spacing: 0.04em; font-family: inherit;
         margin: 0 0 0 12px; padding: 2px;
         cursor: pointer; white-space: nowrap; vertical-align: baseline;
@@ -55,13 +55,13 @@
     .credit-btn-ls {
         display: none;
         background: transparent; border: none; border-radius: 0;
-        color: var(--gold); font-size: 10px; font-weight: 600;
+        color: var(--gold); font-size: 8px; font-weight: 600;
         letter-spacing: 0.08em; font-family: inherit; line-height: 1.2;
         padding: 0 2px; cursor: pointer; white-space: nowrap; flex-shrink: 0;
     }
     .credit-btn-ls:active { opacity: 0.6; }
     /* 局数显示：跟在"初始筹码"按钮后面 */
-    .field-rounds { color: var(--gold); font-size: 11px; font-weight: 600; white-space: nowrap; margin-left: 6px; vertical-align: baseline; }
+    .field-rounds { color: var(--gold); font-size: 9px; font-weight: 600; white-space: nowrap; margin-left: 6px; vertical-align: baseline; }
     /* 横屏顶栏里的局数：竖屏隐藏，横屏跟按钮一起显示 */
     #field-count-ls { display: none; }
     /* 左侧顶栏：TP制作 + 牌墙 + 横屏调整；下方 扩大/缩小 */
@@ -73,7 +73,7 @@
         border: none;
         color: var(--gold);
         background: transparent;
-        font-size: 10px;
+        font-size: 8px;
         font-weight: 500;
         letter-spacing: 0.04em;
         white-space: nowrap;
@@ -95,7 +95,7 @@
     }
     #wall-count-text {
         margin-bottom: 0; color: #c5d4e0; font-weight: normal; letter-spacing: 0; text-align: center;
-        font-size: 10px; white-space: nowrap;
+        font-size: 8px; white-space: nowrap;
     }
     #landscape-ctrl {
         position: relative;
@@ -111,7 +111,7 @@
         background: transparent !important;
         box-shadow: none !important;
         color: var(--gold);
-        font-size: 10px;
+        font-size: 8px;
         font-weight: 600;
         letter-spacing: 0.08em;
         line-height: 1.2;
@@ -147,7 +147,7 @@
         border-radius: 4px;
         background: transparent;
         color: var(--text-muted);
-        font-size: 9px;
+        font-size: 8px;
         font-weight: 600;
         letter-spacing: 0.06em;
         font-family: inherit;
@@ -172,18 +172,43 @@
         opacity: 0.35;
         cursor: not-allowed;
     }
+    /* 呼吸量滑杆：金色细杆，与缩放按钮同一行 */
+    #breath-ctrl {
+        display: inline-flex; align-items: center; gap: 4px;
+        color: var(--text-muted); font-size: 8px; font-weight: 600; letter-spacing: 0.06em;
+        user-select: none;
+    }
+    #breath-slider {
+        -webkit-appearance: none; appearance: none;
+        width: 72px; height: 3px; margin: 0; padding: 0;
+        border-radius: 2px; background: rgba(212, 175, 55, 0.35);
+        outline: none; cursor: pointer;
+    }
+    #breath-slider::-webkit-slider-thumb {
+        -webkit-appearance: none; appearance: none;
+        width: 11px; height: 11px; border-radius: 50%;
+        background: var(--gold, #d4af37);
+        border: 1px solid rgba(0, 0, 0, 0.4);
+        box-shadow: 0 0 4px rgba(212, 175, 55, 0.6);
+    }
+    #breath-slider::-moz-range-thumb {
+        width: 11px; height: 11px; border-radius: 50%;
+        background: var(--gold, #d4af37);
+        border: 1px solid rgba(0, 0, 0, 0.4);
+        box-shadow: 0 0 4px rgba(212, 175, 55, 0.6);
+    }
     .tileback {
         width: 17px; height: 24px; border-radius: 3px; flex-shrink: 0;
         background: linear-gradient(145deg, #3a5a78, #1e3348);
         border: 1px solid rgba(120, 160, 200, 0.25);
         box-shadow: inset 0 0 4px rgba(0,0,0,0.45);
-        display: flex; justify-content: center; align-items: center; font-size: 11px;
+        display: flex; justify-content: center; align-items: center; font-size: 9px;
     }
     #flow-log {
         /* margin-top 不在这定：#flow-log 固定嵌在 .bottom 容器里，02里 .bottom #flow-log
            选择器权重更高、永远覆盖这里，写在这只会误导，实际值去 02 改 */
         min-height: 30px; padding: 3px 10px;
-        font-size: 12px; color: var(--text-muted); text-align: center;
+        font-size: 10px; color: var(--text-muted); text-align: center;
         letter-spacing: 0.03em; line-height: 1.4;
     }
     .active .avatar img {
@@ -211,7 +236,7 @@
         border: none;
         background: transparent;
         color: var(--gold);
-        font-size: 10px;
+        font-size: 8px;
         font-weight: 600;
         letter-spacing: 0.06em;
         font-family: inherit;
@@ -288,11 +313,11 @@
         margin-bottom: 7px; flex-shrink: 0;
     }
     .pool-box-title {
-        font-size: 10.5px; font-weight: 700; letter-spacing: 0.08em;
+        font-size: 8.5px; font-weight: 700; letter-spacing: 0.08em;
         color: var(--ice);
     }
     .pool-box-count {
-        font-size: 8px; color: var(--text-muted); margin-left: 6px; font-weight: 400;
+        font-size: 7px; color: var(--text-muted); margin-left: 6px; font-weight: 400;
     }
     .pool-box-close {
         border: 1px solid var(--gold-dim);
@@ -300,7 +325,7 @@
         color: var(--text-muted);
         border-radius: 5px;
         width: 18px; height: 18px;
-        line-height: 1; font-size: 11px;
+        line-height: 1; font-size: 9px;
         cursor: pointer;
         display: flex; align-items: center; justify-content: center;
         padding: 0; margin: 0;
@@ -336,7 +361,7 @@
         color: #2a2a2a;
         border: 1px solid rgba(180,165,120,0.55);
         border-radius: 5px;
-        font-size: 29px;
+        font-size: 27px;
         line-height: 1;
         box-shadow: 0 2px 3px rgba(0,0,0,0.4), inset 0 1px 1px rgba(255,255,255,0.85);
         justify-self: center;
@@ -345,7 +370,7 @@
         grid-column: 1 / -1;
         text-align: center;
         color: var(--text-muted);
-        font-size: 9px;
+        font-size: 8px;
         padding: 14px 0;
     }
 
@@ -382,7 +407,7 @@
     #claim-indicator .claim-btn {
         position: relative;
         display: inline-flex; align-items: center; justify-content: center;
-        cursor: pointer; font-size: 28px; line-height: 1; user-select: none;
+        cursor: pointer; font-size: 26px; line-height: 1; user-select: none;
         background: none; border: none; box-shadow: none;
         filter: drop-shadow(0 1px 2px rgba(0,0,0,0.45));
     }
@@ -394,7 +419,7 @@
         inset: -7px -4px;
     }
     #claim-indicator .claim-label {
-        font-size: 11px; color: var(--gold); font-weight: 700; letter-spacing: 0.12em;
+        font-size: 9px; color: var(--gold); font-weight: 700; letter-spacing: 0.12em;
         padding: 2px 9px;
         border: 1px solid var(--gold-dim);
         border-radius: 999px;
@@ -468,7 +493,7 @@
 
     /* 标题区 */
     .result-title {
-        font-size: 16px;
+        font-size: 14px;
         font-weight: 700;
         letter-spacing: 0.06em;
         color: var(--ice);
@@ -480,7 +505,7 @@
         display: inline-block;
         margin: 0 0 0 8px;
         padding: 2px 10px;
-        font-size: 11px;
+        font-size: 9px;
         color: var(--gold);
         background: transparent;
         border: 1px solid var(--gold-dim);
@@ -491,7 +516,7 @@
 
     /* 分区标签 */
     .result-label {
-        font-size: 10px;
+        font-size: 8px;
         color: var(--text-muted);
         text-align: left;
         margin: 6px 0 3px;
@@ -515,7 +540,7 @@
     .result-row .tile {
         width: 26px;
         height: 35px;
-        font-size: 22px;
+        font-size: 20px;
         border-radius: 4px;
         flex-shrink: 0;
     }
@@ -526,14 +551,14 @@
     .result-row .tileback {
         width: 20px;
         height: 28px;
-        font-size: 12px;
+        font-size: 10px;
         border-radius: 3px;
     }
 
     /* 番型/役种行 */
     .result-lines {
         text-align: left;
-        font-size: 11px;
+        font-size: 9px;
         margin-top: 5px;
         line-height: 1.35;
         color: var(--text-muted);
@@ -548,12 +573,12 @@
         border: 1px solid var(--gold-dim);
         color: var(--text);
         white-space: nowrap;
-        font-size: 11px;
+        font-size: 9px;
     }
 
     /* 总分 */
     .result-total {
-        font-size: 14px;
+        font-size: 12px;
         font-weight: 700;
         margin-top: 6px;
         color: var(--ice);
@@ -571,7 +596,7 @@
     /* 点数区：两列清晰显示 */
     .result-payouts {
         text-align: center;
-        font-size: 12px;
+        font-size: 10px;
         line-height: 1.35;
         display: grid;
         grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -600,7 +625,7 @@
         border: 1px solid var(--gold-dim);
         background: rgba(0,0,0,0.2);
         color: var(--text-muted);
-        font-size: 10px;
+        font-size: 8px;
         font-weight: 500;
         letter-spacing: 0.02em;
         vertical-align: middle;
@@ -618,12 +643,12 @@
     .result-payouts .payout-row .pname {
         flex: 1;
         text-align: left;
-        font-size: 13px;
+        font-size: 11px;
     }
     .result-payouts .payout-row .payout-btn {
         margin: 0;
         padding: 4px 8px;
-        font-size: 13px;
+        font-size: 11px;
         min-width: 28px;
         border-radius: 5px;
         border: 1px solid var(--gold);
@@ -643,7 +668,7 @@
         border: 1px solid var(--gold-dim);
         background: transparent;
         color: var(--text);
-        font-size: 14px;
+        font-size: 12px;
         text-align: right;
         font-family: inherit;
     }
@@ -655,7 +680,7 @@
 
     /* 调整提示 */
     .result-adjust-hint {
-        font-size: 11px;
+        font-size: 9px;
         color: var(--text-muted);
         margin: 8px 0 6px;
         text-align: left;
@@ -680,7 +705,7 @@
         border: 1px solid var(--gold);
         background: transparent;
         color: var(--text);
-        font-size: 13px;
+        font-size: 11px;
         font-family: inherit;
         transition: background 0.15s, box-shadow 0.15s;
     }
@@ -693,7 +718,7 @@
         background: transparent;
         border-color: var(--gold-dim);
         color: var(--text-muted);
-        font-size: 12px;
+        font-size: 10px;
         padding: 6px 12px;
     }
 
@@ -701,14 +726,14 @@
     @media (max-width: 380px) {
         .result-payouts {
             grid-template-columns: repeat(4, minmax(0, 1fr));
-            font-size: 11px;
+            font-size: 9px;
             gap: 3px;
         }
-        .result-payouts > div { padding: 5px 2px; font-size: 11px; }
+        .result-payouts > div { padding: 5px 2px; font-size: 9px; }
         .result-row .tile {
             width: 24px;
             height: 32px;
-            font-size: 20px;
+            font-size: 18px;
         }
     }
 
@@ -728,10 +753,10 @@
 
     /* ===== 竖屏专用：说明文字放大 ===== */
     body.portrait-layout #wall-count-text {
-        font-size: 12px;
+        font-size: 10px;
     }
     body.portrait-layout #flow-log {
-        font-size: 13px;
+        font-size: 11px;
     }
 /* ===== 结算弹窗：横屏限制高度，内容滚动，底部确定 sticky ===== */
 @media (orientation: landscape) {
@@ -781,7 +806,7 @@
     #result-modal .result-row .tile {
         width: 22px;
         height: 30px;
-        font-size: 18px;
+        font-size: 16px;
     }
 }
 
@@ -817,7 +842,7 @@
     #result-modal .result-row .tile {
         width: 24px;
         height: 32px;
-        font-size: 20px;
+        font-size: 18px;
     }
 
     /* 竖屏仍四家一行，节约纵向空间 */
@@ -871,12 +896,12 @@
     #result-modal .result-row .tile {
         width: 22px;
         height: 30px;
-        font-size: 18px;
+        font-size: 16px;
     }
 
     #result-modal .result-payouts {
         grid-template-columns: repeat(4, minmax(0, 1fr));
-        font-size: 10px;
+        font-size: 8px;
     }
 
     #result-modal .result-adjust-btns button,
@@ -919,7 +944,7 @@
     user-select: none;
 }
 .player-intro-title {
-    font-size: 10px;
+    font-size: 8px;
     font-weight: 700;
     letter-spacing: 0.06em;
     color: var(--ice);
@@ -927,7 +952,7 @@
     line-height: 1.3;
 }
 .player-intro-sub {
-    font-size: 10px;
+    font-size: 8px;
     font-weight: 600;
     letter-spacing: 0.04em;
     color: var(--gold);
@@ -935,7 +960,7 @@
     line-height: 1.35;
 }
 .player-intro-body {
-    font-size: 8px;
+    font-size: 7px;
     line-height: 1.6;
     color: var(--text);
     letter-spacing: 0.02em;
@@ -949,7 +974,7 @@
     background: rgba(10, 16, 26, .85);
     border: 1px solid var(--gold, #d4af37);
     color: var(--gold, #d4af37);
-    font-size: 17px; letter-spacing: 3px;
+    font-size: 15px; letter-spacing: 3px;
     opacity: 0; pointer-events: none;
     transition: opacity .35s ease, transform .35s ease;
 }
