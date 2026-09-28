@@ -455,13 +455,12 @@ function aiDiscard(player) {
                 const gTile = meld.tiles[0];
                 const robber = findRonPriority(player, gTile);
                 if (robber) {
-                    const ix = Game.hands[player].indexOf(gTile);
-                    if (ix > -1) Game.hands[player].splice(ix, 1);
                     if (robber === 'bottom') {
+                        // 抢杠的牌直接转给 bottom（offerHu 内原子完成），不在此先拆
                         Game.offerHu({ mode: 'dianpao', tile: gTile, fromPlayer: player, robGang: true });
                         return;
                     }
-                    Game.hands[robber].push(gTile);
+                    Game.TileFlow.transfer(player, robber, gTile);
                     Game.gameOver = true;
                     Game.winner = robber;
                     const before = [...Game.hands[robber]];
@@ -476,11 +475,7 @@ function aiDiscard(player) {
                     Game.showResultModal(robber, 'dianpao', player, bonus, result, gTile);
                     return;
                 }
-                const ix = Game.hands[player].indexOf(gTile);
-                if (ix > -1) Game.hands[player].splice(ix, 1);
-                meld.type = 'gang';
-                meld.tiles.push(gTile);
-                meld.concealed = false;
+                Game.TileFlow.addGang(player, gTile);
                 Game.logFlow(Game.nameOf(player) + ' 加杠 ' + Game.tileGlyph(gTile));
                 Game.speak('杠' + Game.tileName(gTile));
                 Game.render();
@@ -496,11 +491,7 @@ function aiDiscard(player) {
                 if (counts[t] >= 4) { gangTile = t; break; }
             }
             if (gangTile) {
-                for (let i = 0; i < 4; i++) {
-                    const ix = Game.hands[player].indexOf(gangTile);
-                    if (ix > -1) Game.hands[player].splice(ix, 1);
-                }
-                Game.exposedMelds[player].push({ type: 'gang', tiles: [gangTile, gangTile, gangTile, gangTile], concealed: true });
+                Game.TileFlow.meld(player, 'gang', [gangTile, gangTile, gangTile, gangTile], { concealed: true });
                 Game.logFlow(Game.nameOf(player) + ' 暗杠 ' + Game.tileGlyph(gangTile));
                 Game.speak('杠' + Game.tileName(gangTile));
                 Game.render();
@@ -511,9 +502,8 @@ function aiDiscard(player) {
     }
     // 保牌策略：孤立字牌 > 孤立中张(非4/5/6优先) > ... > 对子最后才拆，同等级优先选不点炮的
     const tile = chooseAiDiscardTile(hand, player);
-    hand.splice(hand.indexOf(tile), 1);
+    Game.TileFlow.discard(player, tile);
     Game.markKongDiscardIfNeeded(player);
-    Game.discardPile.push({ player, tile });
     Game.validateHandCounts('aiDiscard');
     Game.render();
     Game.speak(Game.tileName(tile));
@@ -525,8 +515,7 @@ function aiDiscard(player) {
         return;
     }
     if (ronPlayer) {
-        Game.discardPile.pop();
-        Game.hands[ronPlayer].push(tile);
+        Game.TileFlow.takeDiscardToHand(ronPlayer);
         Game.gameOver = true;
         Game.winner = ronPlayer;
         const before = [...Game.hands[ronPlayer]];
@@ -692,21 +681,19 @@ function findAiChi(discarder, tile) {
 }
 
 function aiPengClaim(p, tile) {
-    Game.discardPile.pop();
     Game.lastCallTurn[p] = Game.handTurnCount; // 归因细化：记这次碰/杠发生在第几巡
     const cnt = Game.hands[p].filter(x => x === tile).length;
     const useGang = cnt >= 3; // 凑齐3张暗的+这张，直接杠比碰更优
     const takeCount = useGang ? 3 : 2;
-    takeTilesFromHand(p, tile, takeCount);
+    Game.TileFlow.claim(p, useGang ? 'gang' : 'peng',
+        Array(takeCount).fill(tile), null, useGang ? { concealed: false } : undefined);
     Game.currentIndex = Game.turnOrder.indexOf(p);
     if (useGang) {
-        Game.exposedMelds[p].push({ type: 'gang', tiles: [tile, tile, tile, tile], concealed: false });
         Game.logFlow(Game.nameOf(p) + ' 杠了 ' + Game.tileGlyph(tile));
         Game.speak('杠' + Game.tileName(tile));
         Game.render();
         aiDrawReplacement(p);
     } else {
-        Game.exposedMelds[p].push({ type: 'peng', tiles: [tile, tile, tile] });
         Game.logFlow(Game.nameOf(p) + ' 碰了 ' + Game.tileGlyph(tile));
         Game.speak('碰' + Game.tileName(tile));
         Game.render();
@@ -716,14 +703,8 @@ function aiPengClaim(p, tile) {
 }
 
 function aiChiClaim(p, tile, combo) {
-    Game.discardPile.pop();
     Game.lastCallTurn[p] = Game.handTurnCount; // 归因细化：记这次吃发生在第几巡
-    combo.forEach(t => {
-        const idx = Game.hands[p].indexOf(t);
-        if (idx > -1) Game.hands[p].splice(idx, 1);
-    });
-    const meldTiles = [...combo, tile].sort(Game.tileCompare);
-    Game.exposedMelds[p].push({ type: 'chi', tiles: meldTiles });
+    Game.TileFlow.claim(p, 'chi', combo, Game.tileCompare);
     Game.currentIndex = Game.turnOrder.indexOf(p);
     Game.logFlow(Game.nameOf(p) + ' 吃了 ' + Game.tileGlyph(tile));
     Game.speak('吃' + Game.tileName(tile));
@@ -736,9 +717,8 @@ function aiChiClaim(p, tile, combo) {
 function aiDrawReplacement(p) {
     Game.setPhase(Game.PHASE.REPLACEMENT, 'aiDrawReplacement');
     if (Game.deck.length <= Game.DEAD_WALL) { Game.declareDraw(); return; }
-    const drawn = Game.deck.pop();
+    const drawn = Game.TileFlow.draw(p, 'replacement');
     const isLastTile = Game.deck.length === Game.DEAD_WALL;
-    Game.hands[p].push(drawn);
     Game.hands[p].sort(Game.tileCompare);
     Game.lastDrawnTile[p] = drawn;
     Game.lastDrawWasFinal[p] = isLastTile;
@@ -791,16 +771,6 @@ function checkClaimOrAdvance(player, tile) {
     resolveAiPengOrAdvance(player, tile);
 }
 
-/** 从指定玩家手牌里移除最多 count 张指定牌（自家/AI 碰杠共用，从末尾往前找） */
-function takeTilesFromHand(player, tile, count) {
-    let removed = 0;
-    const hand = Game.hands[player];
-    for (let i = hand.length - 1; i >= 0 && removed < count; i--) {
-        if (hand[i] === tile) { hand.splice(i, 1); removed++; }
-    }
-    return removed;
-}
-
 function advanceTurn() {
     if (Game.gameOver) return;
     Game.currentIndex = (Game.currentIndex + 1) % Game.turnOrder.length;
@@ -817,6 +787,5 @@ Game.findRonPriority = findRonPriority;
 Game.nextPlayerOf = nextPlayerOf;
 Game.resolveAiPengOrAdvance = resolveAiPengOrAdvance;
 Game.checkClaimOrAdvance = checkClaimOrAdvance;
-Game.takeTilesFromHand = takeTilesFromHand;
 
 ;})();

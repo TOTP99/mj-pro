@@ -28,7 +28,8 @@ function initGame() {
     Game.resetLastCallTurn();
     Game.handTurnCount = 0;
     Game.currentIndex = Game.turnOrder.indexOf(Game.dealer);
-    for (const p of Game.PLAYERS) Game.hands[p] = Game.deck.splice(0, 13).sort(tileCompare);
+    Game.resetFlowLog();
+    Game.TileFlow.deal(tileCompare);
     Game.markDealer();
     Game.render();
     logFlow('发牌完成，游戏开始');
@@ -184,14 +185,12 @@ function pickAdvancedRevealKind(player, firstTurn) {
 function applyReveal(player, kind) {
     Game.windDragonBonus[player] = true;
     const tiles = kind === 'winds' ? ['1字', '2字', '3字', '4字'] : ['5字', '6字', '7字'];
-    tiles.forEach(t => { Game.hands[player].splice(Game.hands[player].indexOf(t), 1); });
-    Game.exposedMelds[player].push({ type: kind, tiles: [...tiles] });
+    Game.TileFlow.meld(player, kind, tiles);
     logFlow(Game.nameOf(player) + (kind === 'winds' ? ' 亮出东南西北' : ' 亮出中发白') + '（算幺九+刻子，不算开门）');
     speak('亮牌');
     if (kind === 'dragons') { Game.render(); return true; } // 3张，不用补牌
     if (Game.deck.length <= DEAD_WALL) { declareDraw(); return false; }
-    const drawn = Game.deck.pop();
-    Game.hands[player].push(drawn);
+    const drawn = Game.TileFlow.draw(player, 'revealDraw');
     Game.hands[player].sort(tileCompare);
     Game.lastDrawnTile[player] = drawn;
     Game.lastDrawWasFinal[player] = Game.deck.length === DEAD_WALL;
@@ -299,9 +298,7 @@ function executeSelfGang() {
         // 抢杠检查
         const robber = Game.findRonPriority('bottom', tile);
         if (robber && robber !== 'bottom') {
-            const idx = Game.hands.bottom.indexOf(tile);
-            if (idx > -1) Game.hands.bottom.splice(idx, 1);
-            Game.hands[robber].push(tile);
+            Game.TileFlow.transfer('bottom', robber, tile);
             Game.gameOver = true;
             Game.winner = robber;
             const before = [...Game.hands[robber]];
@@ -317,15 +314,7 @@ function executeSelfGang() {
             Game.showResultModal(robber, 'dianpao', 'bottom', bonus, result, tile);
             return;
         }
-        const idx = Game.hands.bottom.indexOf(tile);
-        if (idx > -1) Game.hands.bottom.splice(idx, 1);
-        for (const meld of Game.exposedMelds.bottom) {
-            if (meld.type === 'peng' && meld.tiles[0] === tile) {
-                meld.type = 'gang';
-                meld.tiles.push(tile);
-                break;
-            }
-        }
+        Game.TileFlow.addGang('bottom', tile);
         logFlow('你加杠了 ' + Game.tileGlyph(tile) + '，补牌中...');
         speak('杠' + Game.tileName(tile));
         Game.render();
@@ -334,11 +323,7 @@ function executeSelfGang() {
     }
     // 暗杠
     if (Game.exposedMelds.bottom.length >= 3) { logFlow('穷胡规则：不能手把一，最后一组必须留在手里'); return; }
-    for (let i = 0; i < 4; i++) {
-        const idx = Game.hands.bottom.indexOf(tile);
-        if (idx > -1) Game.hands.bottom.splice(idx, 1);
-    }
-    Game.exposedMelds.bottom.push({ type: 'gang', tiles: [tile, tile, tile, tile], concealed: true });
+    Game.TileFlow.meld('bottom', 'gang', [tile, tile, tile, tile], { concealed: true });
     logFlow('你暗杠了 ' + Game.tileGlyph(tile) + '，补牌中...');
     speak('杠' + Game.tileName(tile));
     Game.render();
@@ -351,8 +336,7 @@ function nextTurn() {
     Game.setPhase(Game.PHASE.DRAW, 'nextTurn');
     Game.handTurnCount++;
     const player = Game.turnOrder[Game.currentIndex];
-    const drawn = Game.deck.pop();
-    Game.hands[player].push(drawn);
+    const drawn = Game.TileFlow.draw(player, 'draw');
     Game.hands[player].sort(tileCompare);
     Game.lastDrawnTile[player] = drawn;
     Game.lastDrawWasFinal[player] = Game.deck.length === DEAD_WALL;

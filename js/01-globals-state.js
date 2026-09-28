@@ -315,7 +315,84 @@ function checkTileConservation(reason) {
     return false;
 }
 
-// 全部 JS 按 01→15 顺序加载、共享全局作用域（无 module）；各文件职责见 README.md 的目录/改哪里表。
+// ---------- TileFlow：统一牌流转（三期） ----------
+// 所有牌的移动（发牌/摸牌/出牌/吃碰杠/补牌/亮牌/抢杠/加杠/暗杠/荣和）都走这里：
+// 一次移动 = 一次记录（flowLog） + 一次 136 守恒检查（只 warn、不拦截）。
+// 只搬牌、不决策：调用方原有的判断、排序、UI、音效、结算逻辑一字不动。
+// 每个操作都是原子的（总数不变），中途不做检查，杜绝误报。
+Game.flowLog = []; // 最近 60 次牌移动，定位"牌去哪了"用
+const FLOW_LOG_MAX = 60;
+/** 从手牌数组里移除 count 张指定牌（从末尾往前找，与原 takeTilesFromHand 完全一致） */
+function takeTilesFromHandArr(hand, tile, count) {
+    let removed = 0;
+    for (let i = hand.length - 1; i >= 0 && removed < count; i--) {
+        if (hand[i] === tile) { hand.splice(i, 1); removed++; }
+    }
+    return removed;
+}
+function logFlowMove(op, info) {
+    Game.flowLog.push(Object.assign({ op }, info));
+    if (Game.flowLog.length > FLOW_LOG_MAX) Game.flowLog.shift();
+    checkTileConservation('flow:' + op);
+}
+Game.TileFlow = {
+    // 发牌：每家 13 张（原 initGame 的 deck.splice + sort，原样搬入）
+    deal(sortFn) {
+        for (const p of PLAYERS) Game.hands[p] = Game.deck.splice(0, 13).sort(sortFn);
+        logFlowMove('deal', {});
+    },
+    // 摸牌：deck.pop → 手牌.push，返回摸到的牌（op 区分 draw/replacement/revealDraw）
+    draw(player, op) {
+        const tile = Game.deck.pop();
+        Game.hands[player].push(tile);
+        logFlowMove(op || 'draw', { player, tile });
+        return tile;
+    },
+    // 出牌：手牌.splice → 弃牌堆.push
+    discard(player, tile) {
+        takeTilesFromHandArr(Game.hands[player], tile, 1);
+        Game.discardPile.push({ player, tile });
+        logFlowMove('discard', { player, tile });
+    },
+    // 荣和：弃牌堆顶 → 某家手牌（原子）
+    takeDiscardToHand(player) {
+        const e = Game.discardPile.pop();
+        Game.hands[player].push(e.tile);
+        logFlowMove('ron', { player, tile: e.tile, from: e.player });
+        return e.tile;
+    },
+    // 手牌间转移：from 手牌 → to 手牌（抢杠，原子）
+    transfer(from, to, tile) {
+        takeTilesFromHandArr(Game.hands[from], tile, 1);
+        Game.hands[to].push(tile);
+        logFlowMove('transfer', { from, to, tile });
+    },
+    // 明组：手牌 → 副露（暗杠/亮牌；tiles 全来自手牌）
+    meld(player, type, tiles, extra) {
+        for (const t of tiles) takeTilesFromHandArr(Game.hands[player], t, 1);
+        Game.exposedMelds[player].push(Object.assign({ type, tiles: [...tiles] }, extra));
+        logFlowMove('meld', { player, type, tiles: [...tiles] });
+    },
+    // 吃碰杠：弃牌堆顶 + 手牌 handTiles → 副露（原子；sortFn 用于吃的排序）
+    claim(player, type, handTiles, sortFn, extra) {
+        const e = Game.discardPile.pop();
+        for (const t of handTiles) takeTilesFromHandArr(Game.hands[player], t, 1);
+        const meldTiles = [...handTiles, e.tile];
+        if (sortFn) meldTiles.sort(sortFn);
+        Game.exposedMelds[player].push(Object.assign({ type, tiles: meldTiles }, extra));
+        logFlowMove('claim', { player, type, tile: e.tile, from: e.player });
+        return meldTiles;
+    },
+    // 加杠：手牌 1 张 → 自己的碰组（peng→gang，原子）
+    addGang(player, tile) {
+        takeTilesFromHandArr(Game.hands[player], tile, 1);
+        for (const m of Game.exposedMelds[player]) {
+            if (m.type === 'peng' && m.tiles[0] === tile) { m.type = 'gang'; m.tiles.push(tile); break; }
+        }
+        logFlowMove('addGang', { player, tile });
+    },
+};
+Game.resetFlowLog = function () { Game.flowLog = []; };
 
 // 渲染左侧空地里的状态面板：每位玩家一行，横着写 头像图标 风位 奖杯 庄家 听牌提示（例如 [头像] 西 ★ 庄 听）
 function renderStatRow(elId, cellFor) {

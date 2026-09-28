@@ -36,9 +36,9 @@ function offerHu(ctx) {
     if (ctx.mode === 'dianpao') {
         winTile = ctx.tile;
         before = [...Game.hands.bottom];
-        // 抢杠：这张牌是从 AI 手里被加杠的牌，并不在弃牌堆里，不能 pop（否则会误删一张无关弃牌）
-        if (!ctx.robGang) Game.discardPile.pop();
-        Game.hands.bottom.push(ctx.tile);
+        // 抢杠：这张牌从 AI 手里直接转给你；普通点炮：弃牌堆顶拿给你（原子操作）
+        if (ctx.robGang) Game.TileFlow.transfer(ctx.fromPlayer, 'bottom', ctx.tile);
+        else Game.TileFlow.takeDiscardToHand('bottom');
         isSelfDraw = false;
         isLastTile = false;
         payer = ctx.fromPlayer;
@@ -70,9 +70,7 @@ function offerHu(ctx) {
 function callPeng() {
     if (!Game.pendingClaim || !Game.pendingClaim.canPeng) { Game.logFlow('现在不能碰'); return; }
     const { tile, fromPlayer } = Game.pendingClaim;
-    Game.discardPile.pop(); // 这张牌被拿走，不再留在弃牌堆
-    Game.takeTilesFromHand('bottom', tile, 2);
-    Game.exposedMelds.bottom.push({ type: 'peng', tiles: [tile, tile, tile] });
+    Game.TileFlow.claim('bottom', 'peng', [tile, tile]);
     Game.pendingClaim = null;
     Game.currentIndex = Game.turnOrder.indexOf('bottom');
     Game.hideIndicator();
@@ -119,13 +117,7 @@ function closeChiChoice() {
 
 function executeChi(combo) {
     const { tile } = Game.pendingClaim;
-    Game.discardPile.pop();
-    combo.forEach(t => {
-        const idx = Game.hands.bottom.indexOf(t);
-        if (idx > -1) Game.hands.bottom.splice(idx, 1);
-    });
-    const meldTiles = [...combo, tile].sort(Game.tileCompare);
-    Game.exposedMelds.bottom.push({ type: 'chi', tiles: meldTiles });
+    Game.TileFlow.claim('bottom', 'chi', combo, Game.tileCompare);
     Game.pendingClaim = null;
     Game.currentIndex = Game.turnOrder.indexOf('bottom');
     Game.hideIndicator();
@@ -164,9 +156,7 @@ function callGang() {
     // 加杠/暗杠走 executeSelfGang，不在此重复
     if (!Game.pendingClaim || !Game.pendingClaim.canGang) { Game.logFlow('现在不能杠'); return; }
     const { tile, fromPlayer } = Game.pendingClaim;
-    Game.discardPile.pop();
-    Game.takeTilesFromHand('bottom', tile, 3);
-    Game.exposedMelds.bottom.push({ type: 'gang', tiles: [tile, tile, tile, tile], concealed: false });
+    Game.TileFlow.claim('bottom', 'gang', [tile, tile, tile], null, { concealed: false });
     Game.pendingClaim = null;
     Game.currentIndex = Game.turnOrder.indexOf('bottom');
     Game.hideIndicator();
@@ -180,8 +170,7 @@ function callGang() {
 function drawReplacementAndContinue() {
     Game.setPhase(Game.PHASE.REPLACEMENT, 'drawReplacementAndContinue');
     if (Game.deck.length <= Game.DEAD_WALL) { Game.declareDraw(); return; }
-    const drawn = Game.deck.pop();
-    Game.hands.bottom.push(drawn);
+    const drawn = Game.TileFlow.draw('bottom', 'replacement');
     Game.hands.bottom.sort(Game.tileCompare);
     Game.lastDrawnTile.bottom = drawn;
     Game.lastDrawWasFinal.bottom = Game.deck.length === Game.DEAD_WALL;
@@ -226,9 +215,8 @@ function handleDiscard(event) {
 
     // 再次点同一张：真正打出
     const card = Game.hands.bottom[idx];
-    Game.hands.bottom.splice(idx, 1);
+    Game.TileFlow.discard('bottom', card);
     Game.markKongDiscardIfNeeded('bottom');
-    Game.discardPile.push({ player: 'bottom', tile: card });
     Game.selectedIndex = null;
     Game.lastDrawnIndex = null;
     Game.speak(Game.tileName(card));
@@ -239,8 +227,7 @@ function handleDiscard(event) {
     // 检查是否有AI能胡你打出的这张牌
     const ronPlayer = Game.findRonPriority('bottom', card);
     if (ronPlayer) {
-        Game.discardPile.pop();
-        Game.hands[ronPlayer].push(card);
+        Game.TileFlow.takeDiscardToHand(ronPlayer);
         Game.gameOver = true;
         Game.winner = ronPlayer;
         const before = [...Game.hands[ronPlayer]];
