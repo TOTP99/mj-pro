@@ -38,11 +38,16 @@
 
 <div id="mode-select-modal">
     <div class="hu-box">
-        <div class="hu-title">选择模式</div>
-        <div class="result-label" style="margin-top:0; text-align:center;">日常：经典玩法不变<br>高阶：自定义规则</div>
-        <div class="hu-actions" style="flex-direction:column; gap:10px;">
-            <button onclick="chooseMode('daily')" style="width:100%;">日常模式</button>
-            <button onclick="chooseMode('advanced')" style="width:100%;">高阶模式</button>
+        <div class="hu-title">模式选择</div>
+        <div class="mode-options">
+            <button type="button" class="mode-option" data-mode="daily" onclick="chooseMode('daily')">
+                <span class="mode-check" aria-hidden="true"></span>
+                <span class="mode-text"><b>日常模式</b><i>经典玩法不变</i></span>
+            </button>
+            <button type="button" class="mode-option" data-mode="advanced" onclick="chooseMode('advanced')">
+                <span class="mode-check" aria-hidden="true"></span>
+                <span class="mode-text"><b>高阶模式</b><i>自定义规则</i></span>
+            </button>
         </div>
     </div>
 </div>
@@ -52,19 +57,19 @@
         <div class="hu-title">高阶规则</div>
         <div class="rules-group">
             <div class="rules-group-title">胡牌要求</div>
-            <label class="rule-row"><span>开门（须碰/吃/明杠）</span><input type="checkbox" id="rule-kaimen" onchange="onRuleToggle('kaimen', this.checked)"></label>
-            <label class="rule-row"><span>平胡（无刻子可胡）</span><input type="checkbox" id="rule-pinghu" onchange="onRuleToggle('pinghu', this.checked)"></label>
-            <label class="rule-row"><span>幺九（须含1/9/字）</span><input type="checkbox" id="rule-yaojiu" onchange="onRuleToggle('yaojiu', this.checked)"></label>
-            <label class="rule-row"><span>三门齐</span><input type="checkbox" id="rule-sanmenqi" onchange="onRuleToggle('sanmenqi', this.checked)"></label>
+            <div class="rule-row" data-rule="kaimen"><span class="rule-name">开门（须碰/吃/明杠）</span><span class="yn-seg"><button type="button" data-yn="1" onclick="setRuleYN('kaimen',true)">是</button><button type="button" data-yn="0" onclick="setRuleYN('kaimen',false)">否</button></span></div>
+            <div class="rule-row" data-rule="pinghu"><span class="rule-name">平胡（无刻子可胡）</span><span class="yn-seg"><button type="button" data-yn="1" onclick="setRuleYN('pinghu',true)">是</button><button type="button" data-yn="0" onclick="setRuleYN('pinghu',false)">否</button></span></div>
+            <div class="rule-row" data-rule="yaojiu"><span class="rule-name">幺九（须含1/9/字）</span><span class="yn-seg"><button type="button" data-yn="1" onclick="setRuleYN('yaojiu',true)">是</button><button type="button" data-yn="0" onclick="setRuleYN('yaojiu',false)">否</button></span></div>
+            <div class="rule-row" data-rule="sanmenqi"><span class="rule-name">三门齐</span><span class="yn-seg"><button type="button" data-yn="1" onclick="setRuleYN('sanmenqi',true)">是</button><button type="button" data-yn="0" onclick="setRuleYN('sanmenqi',false)">否</button></span></div>
         </div>
         <div class="rules-group">
             <div class="rules-group-title">亮牌</div>
-            <label class="rule-row"><span>中发白允许亮牌</span><input type="checkbox" id="rule-revealDragons" onchange="onRuleToggle('revealDragons', this.checked)"></label>
-            <label class="rule-row"><span>东南西北允许亮牌</span><input type="checkbox" id="rule-revealWinds" onchange="onRuleToggle('revealWinds', this.checked)"></label>
+            <div class="rule-row" data-rule="revealDragons"><span class="rule-name">中发白允许亮牌</span><span class="yn-seg"><button type="button" data-yn="1" onclick="setRuleYN('revealDragons',true)">是</button><button type="button" data-yn="0" onclick="setRuleYN('revealDragons',false)">否</button></span></div>
+            <div class="rule-row" data-rule="revealWinds"><span class="rule-name">东南西北允许亮牌</span><span class="yn-seg"><button type="button" data-yn="1" onclick="setRuleYN('revealWinds',true)">是</button><button type="button" data-yn="0" onclick="setRuleYN('revealWinds',false)">否</button></span></div>
         </div>
         <div class="rules-group">
             <div class="rules-group-title">特殊牌型</div>
-            <label class="rule-row"><span>七小对允许胡</span><input type="checkbox" id="rule-sevenPairs" onchange="onRuleToggle('sevenPairs', this.checked)"></label>
+            <div class="rule-row" data-rule="sevenPairs"><span class="rule-name">七小对允许胡</span><span class="yn-seg"><button type="button" data-yn="1" onclick="setRuleYN('sevenPairs',true)">是</button><button type="button" data-yn="0" onclick="setRuleYN('sevenPairs',false)">否</button></span></div>
         </div>
         <div class="hu-actions">
             <button onclick="confirmRules()">开始</button>
@@ -75,12 +80,13 @@
 
 <div id="amount-modal">
     <div class="hu-box">
-        <div class="hu-title">选择初始金额</div>
+        <div class="hu-title">初始筹码</div>
         <div class="result-label" style="margin-top:0; text-align:center;">四家以此金额开场</div>
         <div class="hu-actions" style="flex-direction:column; gap:10px;">
             <button onclick="chooseAmount(50)" style="width:100%;">50</button>
             <button onclick="chooseAmount(100)" style="width:100%;">100</button>
             <button onclick="chooseAmount('custom')" style="width:100%;">自定义</button>
+            <button onclick="closeAmountModal()" style="width:100%;">取消</button>
         </div>
     </div>
 </div>
@@ -216,9 +222,10 @@
         <div id="wall-count-header">
             <div id="wall-count-row">
                 <span id="img-display-badge" title="TP制作">TP制作</span>
+                <button type="button" class="credit-btn-ls" onclick="event.stopPropagation();openModeSelect()">模式选择</button>
+                <button type="button" class="credit-btn-ls" onclick="event.stopPropagation();openAmountSelect()">初始筹码</button>
                 <span id="wall-count-text"></span>
                 <button type="button" id="landscape-ctrl" title="横屏最大化" onclick="event.stopPropagation();toggleLandscapeMaximize()">横屏最大</button>
-                <button type="button" id="mode-switch-btn" title="切换日常/高阶模式" onclick="event.stopPropagation();openModeSelect()">模式</button>
             </div>
             <div id="view-scale-btns">
                 <button type="button" id="btn-view-zoom-out" title="整体缩小5%（相对原始大小）" onclick="event.stopPropagation();adjustViewScale(-VIEW_SCALE_STEP)">缩小</button>
