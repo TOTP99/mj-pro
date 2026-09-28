@@ -83,35 +83,28 @@ function hideModal(id) { const el = Game.$(id); if (el) el.classList.remove('sho
     位置取四头像中心连成的菱形正中心（实时计算，替代固定的 50%/50%） */
 function placePromptAtDiamondCenter() {
     const el = Game.$('table-center-prompt');
-    if (!el) return;
-    const parent = el.offsetParent; // #table-frame（position:relative）
-    if (!parent) return;
-    const xs = [], ys = [];
+    const frame = Game.$('table-frame');
+    if (!el || !frame) return;
+    // 头像用 getBoundingClientRect 取可视中心：自带玩家座位的
+    // translate/rotate transform，也自带 #table-wrap 的缩放。
+    // 提示条是 #table-frame 的子元素，style.left/top 属于 frame 本地（未缩放）坐标系，
+    // 因此用"可视中心 − frame 可视原点，再除以渲染缩放"换算回去。
+    // 缩放 = frame 渲染宽度 ÷ 布局宽度（不解析 transform 矩阵，稳）。
+    const fr = frame.getBoundingClientRect();
+    const scale = (frame.offsetWidth > 0) ? (fr.width / frame.offsetWidth) : 1;
+    let sx = 0, sy = 0, n = 0;
     ['top', 'left', 'right', 'bottom'].forEach(function (p) {
         const host = document.getElementById('p-' + p);
         const av = host ? host.querySelector('.avatar') : null;
         if (!av) return;
-        // 沿 offsetParent 链累加，得到头像中心在 parent 局部坐标系中的位置。
-        // offset* 是未经 transform 的布局值，和 el.style.left/top 属同一坐标系，
-        // 因此 #table-wrap 的 scale(var(--view-scale)) 缩放（横屏 autoFit）不会带偏定位。
-        // 旧版用 getBoundingClientRect（视口坐标、已缩放）直接换算，在缩放≠1 时错位。
-        // guard：真 DOM 链一般 < 20 层，64 是熔断（防异常 DOM 自指/桩环境死循环）。
-        let x = 0, y = 0, node = av, ok = false, guard = 0;
-        while (node && guard++ < 64) {
-            if (node === parent) { ok = true; break; }
-            x += node.offsetLeft; y += node.offsetTop;
-            const next = node.offsetParent;
-            if (!next || next === node) break;
-            node = next;
-        }
-        if (!ok || !(av.offsetWidth > 0)) return;
-        xs.push(x + av.offsetWidth / 2); ys.push(y + av.offsetHeight / 2);
+        const r = av.getBoundingClientRect();
+        if (!(r.width > 0) || !(r.height > 0)) return;
+        sx += r.left + r.width / 2; sy += r.top + r.height / 2; n++;
     });
-    if (xs.length < 4) return; // 头像不全或不在同一坐标系，保持 CSS 默认位置
-    // 菱形中心 = 四顶点坐标平均（= 任一条对角线中点）；
-    // CSS translate(-50%,-50%) 让提示条中心正好落在此点
-    el.style.left = ((xs[0] + xs[1] + xs[2] + xs[3]) / 4) + 'px';
-    el.style.top = ((ys[0] + ys[1] + ys[2] + ys[3]) / 4) + 'px';
+    if (n < 4 || !(scale > 0)) return; // 头像不全，保持 CSS 默认位置
+    // 菱形中心 = 四可视中心点坐标平均；CSS translate(-50%,-50%) 让提示条中心落在此点
+    el.style.left = ((sx / n - fr.left) / scale) + 'px';
+    el.style.top = ((sy / n - fr.top) / scale) + 'px';
 }
 Game.placePromptAtDiamondCenter = placePromptAtDiamondCenter;
 function showTablePrompt(text) {

@@ -268,7 +268,6 @@ function syncBodyScrollLock() {
         body.style.top = '';
         delete body.dataset.scrollY;
         window.scrollTo(0, y);
-        if (typeof Game.scheduleAutoFitBurst === 'function') Game.scheduleAutoFitBurst(); // 弹窗期间跳过的自动适配，关闭后补做
     }
 }
 (function watchModalsForScrollLock() {
@@ -282,38 +281,25 @@ function syncBodyScrollLock() {
 })();
 
 
-/** 按住牌桌上下拖动：平移整个界面（不改规则逻辑） */
-const VIEW_PAN_STORAGE_KEY = 'qionghu_mahjong_view_pan_y_v1';
+/** 按住牌桌上下拖动：平移整个界面（不改规则逻辑）；不持久化，刷新恢复默认 */
 const VIEW_PAN_MAX = 180; /* px，相对中心上下限 */
 Game.viewPanY = 0;
 Game.panDrag = null; // { startY, startPan }
 
-function loadSavedViewPan() {
-    try {
-        const raw = localStorage.getItem(VIEW_PAN_STORAGE_KEY);
-        if (raw == null) return 0;
-        const n = parseFloat(raw);
-        return isFinite(n) ? n : 0;
-    } catch (e) { return 0; }
-}
-// persist=true 才写 localStorage：拖动过程中每次 pointermove 都同步写盘会造成卡顿，
-// 所以拖动时只更新 CSS 变量，松手（onEnd）时再存一次
-function applyViewPan(persist) {
+/* persist 参数已删：拖动只更新 CSS 变量，刷新即恢复默认 */
+function applyViewPan() {
     Game.viewPanY = Math.max(-VIEW_PAN_MAX, Math.min(VIEW_PAN_MAX, Game.viewPanY));
     document.documentElement.style.setProperty('--view-pan-y', Game.viewPanY.toFixed(1) + 'px');
-    if (persist) {
-        try { localStorage.setItem(VIEW_PAN_STORAGE_KEY, String(Game.viewPanY)); } catch (e) {}
-    }
 }
 function initTablePan() {
     const wrap = document.getElementById('table-wrap');
     const frame = document.getElementById('table-frame');
     if (!wrap || !frame) return;
-    Game.viewPanY = loadSavedViewPan();
-    applyViewPan(false);
+    Game.viewPanY = 0;
+    applyViewPan();
 
     const isInteractive = (t) => !!(t && t.closest && t.closest(
-        '.tile, .tileback, .discardTile, .pool-tile, .player-label, button, .meld-group, #claim-indicator, #wall-count, #landscape-ctrl, #discard-query-btn, #discardWall, #pool-modal, #result-modal, #reveal-modal, #chi-choice-modal, #player-intro-modal, img, .claim-btn, .reset-btn, .avatar, input'
+        '.tile, .tileback, .discardTile, .pool-tile, .player-label, button, .meld-group, #claim-indicator, #wall-count, #discard-query-btn, #discardWall, #pool-modal, #result-modal, #reveal-modal, #chi-choice-modal, #player-intro-modal, img, .claim-btn, .reset-btn, .avatar, input'
     ));
 
     const onStart = (clientY, target) => {
@@ -327,13 +313,13 @@ function initTablePan() {
         if (!Game.panDrag) return;
         const dy = clientY - Game.panDrag.startY;
         Game.viewPanY = Game.panDrag.startPan + dy;
-        applyViewPan(false);
+        applyViewPan();
     };
     const onEnd = () => {
         if (!Game.panDrag) return;
         Game.panDrag = null;
         wrap.classList.remove('panning');
-        applyViewPan(true);
+        applyViewPan();
     };
 
     frame.addEventListener('pointerdown', (e) => {
@@ -365,22 +351,11 @@ document.addEventListener('contextmenu', (e) => {
     }
 }, true);
 Game.initDicePips();
-// 先按原始比例量一次桌面，记下「正常大小」，再应用（可能已保存的）缩放
+// 横屏 default = 一直以来的原始大小（--view-scale:1）；黄线滑杆/按住拖动都不持久化，刷新即默认
 Game.viewScale = Game.ORIGINAL_VIEW_SCALE;
+Game.viewPanY = 0;
 document.documentElement.style.setProperty('--view-scale', '1');
-setTimeout(() => {
-    Game.captureOriginalViewSize();
-    if (Game.AUTO_FIT_LANDSCAPE) {
-        // 横屏自动适配接管：不再读取以前手动保存的缩放/平移，按当前可视区域自动算（竖屏不处理）
-        Game._autoFitReady = true;
-        Game.autoFitLandscapeView();
-        Game.scheduleAutoFitBurst();
-    } else {
-        Game.viewScale = Game.loadSavedViewScale();
-        Game.applyViewScale();
-    }
-    try { Game.syncBreathSlider(); } catch (e) {} // 呼吸滑杆初值与存档对齐
-}, 0);
+document.documentElement.style.setProperty('--view-pan-y', '0px');
 // 启动：等 DOMContentLoaded（此时全部 17 个脚本已执行完）再决定恢复存档还是显示模式选择。
 // 4.1 修：resumeFromSave 会走渲染链路，依赖 16/17 的规则函数；之前在 13 加载时同步执行，
 // Game.ruleAllowsSevenPairs 等尚不存在，渲染抛出的 TypeError 会中断本文件尾部的导出，

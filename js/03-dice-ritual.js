@@ -96,7 +96,7 @@ function onTableTap(e) {
     if (Game.$('result-modal').classList.contains('show')) return;
     if (Game.$('reveal-modal').classList.contains('show')) return;
     if (Game.$('chi-choice-modal').classList.contains('show')) return;
-    if (e.target.closest('.tile, .tileback, .discardTile, .pool-tile, .player-label, button, .meld-group, #claim-indicator, #wall-count, #landscape-ctrl, #discard-query-btn, #discardWall, #pool-modal, img, .claim-btn, .reset-btn')) return;
+    if (e.target.closest('.tile, .tileback, .discardTile, .pool-tile, .player-label, button, .meld-group, #claim-indicator, #wall-count, #discard-query-btn, #discardWall, #pool-modal, img, .claim-btn, .reset-btn')) return;
 
     const now = Date.now();
     Game.tableTapTimes = Game.tableTapTimes.filter(t => now - t < DICE.TAP_WINDOW);
