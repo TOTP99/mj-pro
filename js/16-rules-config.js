@@ -84,22 +84,36 @@ function hideModal(id) { const el = Game.$(id); if (el) el.classList.remove('sho
 function placePromptAtDiamondCenter() {
     const el = Game.$('table-center-prompt');
     if (!el) return;
-    const cx = [], cy = [];
+    const parent = el.offsetParent; // #table-frame（position:relative）
+    if (!parent) return;
+    const xs = [], ys = [];
     ['top', 'left', 'right', 'bottom'].forEach(function (p) {
         const host = document.getElementById('p-' + p);
         const av = host ? host.querySelector('.avatar') : null;
         if (!av) return;
-        const r = av.getBoundingClientRect();
-        if (r.width > 0) { cx.push(r.left + r.width / 2); cy.push(r.top + r.height / 2); }
+        // 沿 offsetParent 链累加，得到头像中心在 parent 局部坐标系中的位置。
+        // offset* 是未经 transform 的布局值，和 el.style.left/top 属同一坐标系，
+        // 因此 #table-wrap 的 scale(var(--view-scale)) 缩放（横屏 autoFit）不会带偏定位。
+        // 旧版用 getBoundingClientRect（视口坐标、已缩放）直接换算，在缩放≠1 时错位。
+        // guard：真 DOM 链一般 < 20 层，64 是熔断（防异常 DOM 自指/桩环境死循环）。
+        let x = 0, y = 0, node = av, ok = false, guard = 0;
+        while (node && guard++ < 64) {
+            if (node === parent) { ok = true; break; }
+            x += node.offsetLeft; y += node.offsetTop;
+            const next = node.offsetParent;
+            if (!next || next === node) break;
+            node = next;
+        }
+        if (!ok || !(av.offsetWidth > 0)) return;
+        xs.push(x + av.offsetWidth / 2); ys.push(y + av.offsetHeight / 2);
     });
-    if (cx.length < 4) return; // 头像不全就不动，保持 CSS 默认位置
-    const parent = el.offsetParent;
-    if (!parent) return;
-    const pr = parent.getBoundingClientRect();
-    // 菱形中心 = 四顶点坐标平均（= 任一条对角线中点）
-    el.style.left = ((cx[0] + cx[1] + cx[2] + cx[3]) / 4 - pr.left) + 'px';
-    el.style.top = ((cy[0] + cy[1] + cy[2] + cy[3]) / 4 - pr.top) + 'px';
+    if (xs.length < 4) return; // 头像不全或不在同一坐标系，保持 CSS 默认位置
+    // 菱形中心 = 四顶点坐标平均（= 任一条对角线中点）；
+    // CSS translate(-50%,-50%) 让提示条中心正好落在此点
+    el.style.left = ((xs[0] + xs[1] + xs[2] + xs[3]) / 4) + 'px';
+    el.style.top = ((ys[0] + ys[1] + ys[2] + ys[3]) / 4) + 'px';
 }
+Game.placePromptAtDiamondCenter = placePromptAtDiamondCenter;
 function showTablePrompt(text) {
     const el = Game.$('table-center-prompt');
     if (el) { el.textContent = text; placePromptAtDiamondCenter(); el.classList.add('show'); }

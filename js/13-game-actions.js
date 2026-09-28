@@ -379,6 +379,7 @@ setTimeout(() => {
         Game.viewScale = Game.loadSavedViewScale();
         Game.applyViewScale();
     }
+    try { Game.syncBreathSlider(); } catch (e) {} // 呼吸滑杆初值与存档对齐
 }, 0);
 // 启动：等 DOMContentLoaded（此时全部 17 个脚本已执行完）再决定恢复存档还是显示模式选择。
 // 4.1 修：resumeFromSave 会走渲染链路，依赖 16/17 的规则函数；之前在 13 加载时同步执行，

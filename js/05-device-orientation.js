@@ -225,6 +225,11 @@ function handleOrientationEvent(source) {
             syncAppViewportVars();
             checkPortraitGuard();
             try { Game.fitBottomHand(); } catch (e) {}
+            // 提示条若正显示：布局变了就重算菱形中心（05 先于 16 加载，用 typeof 守卫）
+            try {
+                const tp = Game.$('table-center-prompt');
+                if (tp && tp.classList.contains('show') && typeof Game.placePromptAtDiamondCenter === 'function') Game.placePromptAtDiamondCenter();
+            } catch (e) {}
             const nowKey = getOrientationKey();
             if (ms >= delays[delays.length - 1] - 50) {
                 Game._lastOrientationKey = nowKey;

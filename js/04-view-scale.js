@@ -3,7 +3,6 @@
 // true：横屏时自动算出缩放比例并上下居中，牌桌始终完整落在当前可视区域内，不用再手动"缩小到80%+上下调整"；
 // false：恢复纯手动（缩放下限也回到 70%）。竖屏不受影响。
 const AUTO_FIT_LANDSCAPE = true;
-const AUTO_FIT_MARGIN = 1;   /* 牌桌离可视区域边缘至少留几 px（横屏最大化时为 0）；只留 1px 防止亚像素取整多出一点 */
 const AUTO_FIT_SCALE_MAX = 2; /* 自动适配允许放大的上限：可视区域比牌桌自然尺寸大时（大屏/平板/没有地址栏时）也放大到刚好填满 */
 const AUTO_FIT_USE_SAFE_AREA = true; /* true：让开刘海/Home 条等安全区；false：不让（可能被刘海或手势条遮住一点） */
 
@@ -17,6 +16,44 @@ const VIEW_ORIGINAL_STORAGE_KEY = 'qionghu_mahjong_view_original_v1';
 Game.viewScale = ORIGINAL_VIEW_SCALE;
 /** 启动时记录的桌面原始像素尺寸（供对照/恢复） */
 Game.originalViewRecord = null;
+
+/* ==================== 牌桌呼吸量（四周留白，可滑杆调节） ====================
+ * 横屏：autoFitLandscapeView 用它作四周最小边距（替代原来写死的 1px，太贴边）；
+ * 竖屏：CSS 里 #table-frame 的尺寸 calc() 减去它。
+ * 默认 10px，可调 0~28px，localStorage 持久化。 */
+const TABLE_BREATH_STORAGE_KEY = 'qionghu_mahjong_table_breath_v1';
+const TABLE_BREATH_DEFAULT = 10;
+const TABLE_BREATH_MIN = 0;
+const TABLE_BREATH_MAX = 28;
+function loadTableBreath() {
+    try {
+        const raw = localStorage.getItem(TABLE_BREATH_STORAGE_KEY);
+        if (raw == null) return TABLE_BREATH_DEFAULT;
+        const n = Math.round(Number(raw));
+        if (!isFinite(n)) return TABLE_BREATH_DEFAULT;
+        return Math.min(TABLE_BREATH_MAX, Math.max(TABLE_BREATH_MIN, n));
+    } catch (e) {
+        return TABLE_BREATH_DEFAULT;
+    }
+}
+Game.tableBreath = loadTableBreath();
+function syncBreathSlider() {
+    const s = document.getElementById('breath-slider');
+    if (s && String(s.value) !== String(Game.tableBreath)) s.value = String(Game.tableBreath);
+}
+/** 滑杆 oninput 入口：钳制→存档→写 CSS 变量→横屏重算缩放（带平滑过渡） */
+function setTableBreath(px) {
+    const v = Math.min(TABLE_BREATH_MAX, Math.max(TABLE_BREATH_MIN, Math.round(Number(px) || 0)));
+    Game.tableBreath = v;
+    try { localStorage.setItem(TABLE_BREATH_STORAGE_KEY, String(v)); } catch (e) { /* ignore */ }
+    document.documentElement.style.setProperty('--table-breath', v + 'px');
+    syncBreathSlider();
+    try { autoFitLandscapeView(); } catch (e) { /* 竖屏/守卫中时忽略，下次 burst 会用新值 */ }
+}
+Game.setTableBreath = setTableBreath;
+Game.syncBreathSlider = syncBreathSlider;
+// 启动即写到根上，供竖屏 CSS calc() 引用（JS 未执行完时 CSS 用 var() 的 fallback 10px）
+document.documentElement.style.setProperty('--table-breath', Game.tableBreath + 'px');
 
 function captureOriginalViewSize() {
     if (Game.originalViewRecord) return Game.originalViewRecord;
@@ -156,7 +193,7 @@ function autoFitLandscapeView() {
         const isMax = body.classList.contains('landscape-max');
         const cs = window.getComputedStyle ? window.getComputedStyle(body) : null;
         const pad = (k) => (isMax || !cs || !AUTO_FIT_USE_SAFE_AREA) ? 0 : (parseFloat(cs[k]) || 0); // 非最大化时 body 的 padding 就是安全区
-        const m = isMax ? 0 : AUTO_FIT_MARGIN;
+        const m = isMax ? 0 : Game.tableBreath; // 横屏最大化时为 0；平时四周至少留呼吸量
         const availL = pad('paddingLeft') + m, availR = vpW - pad('paddingRight') - m;
         const availT = pad('paddingTop') + m,  availB = vpH - pad('paddingBottom') - m;
 
