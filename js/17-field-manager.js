@@ -1,12 +1,14 @@
 // ---------- 场次与金额管理（2.0 二期） ----------
 // 场：从选定初始金额开始，到输光重开或手动重开为止
 // 每 16 局提醒一次，走骰子仪式重新调庄
+// 输光流程：输光确认 → 重新选初始金额 → 骰子仪式重新调庄 → 开始新场
 const FIELD_STORAGE_KEY = 'mahjong_field_v1';
 const FIELD_ROUNDS = 16;
 
 let fieldAmounts = { top: 0, left: 0, right: 0, bottom: 0 };
 let fieldGameCount = 0;
 let fieldActive = false; // 是否已开场（选过金额）
+let bustRestartPending = false; // 输光重开：选完金额后走骰子调庄（而非直接开局）
 
 function loadField() {
     try {
@@ -91,6 +93,8 @@ function cancelBustRestart() {
 function resetFieldAfterBust() {
     fieldActive = false;
     saveField();
+    // 输光重开：选完金额后走骰子仪式重新调庄
+    bustRestartPending = true;
     // 重新选金额开场
     showAmountModal();
 }
@@ -117,6 +121,20 @@ function showAmountModal() {
     el.classList.add('show');
 }
 
+/** 署名行/横屏入口：直接选初始筹码 */
+function openAmountSelect() {
+    // 对局进行中需先确认（重选会重新开场）
+    if (typeof gameOver !== 'undefined' && !gameOver) {
+        if (!confirm('重新选择初始筹码将重新开场，继续吗？')) return;
+    }
+    showAmountModal();
+}
+
+function closeAmountModal() {
+    const el = $('amount-modal');
+    if (el) el.classList.remove('show');
+}
+
 function chooseAmount(amt) {
     $('amount-modal').classList.remove('show');
     if (amt === 'custom') {
@@ -126,6 +144,16 @@ function chooseAmount(amt) {
         startNewField(n);
     } else {
         startNewField(amt);
+    }
+    // 输光重开：选完金额先走骰子仪式重新调庄，再开始新场
+    if (bustRestartPending) {
+        bustRestartPending = false;
+        const rm = $('result-modal');
+        if (rm) rm.classList.remove('show'); // 骰子仪式要求结算弹窗已关闭
+        if (typeof startDiceRitualWithMode === 'function') {
+            startDiceRitualWithMode('dealer');
+            return;
+        }
     }
     // 开新场后开新局
     if (typeof startGame === 'function') startGame();

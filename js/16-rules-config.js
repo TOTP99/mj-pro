@@ -76,7 +76,10 @@ function showModal(id) { const el = $(id); if (el) el.classList.add('show'); }
 function hideModal(id) { const el = $(id); if (el) el.classList.remove('show'); }
 
 function openModeSelect() {
-    // 日常模式中的"切高阶"入口：直接打开模式选择
+    // 标出当前模式（打勾）
+    document.querySelectorAll('#mode-select-modal .mode-option').forEach(function (b) {
+        b.classList.toggle('cur', b.getAttribute('data-mode') === gameMode);
+    });
     showModal('mode-select-modal');
 }
 
@@ -96,16 +99,22 @@ function chooseMode(mode) {
     }
 }
 
-function onRuleToggle(key, val) {
+function setRuleYN(key, val) {
     setRule(key, val);
+    syncRuleYN(key);
+}
+
+function syncRuleYN(key) {
+    const row = document.querySelector('.rule-row[data-rule="' + key + '"]');
+    if (!row) return;
+    const on = !!rulesConfig[key];
+    row.querySelectorAll('.yn-seg button').forEach(function (b) {
+        b.classList.toggle('sel', (b.getAttribute('data-yn') === '1') === on);
+    });
 }
 
 function syncRulesUI() {
-    const r = getRules();
-    for (const k of Object.keys(r)) {
-        const el = $('rule-' + k);
-        if (el) el.checked = !!r[k];
-    }
+    Object.keys(DEFAULT_RULES).forEach(syncRuleYN);
 }
 
 function confirmRules() {

@@ -254,7 +254,8 @@ function handleDiscard(event) {
 
 // 弹窗打开时锁定页面滚动，避免底层与弹层抢惯性
 function syncBodyScrollLock() {
-    const ids = ['result-modal', 'reveal-modal', 'chi-choice-modal', 'pool-modal', 'player-intro-modal'];
+    const ids = ['result-modal', 'reveal-modal', 'chi-choice-modal', 'pool-modal', 'player-intro-modal',
+                 'mode-select-modal', 'rules-modal', 'amount-modal', 'bust-modal', 'round-modal'];
     const open = ids.some(id => {
         const el = $(id);
         return el && el.classList.contains('show');
@@ -276,7 +277,8 @@ function syncBodyScrollLock() {
     }
 }
 (function watchModalsForScrollLock() {
-    const ids = ['result-modal', 'reveal-modal', 'chi-choice-modal', 'pool-modal', 'player-intro-modal'];
+    const ids = ['result-modal', 'reveal-modal', 'chi-choice-modal', 'pool-modal', 'player-intro-modal',
+                 'mode-select-modal', 'rules-modal', 'amount-modal', 'bust-modal', 'round-modal'];
     const obs = new MutationObserver(syncBodyScrollLock);
     ids.forEach(id => {
         const el = $(id);
