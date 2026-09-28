@@ -55,21 +55,22 @@
 <div id="rules-modal">
     <div class="hu-box" style="max-height:85vh; overflow-y:auto;">
         <div class="hu-title">高阶规则</div>
+        <div class="rules-hint">每项「是」= 相对日常的放宽，「否」= 与日常相同；全选「否」即日常玩法</div>
         <div class="rules-group">
             <div class="rules-group-title">胡牌要求</div>
-            <div class="rule-row" data-rule="kaimen"><span class="rule-name">开门（须碰/吃/明杠）</span><span class="yn-seg"><button type="button" data-yn="1" onclick="setRuleYN('kaimen',true)">是</button><button type="button" data-yn="0" onclick="setRuleYN('kaimen',false)">否</button></span></div>
-            <div class="rule-row" data-rule="pinghu"><span class="rule-name">平胡（无刻子可胡）</span><span class="yn-seg"><button type="button" data-yn="1" onclick="setRuleYN('pinghu',true)">是</button><button type="button" data-yn="0" onclick="setRuleYN('pinghu',false)">否</button></span></div>
-            <div class="rule-row" data-rule="yaojiu"><span class="rule-name">幺九（须含1/9/字）</span><span class="yn-seg"><button type="button" data-yn="1" onclick="setRuleYN('yaojiu',true)">是</button><button type="button" data-yn="0" onclick="setRuleYN('yaojiu',false)">否</button></span></div>
-            <div class="rule-row" data-rule="sanmenqi"><span class="rule-name">三门齐</span><span class="yn-seg"><button type="button" data-yn="1" onclick="setRuleYN('sanmenqi',true)">是</button><button type="button" data-yn="0" onclick="setRuleYN('sanmenqi',false)">否</button></span></div>
+            <div class="rule-row" data-rule="kaimen"><span class="rule-name">闭手可胡</span><span class="yn-seg"><button type="button" data-yn="1" onclick="setRuleYN('kaimen',true)">是</button><button type="button" data-yn="0" onclick="setRuleYN('kaimen',false)">否</button></span></div>
+            <div class="rule-row" data-rule="pinghu"><span class="rule-name">平胡/中发白作将</span><span class="yn-seg"><button type="button" data-yn="1" onclick="setRuleYN('pinghu',true)">是</button><button type="button" data-yn="0" onclick="setRuleYN('pinghu',false)">否</button></span></div>
+            <div class="rule-row" data-rule="yaojiu"><span class="rule-name">无幺九可胡</span><span class="yn-seg"><button type="button" data-yn="1" onclick="setRuleYN('yaojiu',true)">是</button><button type="button" data-yn="0" onclick="setRuleYN('yaojiu',false)">否</button></span></div>
+            <div class="rule-row" data-rule="sanmenqi"><span class="rule-name">缺门可胡</span><span class="yn-seg"><button type="button" data-yn="1" onclick="setRuleYN('sanmenqi',true)">是</button><button type="button" data-yn="0" onclick="setRuleYN('sanmenqi',false)">否</button></span></div>
         </div>
         <div class="rules-group">
             <div class="rules-group-title">亮牌</div>
-            <div class="rule-row" data-rule="revealDragons"><span class="rule-name">中发白允许亮牌</span><span class="yn-seg"><button type="button" data-yn="1" onclick="setRuleYN('revealDragons',true)">是</button><button type="button" data-yn="0" onclick="setRuleYN('revealDragons',false)">否</button></span></div>
-            <div class="rule-row" data-rule="revealWinds"><span class="rule-name">东南西北允许亮牌</span><span class="yn-seg"><button type="button" data-yn="1" onclick="setRuleYN('revealWinds',true)">是</button><button type="button" data-yn="0" onclick="setRuleYN('revealWinds',false)">否</button></span></div>
+            <div class="rule-row" data-rule="revealDragons"><span class="rule-name">中发白随时亮牌</span><span class="yn-seg"><button type="button" data-yn="1" onclick="setRuleYN('revealDragons',true)">是</button><button type="button" data-yn="0" onclick="setRuleYN('revealDragons',false)">否</button></span></div>
+            <div class="rule-row" data-rule="revealWinds"><span class="rule-name">东南西北随时亮牌</span><span class="yn-seg"><button type="button" data-yn="1" onclick="setRuleYN('revealWinds',true)">是</button><button type="button" data-yn="0" onclick="setRuleYN('revealWinds',false)">否</button></span></div>
         </div>
         <div class="rules-group">
             <div class="rules-group-title">特殊牌型</div>
-            <div class="rule-row" data-rule="sevenPairs"><span class="rule-name">七小对允许胡</span><span class="yn-seg"><button type="button" data-yn="1" onclick="setRuleYN('sevenPairs',true)">是</button><button type="button" data-yn="0" onclick="setRuleYN('sevenPairs',false)">否</button></span></div>
+            <div class="rule-row" data-rule="sevenPairs"><span class="rule-name">七小对可胡</span><span class="yn-seg"><button type="button" data-yn="1" onclick="setRuleYN('sevenPairs',true)">是</button><button type="button" data-yn="0" onclick="setRuleYN('sevenPairs',false)">否</button></span></div>
         </div>
         <div class="hu-actions">
             <button onclick="confirmRules()">开始</button>
@@ -165,6 +166,7 @@
 <div id="credit-label"></div>
 <div id="credit-label-2"></div>
 <div id="table-frame" onclick="onTableTap(event)">
+<div id="table-center-prompt" aria-hidden="true"></div>
 <div id="game-table">
     <div id="dice-stage">
         <div id="dice-scene">
@@ -223,7 +225,7 @@
             <div id="wall-count-row">
                 <span id="img-display-badge" title="TP制作">TP制作</span>
                 <button type="button" class="credit-btn-ls" onclick="event.stopPropagation();openModeSelect()">模式选择</button>
-                <button type="button" class="credit-btn-ls" onclick="event.stopPropagation();openAmountSelect()">初始筹码</button>
+                <button type="button" class="credit-btn-ls" onclick="event.stopPropagation();openAmountSelect()">初始筹码</button><span id="field-count-ls" class="field-rounds">局 0/16</span>
                 <span id="wall-count-text"></span>
                 <button type="button" id="landscape-ctrl" title="横屏最大化" onclick="event.stopPropagation();toggleLandscapeMaximize()">横屏最大</button>
             </div>
@@ -239,7 +241,6 @@
             <div class="stat-row" id="stat-medal"></div>
             <div class="stat-row" id="stat-dealer"></div>
             <div class="stat-row" id="stat-tenpai"></div>
-            <div class="stat-row" id="stat-field">场次 <span id="field-count">0 / 16</span> · 金额 <span id="amount-top">-</span>/<span id="amount-left">-</span>/<span id="amount-right">-</span>/<span id="amount-bottom">-</span></div>
         </div>
         <div id="claim-indicator"></div>
     </div>
