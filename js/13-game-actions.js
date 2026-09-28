@@ -380,16 +380,22 @@ setTimeout(() => {
         Game.applyViewScale();
     }
 }, 0);
-// 启动：有完整存档则原样恢复，否则显示模式选择（2.0 一期）
-if (Game.loadGameProgress()) {
-    Game.resumeFromSave();
-} else {
-    // 等所有脚本加载完再弹模式选择
-    setTimeout(() => {
-        if (typeof Game.openModeSelect === 'function') Game.openModeSelect();
-        else Game.initGame(); // 兜底：规则模块未加载时直接开局
-    }, 50);
+// 启动：等 DOMContentLoaded（此时全部 17 个脚本已执行完）再决定恢复存档还是显示模式选择。
+// 4.1 修：resumeFromSave 会走渲染链路，依赖 16/17 的规则函数；之前在 13 加载时同步执行，
+// Game.ruleAllowsSevenPairs 等尚不存在，渲染抛出的 TypeError 会中断本文件尾部的导出，
+// 导致刷新后 Game.handleDiscard 等全部缺失、点牌无反应（一期 IIFE 化引入的回归）。
+function bootGame() {
+    if (Game.loadGameProgress()) {
+        Game.resumeFromSave();
+    } else if (typeof Game.openModeSelect === 'function') {
+        Game.openModeSelect();
+    } else {
+        Game.initGame(); // 兜底：规则模块未加载时直接开局
+    }
 }
+document.addEventListener('DOMContentLoaded', bootGame);
+// 兜底：脚本若被动态/defer 注入、已错过 DOMContentLoaded
+if (document.readyState !== 'loading') setTimeout(bootGame, 0);
 
 /* ---- 本文件对外接口（IIFE 收敛，唯一出口） ---- */
 Game.startGame = startGame;
