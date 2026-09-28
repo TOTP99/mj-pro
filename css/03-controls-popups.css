@@ -13,9 +13,52 @@
     /* 高阶规则页分组 */
     .rules-group { margin: 12px 0; text-align: left; }
     .rules-group-title { font-weight: bold; color: var(--gold); margin-bottom: 6px; font-size: 14px; }
-    .rule-row { display: flex; justify-content: space-between; align-items: center; padding: 8px 4px; border-bottom: 1px solid rgba(255,255,255,0.08); cursor: pointer; }
-    .rule-row span { font-size: 14px; }
-    .rule-row input[type="checkbox"] { width: 20px; height: 20px; accent-color: var(--gold); }
+    .rule-row { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 8px 4px; border-bottom: 1px solid rgba(255,255,255,0.08); }
+    .rule-row .rule-name { font-size: 14px; }
+    /* 规则 是/否 二选（选中打勾） */
+    .yn-seg { display: inline-flex; border: 1px solid rgba(212,175,55,0.45); border-radius: 6px; overflow: hidden; flex-shrink: 0; }
+    .yn-seg button {
+        background: transparent; border: none; border-radius: 0; margin: 0;
+        color: #c5d4e0; font-size: 14px; font-family: inherit;
+        padding: 7px 16px; min-height: 32px; cursor: pointer; white-space: nowrap;
+    }
+    .yn-seg button + button { border-left: 1px solid rgba(212,175,55,0.25); }
+    .yn-seg button.sel { background: rgba(212,175,55,0.16); color: var(--gold); font-weight: 700; }
+    .yn-seg button.sel::before { content: '✓ '; }
+    /* 模式选择：两个选项，打勾标出当前模式 */
+    .mode-options { display: flex; flex-direction: column; gap: 10px; }
+    .mode-option {
+        display: flex; align-items: center; gap: 10px; width: 100%;
+        margin: 0; padding: 10px 14px; min-height: 44px;
+        border: 1px solid var(--gold); border-radius: 6px;
+        background: transparent; color: var(--text);
+        font-family: inherit; cursor: pointer; text-align: left;
+    }
+    .mode-option:active { background: rgba(212,175,55,0.12); }
+    .mode-option .mode-check { width: 20px; flex-shrink: 0; font-size: 16px; font-weight: 700; color: var(--gold); }
+    .mode-option.cur .mode-check::before { content: '✓'; }
+    .mode-option .mode-text { display: flex; flex-direction: column; gap: 2px; }
+    .mode-option .mode-text b { font-size: 14px; }
+    .mode-option .mode-text i { font-style: normal; font-size: 11px; opacity: 0.65; }
+    /* 署名行按钮：模式选择 / 初始筹码（竖屏 #credit-label 内，接在署名后面） */
+    #credit-label .credit-btn {
+        pointer-events: auto;
+        background: transparent; border: none; border-radius: 0;
+        color: var(--gold); font-size: 11px; font-weight: 600;
+        letter-spacing: 0.04em; font-family: inherit;
+        margin: 0 0 0 12px; padding: 2px;
+        cursor: pointer; white-space: nowrap; vertical-align: baseline;
+    }
+    #credit-label .credit-btn:active { opacity: 0.6; }
+    /* 横屏：跟在 TP制作 后面的两个入口；竖屏隐藏（桌面不再显示） */
+    .credit-btn-ls {
+        display: none;
+        background: transparent; border: none; border-radius: 0;
+        color: var(--gold); font-size: 10px; font-weight: 600;
+        letter-spacing: 0.08em; font-family: inherit; line-height: 1.2;
+        padding: 0 2px; cursor: pointer; white-space: nowrap; flex-shrink: 0;
+    }
+    .credit-btn-ls:active { opacity: 0.6; }
     /* 左侧顶栏：TP制作 + 牌墙 + 横屏调整；下方 扩大/缩小 */
     #img-display-badge {
         position: static;

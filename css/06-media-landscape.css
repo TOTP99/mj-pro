@@ -120,3 +120,8 @@
         }
     }
 
+
+    /* 横屏：TP制作 后面的 模式选择 / 初始筹码 入口（竖屏隐藏） */
+    @media screen and (orientation: landscape) {
+        .credit-btn-ls { display: inline; }
+    }
