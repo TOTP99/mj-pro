@@ -30,8 +30,8 @@
     <div class="hu-box">
         <div class="hu-title" id="reveal-title">检测到特殊牌型</div>
         <div class="hu-actions">
-            <button onclick="confirmReveal(true)">亮牌</button>
-            <button onclick="confirmReveal(false)">不亮</button>
+            <button onclick="Game.confirmReveal(true)">亮牌</button>
+            <button onclick="Game.confirmReveal(false)">不亮</button>
         </div>
     </div>
 </div>
@@ -40,11 +40,11 @@
     <div class="hu-box">
         <div class="hu-title">模式选择</div>
         <div class="mode-options">
-            <button type="button" class="mode-option" data-mode="daily" onclick="chooseMode('daily')">
+            <button type="button" class="mode-option" data-mode="daily" onclick="Game.chooseMode('daily')">
                 <span class="mode-check" aria-hidden="true"></span>
                 <span class="mode-text"><b>日常模式</b><i>经典玩法不变</i></span>
             </button>
-            <button type="button" class="mode-option" data-mode="advanced" onclick="chooseMode('advanced')">
+            <button type="button" class="mode-option" data-mode="advanced" onclick="Game.chooseMode('advanced')">
                 <span class="mode-check" aria-hidden="true"></span>
                 <span class="mode-text"><b>高阶模式</b><i>自定义规则</i></span>
             </button>
@@ -58,23 +58,23 @@
         <div class="rules-hint">每项「是」= 相对日常的放宽，「否」= 与日常相同；全选「否」即日常玩法</div>
         <div class="rules-group">
             <div class="rules-group-title">胡牌要求</div>
-            <div class="rule-row" data-rule="kaimen"><span class="rule-name">闭手可胡</span><span class="yn-seg"><button type="button" data-yn="1" onclick="setRuleYN('kaimen',true)">是</button><button type="button" data-yn="0" onclick="setRuleYN('kaimen',false)">否</button></span></div>
-            <div class="rule-row" data-rule="pinghu"><span class="rule-name">平胡/中发白作将</span><span class="yn-seg"><button type="button" data-yn="1" onclick="setRuleYN('pinghu',true)">是</button><button type="button" data-yn="0" onclick="setRuleYN('pinghu',false)">否</button></span></div>
-            <div class="rule-row" data-rule="yaojiu"><span class="rule-name">无幺九可胡</span><span class="yn-seg"><button type="button" data-yn="1" onclick="setRuleYN('yaojiu',true)">是</button><button type="button" data-yn="0" onclick="setRuleYN('yaojiu',false)">否</button></span></div>
-            <div class="rule-row" data-rule="sanmenqi"><span class="rule-name">缺门可胡</span><span class="yn-seg"><button type="button" data-yn="1" onclick="setRuleYN('sanmenqi',true)">是</button><button type="button" data-yn="0" onclick="setRuleYN('sanmenqi',false)">否</button></span></div>
+            <div class="rule-row" data-rule="kaimen"><span class="rule-name">闭手可胡</span><span class="yn-seg"><button type="button" data-yn="1" onclick="Game.setRuleYN('kaimen',true)">是</button><button type="button" data-yn="0" onclick="Game.setRuleYN('kaimen',false)">否</button></span></div>
+            <div class="rule-row" data-rule="pinghu"><span class="rule-name">平胡/中发白作将</span><span class="yn-seg"><button type="button" data-yn="1" onclick="Game.setRuleYN('pinghu',true)">是</button><button type="button" data-yn="0" onclick="Game.setRuleYN('pinghu',false)">否</button></span></div>
+            <div class="rule-row" data-rule="yaojiu"><span class="rule-name">无幺九可胡</span><span class="yn-seg"><button type="button" data-yn="1" onclick="Game.setRuleYN('yaojiu',true)">是</button><button type="button" data-yn="0" onclick="Game.setRuleYN('yaojiu',false)">否</button></span></div>
+            <div class="rule-row" data-rule="sanmenqi"><span class="rule-name">缺门可胡</span><span class="yn-seg"><button type="button" data-yn="1" onclick="Game.setRuleYN('sanmenqi',true)">是</button><button type="button" data-yn="0" onclick="Game.setRuleYN('sanmenqi',false)">否</button></span></div>
         </div>
         <div class="rules-group">
             <div class="rules-group-title">亮牌</div>
-            <div class="rule-row" data-rule="revealDragons"><span class="rule-name">中发白随时亮牌</span><span class="yn-seg"><button type="button" data-yn="1" onclick="setRuleYN('revealDragons',true)">是</button><button type="button" data-yn="0" onclick="setRuleYN('revealDragons',false)">否</button></span></div>
-            <div class="rule-row" data-rule="revealWinds"><span class="rule-name">东南西北随时亮牌</span><span class="yn-seg"><button type="button" data-yn="1" onclick="setRuleYN('revealWinds',true)">是</button><button type="button" data-yn="0" onclick="setRuleYN('revealWinds',false)">否</button></span></div>
+            <div class="rule-row" data-rule="revealDragons"><span class="rule-name">中发白随时亮牌</span><span class="yn-seg"><button type="button" data-yn="1" onclick="Game.setRuleYN('revealDragons',true)">是</button><button type="button" data-yn="0" onclick="Game.setRuleYN('revealDragons',false)">否</button></span></div>
+            <div class="rule-row" data-rule="revealWinds"><span class="rule-name">东南西北随时亮牌</span><span class="yn-seg"><button type="button" data-yn="1" onclick="Game.setRuleYN('revealWinds',true)">是</button><button type="button" data-yn="0" onclick="Game.setRuleYN('revealWinds',false)">否</button></span></div>
         </div>
         <div class="rules-group">
             <div class="rules-group-title">特殊牌型</div>
-            <div class="rule-row" data-rule="sevenPairs"><span class="rule-name">七小对可胡</span><span class="yn-seg"><button type="button" data-yn="1" onclick="setRuleYN('sevenPairs',true)">是</button><button type="button" data-yn="0" onclick="setRuleYN('sevenPairs',false)">否</button></span></div>
+            <div class="rule-row" data-rule="sevenPairs"><span class="rule-name">七小对可胡</span><span class="yn-seg"><button type="button" data-yn="1" onclick="Game.setRuleYN('sevenPairs',true)">是</button><button type="button" data-yn="0" onclick="Game.setRuleYN('sevenPairs',false)">否</button></span></div>
         </div>
         <div class="hu-actions">
-            <button onclick="confirmRules()">开始</button>
-            <button onclick="backToModeSelect()">返回</button>
+            <button onclick="Game.confirmRules()">开始</button>
+            <button onclick="Game.backToModeSelect()">返回</button>
         </div>
     </div>
 </div>
@@ -84,10 +84,10 @@
         <div class="hu-title">初始筹码</div>
         <div class="result-label" style="margin-top:0; text-align:center;">四家以此金额开场</div>
         <div class="hu-actions" style="flex-direction:column; gap:10px;">
-            <button onclick="chooseAmount(50)" style="width:100%;">50</button>
-            <button onclick="chooseAmount(100)" style="width:100%;">100</button>
-            <button onclick="chooseAmount('custom')" style="width:100%;">自定义</button>
-            <button onclick="closeAmountModal()" style="width:100%;">取消</button>
+            <button onclick="Game.chooseAmount(50)" style="width:100%;">50</button>
+            <button onclick="Game.chooseAmount(100)" style="width:100%;">100</button>
+            <button onclick="Game.chooseAmount('custom')" style="width:100%;">自定义</button>
+            <button onclick="Game.closeAmountModal()" style="width:100%;">取消</button>
         </div>
     </div>
 </div>
@@ -97,8 +97,8 @@
         <div class="hu-title">输光了</div>
         <div class="result-label" style="margin-top:0; text-align:center;" id="bust-message"></div>
         <div class="hu-actions">
-            <button onclick="confirmBustRestart()">重新开场</button>
-            <button onclick="cancelBustRestart()">继续</button>
+            <button onclick="Game.confirmBustRestart()">重新开场</button>
+            <button onclick="Game.cancelBustRestart()">继续</button>
         </div>
     </div>
 </div>
@@ -108,7 +108,7 @@
         <div class="hu-title">场次提醒</div>
         <div class="result-label" style="margin-top:0; text-align:center;" id="round-message"></div>
         <div class="hu-actions">
-            <button onclick="confirmRoundReselect()">重新调庄</button>
+            <button onclick="Game.confirmRoundReselect()">重新调庄</button>
         </div>
     </div>
 </div>
@@ -119,16 +119,16 @@
         <div class="result-label" style="margin-top:0; text-align:center;">点选一组顺子</div>
         <div class="hu-options" id="chi-choice-options"></div>
         <div class="hu-actions">
-            <button type="button" onclick="closeChiChoice()">取消</button>
+            <button type="button" onclick="Game.closeChiChoice()">取消</button>
         </div>
     </div>
 </div>
 
-<div id="pool-modal" onclick="if(event.target.id==='pool-modal')closePoolModal()">
+<div id="pool-modal" onclick="if(event.target.id==='pool-modal')Game.closePoolModal()">
     <div class="pool-box">
         <div class="pool-box-header">
             <span class="pool-box-title">牌池<span class="pool-box-count" id="pool-box-count"></span></span>
-            <button type="button" class="pool-box-close" onclick="closePoolModal()">✕</button>
+            <button type="button" class="pool-box-close" onclick="Game.closePoolModal()">✕</button>
         </div>
         <div id="pool-grid"></div>
     </div>
@@ -151,12 +151,12 @@
             <div class="result-adjust-hint">改其中一家，其余相关分数会自动联动；点「恢复系统分」可撤销</div>
             <div class="result-payouts" id="result-payouts-edit"></div>
             <div class="result-adjust-btns">
-                <button type="button" onclick="resetSettlementPayouts()">恢复系统分</button>
+                <button type="button" onclick="Game.resetSettlementPayouts()">恢复系统分</button>
             </div>
         </div>
         <div class="result-adjust-btns">
-            <button type="button" id="btn-toggle-adjust" onclick="toggleSettlementAdjust()">特殊情况：手动调分</button>
-            <button type="button" onclick="closeResultModal()">确定</button>
+            <button type="button" id="btn-toggle-adjust" onclick="Game.toggleSettlementAdjust()">特殊情况：手动调分</button>
+            <button type="button" onclick="Game.closeResultModal()">确定</button>
         </div>
     </div>
 </div>
@@ -165,7 +165,7 @@
 <!-- 署名两行：内容由 js/14-credit-clock.js 生成（第一行署名，第二行时间 + 已玩时间） -->
 <div id="credit-label"></div>
 <div id="credit-label-2"></div>
-<div id="table-frame" onclick="onTableTap(event)">
+<div id="table-frame" onclick="Game.onTableTap(event)">
 <div id="table-center-prompt" aria-hidden="true"></div>
 <div id="game-table">
     <div id="dice-stage">
@@ -183,7 +183,7 @@
     </div>
     <div class="player top" id="p-top">
         <div class="player-label">
-            <span class="player-score" id="score-top"></span><span class="avatar" onclick="toggleExposedInfo('top')"><img src="avatars/avatar-top.webp" alt="西" draggable="false"></span>
+            <span class="player-score" id="score-top"></span><span class="avatar" onclick="Game.toggleExposedInfo('top')"><img src="avatars/avatar-top.webp" alt="西" draggable="false"></span>
         </div>
         <div id="exposed-top" class="ai-exposed"></div>
         <div id="hand-top" class="hand"></div>
@@ -191,7 +191,7 @@
     <div class="player left" id="p-left">
         <div class="player-side-stack">
         <div class="player-label">
-            <span class="player-score" id="score-left"></span><span class="avatar" onclick="toggleExposedInfo('left')"><img src="avatars/avatar-left.webp" alt="北" draggable="false"></span>
+            <span class="player-score" id="score-left"></span><span class="avatar" onclick="Game.toggleExposedInfo('left')"><img src="avatars/avatar-left.webp" alt="北" draggable="false"></span>
         </div>
         <div id="exposed-left" class="ai-exposed"></div>
         </div>
@@ -200,7 +200,7 @@
     <div class="player right" id="p-right">
         <div class="player-side-stack">
         <div class="player-label">
-            <span class="player-score" id="score-right"></span><span class="avatar" onclick="toggleExposedInfo('right')"><img src="avatars/avatar-right.webp" alt="南" draggable="false"></span>
+            <span class="player-score" id="score-right"></span><span class="avatar" onclick="Game.toggleExposedInfo('right')"><img src="avatars/avatar-right.webp" alt="南" draggable="false"></span>
         </div>
         <div id="exposed-right" class="ai-exposed"></div>
         </div>
@@ -210,28 +210,28 @@
         <div class="player-label">
             <span class="player-score" id="score-bottom"></span>
             <span class="avatar-with-toggle">
-                <button type="button" id="tenpai-hint-toggle" class="tenpai-hint-toggle" title="听牌提示开关（亮=显示）" aria-pressed="false" aria-label="听牌提示开关" onclick="event.stopPropagation();toggleTenpaiHint()"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h14a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-7l-4.5 4v-4H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><circle cx="8" cy="10" r="1.3" fill="currentColor"/><circle cx="12" cy="10" r="1.3" fill="currentColor"/><circle cx="16" cy="10" r="1.3" fill="currentColor"/></svg></button>
-                <span class="avatar" onclick="toggleExposedInfo('bottom')"><img src="avatars/avatar-bottom.webp" alt="东" draggable="false"></span>
+                <button type="button" id="tenpai-hint-toggle" class="tenpai-hint-toggle" title="听牌提示开关（亮=显示）" aria-pressed="false" aria-label="听牌提示开关" onclick="event.stopPropagation();Game.toggleTenpaiHint()"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h14a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-7l-4.5 4v-4H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><circle cx="8" cy="10" r="1.3" fill="currentColor"/><circle cx="12" cy="10" r="1.3" fill="currentColor"/><circle cx="16" cy="10" r="1.3" fill="currentColor"/></svg></button>
+                <span class="avatar" onclick="Game.toggleExposedInfo('bottom')"><img src="avatars/avatar-bottom.webp" alt="东" draggable="false"></span>
             </span>
         </div>
-        <div id="hand-bottom" class="hand" onclick="handleDiscard(event)"></div>
+        <div id="hand-bottom" class="hand" onclick="Game.handleDiscard(event)"></div>
         <div id="flow-log"></div>
     </div>
-    <button type="button" id="discard-query-btn" title="点击查询牌池" onclick="event.stopPropagation();openPoolModal()">点击查询牌池</button>
+    <button type="button" id="discard-query-btn" title="点击查询牌池" onclick="event.stopPropagation();Game.openPoolModal()">点击查询牌池</button>
     <div id="discardWall"></div>
     <div id="tile-tooltip" aria-live="polite"></div>
 <div id="wall-count">
         <div id="wall-count-header">
             <div id="wall-count-row">
                 <span id="img-display-badge" title="TP制作">TP制作</span>
-                <button type="button" class="credit-btn-ls" onclick="event.stopPropagation();openModeSelect()">模式选择</button>
-                <button type="button" class="credit-btn-ls" onclick="event.stopPropagation();openAmountSelect()">初始筹码</button><span id="field-count-ls" class="field-rounds">局 0/16</span>
+                <button type="button" class="credit-btn-ls" onclick="event.stopPropagation();Game.openModeSelect()">模式选择</button>
+                <button type="button" class="credit-btn-ls" onclick="event.stopPropagation();Game.openAmountSelect()">初始筹码</button><span id="field-count-ls" class="field-rounds">局 0/16</span>
                 <span id="wall-count-text"></span>
-                <button type="button" id="landscape-ctrl" title="横屏最大化" onclick="event.stopPropagation();toggleLandscapeMaximize()">横屏最大</button>
+                <button type="button" id="landscape-ctrl" title="横屏最大化" onclick="event.stopPropagation();Game.toggleLandscapeMaximize()">横屏最大</button>
             </div>
             <div id="view-scale-btns">
-                <button type="button" id="btn-view-zoom-out" title="整体缩小5%（相对原始大小）" onclick="event.stopPropagation();adjustViewScale(-VIEW_SCALE_STEP)">缩小</button>
-                <button type="button" id="btn-view-zoom-in" title="整体扩大5%（不超过原始大小）" onclick="event.stopPropagation();adjustViewScale(VIEW_SCALE_STEP)">扩大</button>
+                <button type="button" id="btn-view-zoom-out" title="整体缩小5%（相对原始大小）" onclick="event.stopPropagation();Game.adjustViewScale(-VIEW_SCALE_STEP)">缩小</button>
+                <button type="button" id="btn-view-zoom-in" title="整体扩大5%（不超过原始大小）" onclick="event.stopPropagation();Game.adjustViewScale(VIEW_SCALE_STEP)">扩大</button>
             </div>
         </div>
         <div id="wall-count-gap"></div>
@@ -249,7 +249,7 @@
 </div>
 
 
-<div id="player-intro-modal" onclick="if(event.target.id==='player-intro-modal')closePlayerIntro()">
+<div id="player-intro-modal" onclick="if(event.target.id==='player-intro-modal')Game.closePlayerIntro()">
     <div class="player-intro-box" onclick="event.stopPropagation()">
         <div class="player-intro-title" id="player-intro-title"></div>
         <div class="player-intro-sub" id="player-intro-sub"></div>
