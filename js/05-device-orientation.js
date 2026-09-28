@@ -168,7 +168,7 @@ function checkPortraitGuard() {
     if (wasPortrait !== !!isPortrait) {
         try { Game.hideExposedInfo(); } catch (e) {}
         try { Game.markDealer(); } catch (e) {}
-        try { Game.render(); } catch (e) {}
+        try { Game.requestRender('orientationChange'); } catch (e) {}
     }
     setTimeout(() => { try { Game.fitBottomHand(); } catch (e) {} }, 60);
     if (isPortrait) setTimeout(() => { try { Game.fitBottomHand(); } catch (e) {} }, 200);

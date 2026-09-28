@@ -183,8 +183,8 @@ const $ = (id) => document.getElementById(id);
 
 // ---------- 局号 + 游戏流程定时器 ----------
 // gameEpoch：每开一局（initGame）+1。流程里的延时回调（AI 摸牌/出牌/吃碰后出牌等）
-// 都通过 gameTimeout 调度：局号变了（清零重启/开下一局）就直接作废，不会串到新局里多摸/多打一次；
-// 骰子仪式期间（diceBusy）自动顺延，不让 AI 在清零菜单弹出时继续推进牌局、覆盖你的吃碰杠提示。
+// 都通过 Game.scheduleAi 调度（它包一层 gameTimeout）：局号变了（清零重启/开下一局）就直接作废，
+// 不会串到新局里多摸/多打一次；骰子仪式期间（diceBusy）自动顺延，不让 AI 在清零菜单弹出时继续推进牌局。
 Game.gameEpoch = 0;
 function gameTimeout(fn, ms) {
     const epoch = Game.gameEpoch;
@@ -195,6 +195,26 @@ function gameTimeout(fn, ms) {
     };
     return setTimeout(run, ms);
 }
+
+// ---------- AI 回调调度（四期）：驱动 AI 回合的延时回调统一走这里 ----------
+// 包 gameTimeout（局号作废 + 骰子仪式顺延语义不变），多记 aiScheduleLog（最近 20 次），
+// 定位"AI 怎么不动了"时看最后一次调度。时序、延迟一字不动。
+Game.aiScheduleLog = [];
+Game.scheduleAi = function (fn, ms, reason) {
+    Game.aiScheduleLog.push({ reason: reason || '', ms, t: Date.now() });
+    if (Game.aiScheduleLog.length > 20) Game.aiScheduleLog.shift();
+    return gameTimeout(fn, ms);
+};
+
+// ---------- 渲染解耦（四期）：逻辑层统一走 requestRender，不再直调 Game.render() ----------
+// 同步渲染（时序不变），多记 renderCount + lastRenderReason，定位"这次重绘是谁触发的"用。
+Game.renderCount = 0;
+Game.lastRenderReason = '';
+Game.requestRender = function (reason) {
+    Game.renderCount++;
+    Game.lastRenderReason = reason || '';
+    Game.render();
+};
 
 // ---------- 显式状态机（二期） ----------
 // 把原来散落在各处的隐式流程控制（gameOver 布尔、pendingClaim 四种 mode、
@@ -232,16 +252,16 @@ const PHASE_TRANSITIONS = {
     modeSelect: ['rulesEdit', 'amountSelect', 'dealing', 'modeSelect'],
     rulesEdit: ['modeSelect', 'amountSelect', 'dealing'],
     amountSelect: ['dealing', 'amountSelect', 'diceRitual'],
-    dealing: ['draw'],
-    draw: ['revealPrompt', 'selfGangOffer', 'waitDiscard', 'settling', 'nextGame'],
-    revealPrompt: ['selfGangOffer', 'waitDiscard', 'settling', 'nextGame'],
-    waitDiscard: ['claimPrompt', 'selfGangOffer', 'replacement', 'settling', 'nextGame', 'draw', 'waitDiscard'],
-    selfGangOffer: ['waitDiscard', 'claimPrompt', 'draw', 'replacement', 'settling', 'nextGame'],
-    claimPrompt: ['waitDiscard', 'chiChoice', 'replacement', 'settling', 'nextGame', 'draw'],
-    chiChoice: ['claimPrompt', 'waitDiscard'],
-    replacement: ['waitDiscard', 'selfGangOffer', 'settling', 'nextGame'],
-    settling: ['dealing', 'nextGame', 'bust', 'roundEnd'],
-    nextGame: ['dealing'],
+    dealing: ['draw', 'modeSelect', 'amountSelect'],
+    draw: ['revealPrompt', 'selfGangOffer', 'waitDiscard', 'settling', 'nextGame', 'modeSelect', 'amountSelect'],
+    revealPrompt: ['selfGangOffer', 'waitDiscard', 'settling', 'nextGame', 'modeSelect', 'amountSelect'],
+    waitDiscard: ['claimPrompt', 'selfGangOffer', 'replacement', 'settling', 'nextGame', 'draw', 'waitDiscard', 'modeSelect', 'amountSelect'],
+    selfGangOffer: ['waitDiscard', 'claimPrompt', 'draw', 'replacement', 'settling', 'nextGame', 'modeSelect', 'amountSelect'],
+    claimPrompt: ['waitDiscard', 'chiChoice', 'replacement', 'settling', 'nextGame', 'draw', 'modeSelect', 'amountSelect'],
+    chiChoice: ['claimPrompt', 'waitDiscard', 'modeSelect', 'amountSelect'],
+    replacement: ['waitDiscard', 'selfGangOffer', 'settling', 'nextGame', 'modeSelect', 'amountSelect'],
+    settling: ['dealing', 'nextGame', 'bust', 'roundEnd', 'modeSelect', 'amountSelect'],
+    nextGame: ['dealing', 'modeSelect', 'amountSelect'],
     bust: ['settling', 'amountSelect', 'dealing'],
     roundEnd: ['diceRitual', 'dealing'],
     diceRitual: ['diceMenu', 'dealing'], // 仪式结束：reset 进菜单 / dealer 调庄直接开新局
@@ -593,7 +613,7 @@ function loadGameProgress() {
 
 // 从存档恢复后：重绘桌面，若轮到 AI 且局未结束则继续其出牌
 function resumeFromSave() {
-    Game.render();
+    Game.requestRender('resumeFromSave');
     const player = turnOrder[Game.currentIndex];
     Game.highlightActive(player);
     if (Game.gameOver) {
@@ -620,7 +640,7 @@ function resumeFromSave() {
     if (player !== 'bottom' && Game.hands[player].length % 3 === 1 && lastDiscard && lastDiscard.player === player) {
         Game.logFlow('继续对局…');
         Game.setPhase(Game.PHASE.CLAIM_PROMPT, 'resumeFromSave/claim');
-        gameTimeout(() => Game.checkClaimOrAdvance(player, lastDiscard.tile), 600);
+        Game.scheduleAi(() => Game.checkClaimOrAdvance(player, lastDiscard.tile), 600, 'resumeFromSave/claim');
         return;
     }
     // 恢复时先判断“当前该轮到的这家”这一轮是否已经摸过牌：
@@ -635,15 +655,15 @@ function resumeFromSave() {
             if (!Game.pendingClaim) Game.setPhase(Game.PHASE.WAIT_DISCARD, 'resumeFromSave/bottom');
         } else {
             Game.logFlow('继续对局…');
-            gameTimeout(() => Game.nextTurn(), 600); // nextTurn 会置 draw
+            Game.scheduleAi(() => Game.nextTurn(), 600, 'resumeFromSave/bottomDraw'); // nextTurn 会置 draw
         }
     } else {
         Game.logFlow('继续对局…');
         Game.setPhase(Game.PHASE.WAIT_DISCARD, 'resumeFromSave/aiTurn');
-        gameTimeout(() => {
+        Game.scheduleAi(() => {
             if (needDiscard) Game.aiDiscard(player);
             else Game.nextTurn();
-        }, 600);
+        }, 600, 'resumeFromSave/aiTurn');
     }
 }
 

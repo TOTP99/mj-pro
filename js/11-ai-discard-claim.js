@@ -471,14 +471,14 @@ function aiDiscard(player) {
                     Game.logFlow(Game.nameOf(robber) + ' 抢杠胡了 ' + Game.nameOf(player) + '！' + result.detail);
                     Game.speak('胡了，' + Game.voiceName(player) + '点炮');
                     Game.learnFromWin(robber, player, { fan: bonus.mult, turns: Game.handTurnCount });
-                    Game.render();
+                    Game.requestRender('aiDiscard/rob');
                     Game.showResultModal(robber, 'dianpao', player, bonus, result, gTile);
                     return;
                 }
                 Game.TileFlow.addGang(player, gTile);
                 Game.logFlow(Game.nameOf(player) + ' 加杠 ' + Game.tileGlyph(gTile));
                 Game.speak('杠' + Game.tileName(gTile));
-                Game.render();
+                Game.requestRender('aiDiscard/jia');
                 aiDrawReplacement(player);
                 return;
             }
@@ -494,7 +494,7 @@ function aiDiscard(player) {
                 Game.TileFlow.meld(player, 'gang', [gangTile, gangTile, gangTile, gangTile], { concealed: true });
                 Game.logFlow(Game.nameOf(player) + ' 暗杠 ' + Game.tileGlyph(gangTile));
                 Game.speak('杠' + Game.tileName(gangTile));
-                Game.render();
+                Game.requestRender('aiDiscard/an');
                 aiDrawReplacement(player);
                 return;
             }
@@ -505,7 +505,7 @@ function aiDiscard(player) {
     Game.TileFlow.discard(player, tile);
     Game.markKongDiscardIfNeeded(player);
     Game.validateHandCounts('aiDiscard');
-    Game.render();
+    Game.requestRender('aiDiscard/discard');
     Game.speak(Game.tileName(tile));
 
     // 多家可以胡的话，按下家方向离出牌人最近的先胡
@@ -527,7 +527,7 @@ function aiDiscard(player) {
         Game.logFlow(Game.nameOf(player) + ' 点炮，' + Game.nameOf(ronPlayer) + ' 胡了！' + result.detail);
         Game.speak('胡了，' + Game.voiceName(player) + '点炮');
         Game.learnFromWin(ronPlayer, player, { fan: bonus.mult, turns: Game.handTurnCount });
-        Game.render();
+        Game.requestRender('aiDiscard/ron');
         Game.showResultModal(ronPlayer, 'dianpao', player, bonus, result, tile);
         return;
     }
@@ -691,14 +691,14 @@ function aiPengClaim(p, tile) {
     if (useGang) {
         Game.logFlow(Game.nameOf(p) + ' 杠了 ' + Game.tileGlyph(tile));
         Game.speak('杠' + Game.tileName(tile));
-        Game.render();
+        Game.requestRender('aiPengClaim/gang');
         aiDrawReplacement(p);
     } else {
         Game.logFlow(Game.nameOf(p) + ' 碰了 ' + Game.tileGlyph(tile));
         Game.speak('碰' + Game.tileName(tile));
-        Game.render();
+        Game.requestRender('aiPengClaim/peng');
         Game.setPhase(Game.PHASE.WAIT_DISCARD, 'aiPengClaim');
-        Game.gameTimeout(() => aiDiscard(p), 700);
+        Game.scheduleAi(() => aiDiscard(p), 700, 'aiPengClaim/aiDiscard');
     }
 }
 
@@ -708,9 +708,9 @@ function aiChiClaim(p, tile, combo) {
     Game.currentIndex = Game.turnOrder.indexOf(p);
     Game.logFlow(Game.nameOf(p) + ' 吃了 ' + Game.tileGlyph(tile));
     Game.speak('吃' + Game.tileName(tile));
-    Game.render();
+    Game.requestRender('aiChiClaim');
     Game.setPhase(Game.PHASE.WAIT_DISCARD, 'aiChiClaim');
-    Game.gameTimeout(() => aiDiscard(p), 700);
+    Game.scheduleAi(() => aiDiscard(p), 700, 'aiChiClaim/aiDiscard');
 }
 
 // AI杠后摸替补牌，检查杠上开花，否则继续正常出牌
@@ -724,7 +724,7 @@ function aiDrawReplacement(p) {
     Game.lastDrawWasFinal[p] = isLastTile;
     Game.markKongDraw(p);
     Game.validateHandCounts('aiDrawReplacement');
-    Game.render();
+    Game.requestRender('aiDrawReplacement');
     if (Game.checkHu(Game.hands[p], Game.exposedMelds[p], p)) {
         Game.gameOver = true;
         Game.winner = p;
@@ -737,12 +737,12 @@ function aiDrawReplacement(p) {
         Game.logFlow(Game.nameOf(p) + ' 杠上开花！自摸胡牌！' + result.detail);
         Game.speak('胡了，自摸');
         Game.learnFromWin(p, null, { fan: bonus.mult, turns: Game.handTurnCount });
-        Game.render();
+        Game.requestRender('aiDrawReplacement/hu');
         Game.showResultModal(p, 'selfdraw', null, bonus, result, drawn);
         return;
     }
     Game.setPhase(Game.PHASE.WAIT_DISCARD, 'aiDrawReplacement');
-    Game.gameTimeout(() => aiDiscard(p), 700);
+    Game.scheduleAi(() => aiDiscard(p), 700, 'aiDrawReplacement/aiDiscard');
 }
 
 // 你放弃碰/吃/杠（或没有机会）之后：先看有没有AI能碰/杠，再看下家AI能不能吃，否则正常进入下一家
@@ -774,7 +774,7 @@ function checkClaimOrAdvance(player, tile) {
 function advanceTurn() {
     if (Game.gameOver) return;
     Game.currentIndex = (Game.currentIndex + 1) % Game.turnOrder.length;
-    Game.gameTimeout(() => Game.nextTurn(), 500);
+    Game.scheduleAi(() => Game.nextTurn(), 500, 'advanceTurn/nextTurn');
 }
 
 

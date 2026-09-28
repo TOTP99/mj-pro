@@ -31,9 +31,9 @@ function initGame() {
     Game.resetFlowLog();
     Game.TileFlow.deal(tileCompare);
     Game.markDealer();
-    Game.render();
+    Game.requestRender('initGame');
     logFlow('发牌完成，游戏开始');
-    Game.gameTimeout(() => nextTurn(), 600);
+    Game.scheduleAi(() => nextTurn(), 600, 'initGame/firstTurn');
 }
 
 const suitOrder = ['万', '条', '筒', '字'];
@@ -80,7 +80,7 @@ function declareDraw() {
     if (typeof Game.onFieldDraw === 'function') {
         try { Game.onFieldDraw(); } catch (e) {}
     }
-    Game.render();
+    Game.requestRender('declareDraw');
     // 骰子按钮已移除：流局后用提示条开下一局
     Game.pendingClaim = { mode: 'nextGame' };
     Game.showIndicator('流局', true);
@@ -188,14 +188,14 @@ function applyReveal(player, kind) {
     Game.TileFlow.meld(player, kind, tiles);
     logFlow(Game.nameOf(player) + (kind === 'winds' ? ' 亮出东南西北' : ' 亮出中发白') + '（算幺九+刻子，不算开门）');
     speak('亮牌');
-    if (kind === 'dragons') { Game.render(); return true; } // 3张，不用补牌
+    if (kind === 'dragons') { Game.requestRender('applyReveal/dragons'); return true; } // 3张，不用补牌
     if (Game.deck.length <= DEAD_WALL) { declareDraw(); return false; }
     const drawn = Game.TileFlow.draw(player, 'revealDraw');
     Game.hands[player].sort(tileCompare);
     Game.lastDrawnTile[player] = drawn;
     Game.lastDrawWasFinal[player] = Game.deck.length === DEAD_WALL;
     if (player === 'bottom') { Game.lastDrawnIndex = Game.hands.bottom.lastIndexOf(drawn); Game.selectedIndex = null; }
-    Game.render();
+    Game.requestRender('applyReveal/winds');
     return true;
 }
 
@@ -256,7 +256,7 @@ function continueAfterFirstTurnCheck(player) {
         logFlow('轮到你，请点击一张牌出牌');
     } else {
         Game.setPhase(Game.PHASE.WAIT_DISCARD, 'continueAfterFirstTurnCheck');
-        Game.gameTimeout(() => Game.aiDiscard(player), 700);
+        Game.scheduleAi(() => Game.aiDiscard(player), 700, 'continueAfterFirstTurnCheck/aiDiscard');
     }
 }
 
@@ -310,14 +310,14 @@ function executeSelfGang() {
             logFlow(Game.nameOf(robber) + ' 抢杠胡了你加杠的 ' + Game.tileGlyph(tile) + '！' + result.detail);
             speak('胡了，' + voiceName('bottom') + '点炮');
             Game.learnFromWin(robber, 'bottom', { fan: bonus.mult, turns: Game.handTurnCount });
-            Game.render();
+            Game.requestRender('executeSelfGang/rob');
             Game.showResultModal(robber, 'dianpao', 'bottom', bonus, result, tile);
             return;
         }
         Game.TileFlow.addGang('bottom', tile);
         logFlow('你加杠了 ' + Game.tileGlyph(tile) + '，补牌中...');
         speak('杠' + Game.tileName(tile));
-        Game.render();
+        Game.requestRender('executeSelfGang/jia');
         Game.drawReplacementAndContinue();
         return;
     }
@@ -326,7 +326,7 @@ function executeSelfGang() {
     Game.TileFlow.meld('bottom', 'gang', [tile, tile, tile, tile], { concealed: true });
     logFlow('你暗杠了 ' + Game.tileGlyph(tile) + '，补牌中...');
     speak('杠' + Game.tileName(tile));
-    Game.render();
+    Game.requestRender('executeSelfGang/an');
     Game.drawReplacementAndContinue();
 }
 
@@ -344,7 +344,7 @@ function nextTurn() {
     // 普通摸牌不是杠上开花
     if (Game.afterKongDrawPlayer === player) { /* 保留：仅杠补牌路径会 mark */ }
     Game.validateHandCounts('nextTurn');
-    Game.render();
+    Game.requestRender('nextTurn');
     Game.highlightActive(player);
 
     const wasFirstTurn = !!Game.firstTurnPending[player];

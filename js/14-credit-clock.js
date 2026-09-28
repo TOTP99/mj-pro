@@ -48,7 +48,7 @@
         accumulate();               // 先结算切换前的时间
         visible = !document.hidden;
         lastTick = Date.now();
-        Game.render();
+        Game.requestRender('visibilitychange');
     });
 
     function pad(n) { return n < 10 ? '0' + n : '' + n; }

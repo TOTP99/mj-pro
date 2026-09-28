@@ -63,7 +63,7 @@ function offerHu(ctx) {
     Game.logFlow('你胡牌了！' + result.detail);
     Game.speak(isSelfDraw ? '胡了，自摸' : '胡了，' + Game.voiceName(payer) + '点炮');
     Game.learnFromWin('bottom', payer, { fan: bonus.mult, turns: Game.handTurnCount });
-    Game.render();
+    Game.requestRender('offerHu');
     Game.showResultModal('bottom', isSelfDraw ? 'selfdraw' : 'dianpao', payer, bonus, result, winTile);
 }
 
@@ -78,7 +78,7 @@ function callPeng() {
     Game.lastDrawnIndex = null;
     Game.logFlow('你碰了 ' + Game.tileGlyph(tile) + '（' + Game.nameOf(fromPlayer) + '打出），请出牌');
     Game.speak('碰' + Game.tileName(tile));
-    Game.render();
+    Game.requestRender('callPeng');
     Game.setPhase(Game.PHASE.WAIT_DISCARD, 'callPeng');
 }
 
@@ -125,7 +125,7 @@ function executeChi(combo) {
     Game.lastDrawnIndex = null;
     Game.logFlow('你吃了 ' + Game.tileGlyph(tile) + '，请出牌');
     Game.speak('吃' + Game.tileName(tile));
-    Game.render();
+    Game.requestRender('executeChi');
 }
 
 
@@ -162,7 +162,7 @@ function callGang() {
     Game.hideIndicator();
     Game.logFlow('你杠了 ' + Game.tileGlyph(tile) + '（' + Game.nameOf(fromPlayer) + '打出），补牌中...');
     Game.speak('杠' + Game.tileName(tile));
-    Game.render();
+    Game.requestRender('callGang');
     drawReplacementAndContinue();
 }
 
@@ -178,7 +178,7 @@ function drawReplacementAndContinue() {
     Game.selectedIndex = null;
     Game.markKongDraw('bottom');
     Game.validateHandCounts('drawReplacement');
-    Game.render();
+    Game.requestRender('drawReplacement');
     if (Game.checkHu(Game.hands.bottom, Game.exposedMelds.bottom, 'bottom')) {
         offerHu({ mode: 'selfdraw' }); // 杠上开花×2 在 offerHu/applyKongBonuses
         return;
@@ -209,7 +209,7 @@ function handleDiscard(event) {
     if (Game.selectedIndex !== idx) {
         // 第一次点这张（或改按了别的牌）：标记▼等待确认，不真正出牌
         Game.selectedIndex = idx;
-        Game.render();
+        Game.requestRender('handleDiscard/select');
         return;
     }
 
@@ -222,7 +222,7 @@ function handleDiscard(event) {
     Game.speak(Game.tileName(card));
     Game.logFlow('你打出了 ' + Game.tileGlyph(card));
     Game.validateHandCounts('handleDiscard');
-    Game.render();
+    Game.requestRender('handleDiscard/discard');
 
     // 检查是否有AI能胡你打出的这张牌
     const ronPlayer = Game.findRonPriority('bottom', card);
@@ -239,7 +239,7 @@ function handleDiscard(event) {
         Game.logFlow(Game.nameOf(ronPlayer) + ' 点炮胡了你打出的牌！' + result.detail);
         Game.speak('胡了，' + Game.voiceName('bottom') + '点炮');
         Game.learnFromWin(ronPlayer, 'bottom', { fan: bonus.mult, turns: Game.handTurnCount });
-        Game.render();
+        Game.requestRender('handleDiscard/ron');
         Game.showResultModal(ronPlayer, 'dianpao', 'bottom', bonus, result, card);
         return;
     }

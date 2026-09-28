@@ -79,10 +79,30 @@ loadRulesConfig();
 function showModal(id) { const el = Game.$(id); if (el) el.classList.add('show'); }
 function hideModal(id) { const el = Game.$(id); if (el) el.classList.remove('show'); }
 
-/** 牌桌中央提示条：模式/筹码选择时先亮提示、弹窗稍后跟上 */
+/** 牌桌中央提示条：模式/筹码选择时先亮提示、弹窗稍后跟上
+    位置取四头像中心连成的菱形正中心（实时计算，替代固定的 50%/50%） */
+function placePromptAtDiamondCenter() {
+    const el = Game.$('table-center-prompt');
+    if (!el) return;
+    const cx = [], cy = [];
+    ['top', 'left', 'right', 'bottom'].forEach(function (p) {
+        const host = document.getElementById('p-' + p);
+        const av = host ? host.querySelector('.avatar') : null;
+        if (!av) return;
+        const r = av.getBoundingClientRect();
+        if (r.width > 0) { cx.push(r.left + r.width / 2); cy.push(r.top + r.height / 2); }
+    });
+    if (cx.length < 4) return; // 头像不全就不动，保持 CSS 默认位置
+    const parent = el.offsetParent;
+    if (!parent) return;
+    const pr = parent.getBoundingClientRect();
+    // 菱形中心 = 四顶点坐标平均（= 任一条对角线中点）
+    el.style.left = ((cx[0] + cx[1] + cx[2] + cx[3]) / 4 - pr.left) + 'px';
+    el.style.top = ((cy[0] + cy[1] + cy[2] + cy[3]) / 4 - pr.top) + 'px';
+}
 function showTablePrompt(text) {
     const el = Game.$('table-center-prompt');
-    if (el) { el.textContent = text; el.classList.add('show'); }
+    if (el) { el.textContent = text; placePromptAtDiamondCenter(); el.classList.add('show'); }
 }
 function hideTablePrompt() {
     const el = Game.$('table-center-prompt');
@@ -115,19 +135,24 @@ function openModeSelect() {
 function chooseMode(mode) {
     hideModal('mode-select-modal');
     clearSelectGlow();
+    const gameLive = !Game.gameOver && !!Game.fieldActive; // 对局进行中且已开场
     if (mode === 'advanced') {
+        // 已在高阶且对局进行中：快照当前规则，供 confirmRules 判断用户是否真改了
+        rulesSnapshotBeforeEdit = (gameLive && Game.gameMode === 'advanced') ? snapshotRules() : null;
         // 高阶：先显示规则页（带上次配置）
         Game.setPhase(Game.PHASE.RULES_EDIT, 'chooseMode/advanced');
         syncRulesUI();
         showModal('rules-modal');
-    } else {
-        // 如果已有对局在进行，换模式开新局需先确认
-        if (typeof Game.gameOver !== 'undefined' && !Game.gameOver) {
-            if (!confirm('切换到日常模式将重新开局，继续吗？')) return;
-        }
-        setGameMode('daily');
-        startGameWithMode();
+        return;
     }
+    // 日常：已在日常且对局进行中 → 同模式，不确认、不重开，手牌不动
+    if (gameLive && Game.gameMode === 'daily') return;
+    // 如果已有对局在进行，换模式开新局需先确认
+    if (typeof Game.gameOver !== 'undefined' && !Game.gameOver) {
+        if (!confirm('切换到日常模式将重新开局，继续吗？')) return;
+    }
+    setGameMode('daily');
+    startGameWithMode();
 }
 
 function setRuleYN(key, val) {
@@ -148,7 +173,26 @@ function syncRulesUI() {
     Object.keys(DEFAULT_RULES).forEach(syncRuleYN);
 }
 
+// 规则快照：进规则页时记下，对局进行中点"应用"时若一条没改就不重开
+var rulesSnapshotBeforeEdit = null;
+function snapshotRules() {
+    const s = {};
+    Object.keys(DEFAULT_RULES).forEach(function (k) { s[k] = !!Game.rulesConfig[k]; });
+    return s;
+}
+function rulesEqual(a, b) {
+    return Object.keys(DEFAULT_RULES).every(function (k) { return !!a[k] === !!b[k]; });
+}
+
 function confirmRules() {
+    const gameLive = !Game.gameOver && !!Game.fieldActive;
+    // 对局进行中、已在高阶、规则一条没动 → 不重开，手牌不动
+    if (gameLive && Game.gameMode === 'advanced' && rulesSnapshotBeforeEdit && rulesEqual(rulesSnapshotBeforeEdit, Game.rulesConfig)) {
+        hideModal('rules-modal');
+        rulesSnapshotBeforeEdit = null;
+        return;
+    }
+    rulesSnapshotBeforeEdit = null;
     if (typeof Game.gameOver !== 'undefined' && !Game.gameOver) {
         if (!confirm('应用高阶规则将重新开局，继续吗？')) return;
     }

@@ -9,6 +9,7 @@ const FIELD_ROUNDS = 16;
 Game.fieldAmounts = { top: 0, left: 0, right: 0, bottom: 0 };
 Game.fieldGameCount = 0;
 Game.fieldActive = false; // 是否已开场（选过金额）
+Game.fieldInitialAmount = 50; // 本场开场时的初始金额（同金额重选不重开场）
 Game.bustRestartPending = false; // 输光重开：选完金额后走骰子调庄（而非直接开局）
 
 function loadField() {
@@ -20,6 +21,7 @@ function loadField() {
                 Game.fieldAmounts = { ...s.amounts };
                 Game.fieldGameCount = s.gameCount || 0;
                 Game.fieldActive = !!s.active;
+                if (s.initialAmount > 0) Game.fieldInitialAmount = s.initialAmount;
             }
         }
     } catch (e) {}
@@ -29,6 +31,7 @@ function saveField() {
     try {
         localStorage.setItem(FIELD_STORAGE_KEY, JSON.stringify({
             amounts: Game.fieldAmounts, gameCount: Game.fieldGameCount, active: Game.fieldActive,
+            initialAmount: Game.fieldInitialAmount,
         }));
     } catch (e) {}
 }
@@ -39,6 +42,7 @@ function startNewField(initialAmount) {
     Game.fieldAmounts = { top: amt, left: amt, right: amt, bottom: amt };
     Game.fieldGameCount = 0;
     Game.fieldActive = true;
+    Game.fieldInitialAmount = amt;
     saveField();
     if (typeof renderFieldAmounts === 'function') renderFieldAmounts();
 }
@@ -148,14 +152,18 @@ function closeAmountModal() {
 function chooseAmount(amt) {
     Game.$('amount-modal').classList.remove('show');
     if (typeof Game.clearSelectGlow === 'function') Game.clearSelectGlow();
+    let n;
     if (amt === 'custom') {
         const v = prompt('请输入初始金额：', '100');
-        const n = Math.floor(Number(v));
+        n = Math.floor(Number(v));
         if (!n || n < 1) { showAmountModal(); return; }
-        startNewField(n);
     } else {
-        startNewField(amt);
+        n = Math.floor(Number(amt));
     }
+    n = Math.max(1, n || 50);
+    // 对局进行中、非输光重开、金额没变 → 不重开场，手牌不动
+    if (!Game.gameOver && Game.fieldActive && !Game.bustRestartPending && n === Game.fieldInitialAmount) return;
+    startNewField(n);
     // 输光重开：选完金额先走骰子仪式重新调庄，再开始新场
     if (Game.bustRestartPending) {
         Game.bustRestartPending = false;
