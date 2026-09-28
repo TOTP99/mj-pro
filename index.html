@@ -230,8 +230,12 @@
                 <button type="button" id="landscape-ctrl" title="横屏最大化" onclick="event.stopPropagation();Game.toggleLandscapeMaximize()">横屏最大</button>
             </div>
             <div id="view-scale-btns">
-                <button type="button" id="btn-view-zoom-out" title="整体缩小5%（相对原始大小）" onclick="event.stopPropagation();Game.adjustViewScale(-VIEW_SCALE_STEP)">缩小</button>
-                <button type="button" id="btn-view-zoom-in" title="整体扩大5%（不超过原始大小）" onclick="event.stopPropagation();Game.adjustViewScale(VIEW_SCALE_STEP)">扩大</button>
+                <button type="button" id="btn-view-zoom-out" title="整体缩小5%（相对原始大小）" onclick="event.stopPropagation();Game.adjustViewScale(-Game.VIEW_SCALE_STEP)">缩小</button>
+                <button type="button" id="btn-view-zoom-in" title="整体扩大5%（不超过原始大小）" onclick="event.stopPropagation();Game.adjustViewScale(Game.VIEW_SCALE_STEP)">扩大</button>
+                <label id="breath-ctrl" title="牌桌四周留白（呼吸量），横竖屏都生效">
+                    <span>呼吸</span>
+                    <input type="range" id="breath-slider" min="0" max="28" step="1" value="10" oninput="event.stopPropagation();Game.setTableBreath(this.value)">
+                </label>
             </div>
         </div>
         <div id="wall-count-gap"></div>
