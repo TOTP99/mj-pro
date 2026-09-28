@@ -26,6 +26,10 @@ let lastDrawnIndex = null;
 let scores = { top: 0, left: 0, right: 0, bottom: 0 };
 let windDragonBonus = { top: false, left: false, right: false, bottom: false };
 let firstTurnPending = { top: true, left: true, right: true, bottom: true };
+// 亮牌提示状态（高阶）：每家拒绝过的种类；上次检查到的牌型（用于检测"新凑齐"）
+// 拒绝后同牌型不再提示；牌型从不满足变为满足时清除拒绝、重新允许提示。跨局不保存。
+let revealDeclined = { top: {}, left: {}, right: {}, bottom: {} };
+let revealPatternSeen = { top: {}, left: {}, right: {}, bottom: {} };
 let lastDrawnTile = { top: null, left: null, right: null, bottom: null };
 let lastDrawWasFinal = { top: false, left: false, right: false, bottom: false };
 let aiWaitTiles = { top: [], left: [], right: [] };

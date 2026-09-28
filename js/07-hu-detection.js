@@ -85,7 +85,7 @@ function isSevenPairs(concealed) {
     return Object.values(counts).every(c => c === 2);
 }
 
-/** 高阶胡牌判定：按 7 开关组合 */
+/** 高阶胡牌判定：按 7 开关组合（每项 ON=相对旧版放宽，OFF=旧版要求） */
 function checkHuAdvanced(concealed, exposed = [], player = null) {
     // 七小对优先（须无已亮明牌）
     if (ruleAllowsSevenPairs() && (!exposed || exposed.length === 0) && isSevenPairs(concealed)) {
@@ -93,10 +93,11 @@ function checkHuAdvanced(concealed, exposed = [], player = null) {
     }
     const a = analyzeHu(concealed, exposed, player);
     if (!a.structuralOk) return false;
+    // 全关时：须开门/须幺九/须三门齐/须刻子，与日常旧版分支完全一致
     if (ruleRequiresKaimen() && !a.kaimen) return false;
     if (ruleRequiresYaojiu() && !a.yaojiu) return false;
     if (ruleRequiresSanmenqi() && !a.sanmenqi) return false;
-    // 平胡开关 ON=允许无刻子；OFF=须有刻子（旧版行为）
+    // 平胡开关 ON=允许平胡（无刻子；中发白作将满足幺九+刻子）；OFF=须有刻子（旧版）
     if (!ruleAllowsPinghu() && !a.kezi) return false;
     return true;
 }

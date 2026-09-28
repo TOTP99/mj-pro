@@ -118,6 +118,8 @@ function confirmRoundReselect() {
 function showAmountModal() {
     const el = $('amount-modal');
     if (!el) { startNewField(50); return; }
+    showTablePrompt('请选择初始筹码');
+    glowSelectButtons('amount-modal', true); // 最后一个是取消，不发光
     el.classList.add('show');
 }
 
@@ -133,10 +135,12 @@ function openAmountSelect() {
 function closeAmountModal() {
     const el = $('amount-modal');
     if (el) el.classList.remove('show');
+    if (typeof clearSelectGlow === 'function') clearSelectGlow();
 }
 
 function chooseAmount(amt) {
     $('amount-modal').classList.remove('show');
+    if (typeof clearSelectGlow === 'function') clearSelectGlow();
     if (amt === 'custom') {
         const v = prompt('请输入初始金额：', '100');
         const n = Math.floor(Number(v));
@@ -160,14 +164,13 @@ function chooseAmount(amt) {
     else if (typeof initGame === 'function') initGame();
 }
 
-/** 界面显示金额（由 render 调用） */
+/** 界面显示局数（由 render 调用） */
 function renderFieldAmounts() {
-    for (const p of ['top', 'left', 'right', 'bottom']) {
-        const el = $('amount-' + p);
-        if (el) el.innerText = fieldAmounts[p];
-    }
-    const cnt = $('field-count');
-    if (cnt) cnt.innerText = fieldGameCount + ' / ' + FIELD_ROUNDS;
+    const txt = '局 ' + fieldGameCount + '/' + FIELD_ROUNDS;
+    const a = $('field-count');
+    if (a) a.innerText = txt;
+    const b = $('field-count-ls');
+    if (b) b.innerText = txt;
 }
 
 loadField();

@@ -14,6 +14,8 @@ function initGame() {
     lastDrawnIndex = null;
     windDragonBonus = { top: false, left: false, right: false, bottom: false };
     firstTurnPending = { top: true, left: true, right: true, bottom: true };
+    revealDeclined = { top: {}, left: {}, right: {}, bottom: {} };
+    revealPatternSeen = { top: {}, left: {}, right: {}, bottom: {} };
     lastDrawnTile = { top: null, left: null, right: null, bottom: null };
     lastDrawWasFinal = { top: false, left: false, right: false, bottom: false };
     aiWaitTiles = { top: [], left: [], right: [] };
@@ -137,6 +139,42 @@ function checkWindDragonPattern(hand) {
     return null;
 }
 
+// 当前手牌满足的亮牌牌型（两种可同时满足）
+function currentRevealKinds(hand) {
+    const winds = ['1字', '2字', '3字', '4字'];
+    const dragons = ['5字', '6字', '7字'];
+    return {
+        winds: winds.every(t => hand.includes(t)),
+        dragons: dragons.every(t => hand.includes(t)),
+    };
+}
+
+/**
+ * 高阶亮牌决策（摸牌后调用）：
+ * - 每种牌型从"不满足"变为"满足"（新凑齐）时，清除该种类的拒绝记录，重新允许提示
+ * - 已亮过的种类不再提示；拒绝过的种类在牌型未变时不再提示
+ * - 两类同时满足沿用旧逻辑优先级（winds 优先）
+ * - firstTurn=true 时沿用旧版（两种都可亮）；否则按开关
+ * 返回 'winds' | 'dragons' | null
+ */
+function pickAdvancedRevealKind(player, firstTurn) {
+    const kinds = currentRevealKinds(hands[player]);
+    const prev = revealPatternSeen[player] || {};
+    if (!revealDeclined[player]) revealDeclined[player] = {};
+    const declined = revealDeclined[player];
+    let picked = null;
+    for (const k of ['winds', 'dragons']) { // 旧逻辑优先级：winds 优先
+        if (kinds[k] && !prev[k]) delete declined[k]; // 新凑齐 → 重新允许提示
+        if (picked || !kinds[k]) continue;
+        if (exposedMelds[player].some(m => m.type === k)) continue; // 该组已亮过
+        if (declined[k]) continue; // 拒绝过且牌型未变
+        if (typeof ruleAllowsReveal === 'function' && !ruleAllowsReveal(k, firstTurn)) continue;
+        picked = k;
+    }
+    revealPatternSeen[player] = kinds;
+    return picked;
+}
+
 // 亮牌：把东南西北(4张)或中发白(3张)从暗牌里移出，变成一组“亮牌”明组，占一个面子位
 // 中发白正好3张，跟碰/吃一样不用补牌；东南西北4张，跟杠一样需要补一张牌才能凑够面子位的牌数
 // 算幺九+刻子，但不算开门。返回false代表补牌时牌墙已尽、流局已处理，调用方不要再继续往下走
@@ -164,7 +202,9 @@ let pendingReveal = null; // 'winds' | 'dragons'，等待你在弹窗里选择
 function offerReveal(kind) {
     pendingReveal = kind;
     $('reveal-title').innerText =
-        (kind === 'winds' ? '手里凑齐了东南西北' : '手里凑齐了中发白') + '，要亮牌吗？（算幺九+刻子，但不算开门；亮牌后补一张牌）';
+        (kind === 'winds'
+            ? '手里凑齐了东南西北，要亮牌吗？（算幺九+刻子，不算开门；亮出4张后补一张牌）'
+            : '手里凑齐了中发白，要亮牌吗？（算幺九+刻子，不算开门；正好3张，不用补牌）');
     $('reveal-modal').classList.add('show');
 }
 
@@ -174,6 +214,10 @@ function confirmReveal(reveal) {
     $('reveal-modal').classList.remove('show');
     if (reveal) {
         if (!applyReveal('bottom', kind)) return; // 补牌时牌墙已尽，流局已处理
+    } else if (typeof isDailyMode === 'function' && !isDailyMode()) {
+        // 高阶：拒绝后同牌型不再提示（牌型变化/新凑齐后会重新允许）
+        if (!revealDeclined.bottom) revealDeclined.bottom = {};
+        revealDeclined.bottom[kind] = true;
     }
     continueAfterFirstTurnCheck('bottom');
 }
@@ -310,9 +354,10 @@ function nextTurn() {
     render();
     highlightActive(player);
 
-    if (firstTurnPending[player]) {
+    const wasFirstTurn = !!firstTurnPending[player];
+    if (wasFirstTurn) {
         firstTurnPending[player] = false;
-        // 日常：旧版首巡亮牌逻辑
+        // 日常：旧版首巡亮牌逻辑（一字不改）
         if (typeof isDailyMode === 'function' && isDailyMode()) {
             const kind = checkWindDragonPattern(hands[player]);
             if (kind) {
@@ -324,10 +369,11 @@ function nextTurn() {
             }
         }
     }
-    // 高阶：任何时间集齐可亮（按开关）
-    if (typeof isDailyMode === 'function' && !isDailyMode() && !windDragonBonus[player]) {
-        const kind = checkWindDragonPattern(hands[player]);
-        if (kind && ruleAllowsReveal(kind)) {
+    // 高阶：首巡沿用旧版（两种都可亮），之后按开关随时可亮；
+    // 拒绝后同牌型不再提示，牌型变化（新凑齐）后重新提示；两组可先后亮
+    if (typeof isDailyMode === 'function' && !isDailyMode()) {
+        const kind = pickAdvancedRevealKind(player, wasFirstTurn);
+        if (kind) {
             if (player === 'bottom') {
                 offerReveal(kind);
                 return;
