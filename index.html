@@ -15,7 +15,6 @@
 <link rel="stylesheet" href="css/02-players-hands.css">
 <link rel="stylesheet" href="css/03-controls-popups.css">
 <link rel="stylesheet" href="css/04-dice-menus.css">
-<link rel="stylesheet" href="css/05-landscape-max.css">
 <link rel="stylesheet" href="css/06-media-landscape.css">
 <link rel="stylesheet" href="css/07-portrait-layout.css">
 <link rel="stylesheet" href="css/08-media-portrait.css">
@@ -224,18 +223,9 @@
         <div id="wall-count-header">
             <div id="wall-count-row">
                 <span id="img-display-badge" title="TP制作">TP制作</span>
-                <button type="button" class="credit-btn-ls" onclick="event.stopPropagation();Game.openModeSelect()">模式选择</button>
-                <button type="button" class="credit-btn-ls" onclick="event.stopPropagation();Game.openAmountSelect()">初始筹码</button><span id="field-count-ls" class="field-rounds">局 0/16</span>
+                <span id="mode-size-row"><button type="button" class="credit-btn-ls" onclick="event.stopPropagation();Game.openModeSelect()">模式选择</button>
+                <button type="button" class="credit-btn-ls" onclick="event.stopPropagation();Game.openAmountSelect()">初始筹码</button><input type="range" id="size-slider" min="80" max="110" step="1" value="100" title="横屏牌桌大小：相对默认 80%~110%，刷新恢复默认" oninput="event.stopPropagation();Game.setViewSize(this.value)"></span><span id="field-count-ls" class="field-rounds">局 0/16</span>
                 <span id="wall-count-text"></span>
-                <button type="button" id="landscape-ctrl" title="横屏最大化" onclick="event.stopPropagation();Game.toggleLandscapeMaximize()">横屏最大</button>
-            </div>
-            <div id="view-scale-btns">
-                <button type="button" id="btn-view-zoom-out" title="整体缩小5%（相对原始大小）" onclick="event.stopPropagation();Game.adjustViewScale(-Game.VIEW_SCALE_STEP)">缩小</button>
-                <button type="button" id="btn-view-zoom-in" title="整体扩大5%（不超过原始大小）" onclick="event.stopPropagation();Game.adjustViewScale(Game.VIEW_SCALE_STEP)">扩大</button>
-                <label id="breath-ctrl" title="牌桌四周留白（呼吸量），横竖屏都生效">
-                    <span>呼吸</span>
-                    <input type="range" id="breath-slider" min="0" max="28" step="1" value="10" oninput="event.stopPropagation();Game.setTableBreath(this.value)">
-                </label>
             </div>
         </div>
         <div id="wall-count-gap"></div>
