@@ -1,0 +1,122 @@
+    /* ========== 响应式：媒体查询 ========== */
+    /* 横屏优先：矮屏 / 窄横屏 */
+    @media screen and (orientation: landscape) and (max-height: 420px) {
+        #table-frame {
+            width: min(98vw, 220vh);
+            height: min(96vh, 56vw);
+            border-radius: 12px;
+        }
+        .avatar img { width: 36px; height: 36px; }
+        .player-score { font-size: 10px; }
+        #wall-count { font-size: 10px; top: 5%; height: 88%; }
+        #discardWall { top: calc(5% + 1.3em + 12.87px); height: 50%; }
+        .bottom { padding: 2px 4px 1px; }
+        #flow-log { font-size: 10px; min-height: 24px; padding: 2px 6px; }
+        .result-box, .hu-box { max-height: min(88vh, 360px); }
+    }
+
+    @media screen and (orientation: landscape) and (max-height: 360px) {
+        #table-frame {
+            width: 100vw;
+            height: 100vh;
+            border-radius: 0;
+        }
+        .avatar img { width: 30px; height: 30px; }
+        .left { left: calc(18% + 40px); top: calc(50% - 36px); }
+        .right { right: calc(18% + 40px); top: calc(50% - 36px); }
+        #wall-count { width: 15%; font-size: 9px; }
+        #discardWall { width: 15%; }
+        .bottom .hand {
+            --tile-w: 26px; --tile-h: 34px; --tile-fs: 26px;
+        }
+        .bottom { --hand-tile-h: 34px; }
+    }
+
+    /* 宽横屏平板 */
+    @media screen and (orientation: landscape) and (min-width: 900px) and (min-height: 500px) {
+        #table-frame {
+            width: min(94vw, 180vh);
+            height: min(90vh, 48vw);
+            border-radius: 20px;
+        }
+        .avatar img { width: 48px; height: 48px; }
+        #wall-count { font-size: 12px; }
+        .stat-line { font-size: 12px; }
+    }
+
+    /* 竖屏兜底：仅在尚未挂上 portrait-layout 时生效（避免与竖屏专用布局冲突） */
+    @media screen and (orientation: portrait) {
+        body:not(.portrait-layout) {
+            padding: 4px;
+        }
+        body:not(.portrait-layout) #table-frame {
+            width: min(96vw, 100vh);
+            height: min(72vh, 140vw);
+            border-radius: 16px;
+        }
+        body:not(.portrait-layout) .left { left: calc(8% + 20px); top: calc(42% - 20px); }
+        body:not(.portrait-layout) .right { right: calc(8% + 20px); top: calc(42% - 20px); }
+        body:not(.portrait-layout) #wall-count { width: 22%; left: 1%; top: 6%; height: 70%; font-size: 10px; }
+        body:not(.portrait-layout) #discardWall { width: 22%; right: 1%; top: calc(6% + 1.3em + 12.87px); height: 48%; }
+        body:not(.portrait-layout) .bottom { max-width: 98%; }
+    }
+
+    /* 很窄宽度（弹窗字号放大后，宽度相应放宽） */
+    @media screen and (max-width: 520px) {
+        #wall-count-row { gap: 2px 3px; }
+        #img-display-badge { font-size: 9px; }
+        #wall-count-text { font-size: 9px; }
+        #landscape-ctrl { font-size: 9px; }
+        #view-scale-btns button { font-size: 8px; padding: 2px 5px; min-width: 26px; }
+        .result-box { width: min(88vw, 200px); }
+        .hu-box { width: min(88vw, 240px); }
+    }
+
+    /* 高分屏稍收紧阴影，更利落 */
+    @media screen and (min-resolution: 2dppx) {
+        #table-frame {
+            box-shadow:
+                0 12px 28px rgba(0,0,0,0.5),
+                0 0 0 1px rgba(212,175,55,0.16),
+                inset 0 0 0 1px rgba(255,255,255,0.04);
+        }
+    }
+
+    /* 安全区（刘海 / Home 指示条）：非最大化时给 body 留白 */
+    body:not(.landscape-max) {
+        padding-top: var(--sat);
+        padding-right: var(--sar);
+        padding-bottom: var(--sab);
+        padding-left: var(--sal);
+        box-sizing: border-box;
+    }
+    /* 弹层全屏遮罩吃到安全区外缘，内容盒再内缩 */
+    #result-modal,
+    #reveal-modal,
+    #chi-choice-modal,
+    #mode-select-modal,
+    #rules-modal,
+    #amount-modal,
+    #bust-modal,
+    #round-modal,
+    #pool-modal {
+        padding-top: max(10px, var(--sat));
+        padding-right: max(10px, var(--sar));
+        padding-bottom: max(10px, var(--sab));
+        padding-left: max(10px, var(--sal));
+        box-sizing: border-box;
+    }
+
+    /* 偏好减少动效（含胡牌高亮呼吸动画） */
+    @media (prefers-reduced-motion: reduce) {
+        #table-wrap,
+        #result-modal .result-box,
+        #reveal-modal .hu-box,
+        #chi-choice-modal .hu-box,
+        #dice-scene,
+        .tile.win-glow {
+            transition: none !important;
+            animation: none !important;
+        }
+    }
+

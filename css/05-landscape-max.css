@@ -1,0 +1,106 @@
+
+    body.landscape-max {
+        background: #05080e;
+        position: fixed;
+        inset: 0;
+        width: var(--app-width, 100%);
+        height: var(--app-height, 100%);
+        max-width: 100%;
+        max-height: 100%;
+        overflow: hidden;
+        overscroll-behavior: none;
+        -webkit-overflow-scrolling: auto;
+        touch-action: manipulation;
+    }
+    /* Android / Chrome：横屏全屏时用系统可用区域，兼顾手势条与挖孔 */
+    html.is-android body.landscape-max,
+    body.is-android.landscape-max {
+        width: 100%;
+        height: 100%;
+        width: var(--app-width, 100%);
+        height: var(--app-height, 100%);
+        /* 减少 Chrome 地址栏伸缩引起的跳动 */
+        min-height: var(--app-height, 100dvh);
+    }
+    html.is-android body.landscape-max #table-frame,
+    body.is-android.landscape-max #table-frame {
+        width: var(--app-width, 100%);
+        height: var(--app-height, 100%);
+        /* 挖孔屏横屏：安全区已在 padding；再给最小边距兜底 */
+        padding-top: max(var(--sat), 0px);
+        padding-bottom: max(var(--sab), 0px);
+        padding-left: max(var(--sal), 4px);
+        padding-right: max(var(--sar), 4px);
+    }
+    /* Android 横屏矮屏：再收紧控件字号，避免挡牌 */
+    @media screen and (orientation: landscape) and (max-height: 420px) {
+        html.is-android #img-display-badge,
+        body.is-android #img-display-badge,
+        html.is-android #wall-count-text,
+        body.is-android #wall-count-text { font-size: 9px; }
+        html.is-android #discard-query-btn,
+        body.is-android #discard-query-btn { font-size: 9px; }
+        html.is-android #view-scale-btns button,
+        body.is-android #view-scale-btns button { font-size: 8px; min-width: 26px; }
+    }
+    body.landscape-max #table-wrap {
+        width: var(--app-width, 100%);
+        height: var(--app-height, 100%);
+        max-width: var(--app-width, 100%);
+        max-height: var(--app-height, 100%);
+    }
+    body.landscape-max #table-frame {
+        width: var(--app-width, 100dvw);
+        height: var(--app-height, 100dvh);
+        max-width: none;
+        max-height: none;
+        border-radius: 0;
+        border: 1.5px solid var(--gold);
+        box-shadow: none;
+    }
+    body.landscape-max #game-table { border-radius: 0; }
+    /* iOS 安全区：横屏铺满时避开刘海 / Home 条 */
+    body.landscape-max #table-frame {
+        padding-top: var(--sat);
+        padding-right: var(--sar);
+        padding-bottom: var(--sab);
+        padding-left: var(--sal);
+        box-sizing: border-box;
+    }
+    /* 左侧牌墙、右侧废牌区随安全区微移，避免贴边被裁 */
+    body.landscape-max #wall-count {
+        left: max(1.5%, var(--sal));
+    }
+    body.landscape-max #discard-query-btn,
+    body.landscape-max #discardWall {
+        right: max(1.5%, var(--sar));
+    }
+
+    body.landscape-max #wall-count {
+        z-index: 20;
+        pointer-events: auto;
+    }
+    /* 横屏最大化：保留牌墙/缩放/查牌池等控件，便于操作
+       （下面按元素分别给出最终 display/opacity，避免中间值被立刻覆盖的冗余声明） */
+    body.landscape-max #view-scale-btns,
+    body.landscape-max #discard-query-btn,
+    body.landscape-max #img-display-badge,
+    body.landscape-max #landscape-ctrl {
+        visibility: visible !important;
+        opacity: 1;
+        pointer-events: auto;
+    }
+    body.landscape-max #landscape-ctrl {
+        opacity: 0.85;
+        color: var(--ice);
+    }
+    body.landscape-max #img-display-badge {
+        display: unset;
+    }
+    body.landscape-max #view-scale-btns {
+        display: flex !important;
+    }
+    body.landscape-max #discard-query-btn {
+        display: inline !important;
+    }
+

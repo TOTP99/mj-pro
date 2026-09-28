@@ -1,0 +1,394 @@
+    /* ========== 竖屏布局：严格按原「极简竖屏」UI，不改动原视觉 ========== */
+    body.portrait-layout #table-wrap {
+        transform: none !important;
+        max-width: 100%;
+        max-height: 100%;
+    }
+    body.portrait-layout {
+        --hand-tile-h: 39px;
+        padding-top: max(4px, var(--sat));
+        padding-right: max(4px, var(--sar));
+        padding-bottom: max(4px, var(--sab));
+        padding-left: max(4px, var(--sal));
+        box-sizing: border-box;
+    }
+    body.portrait-layout #table-frame {
+        /* 随视口伸缩，尽量占满可用区域且保持牌桌比例 */
+        width: min(92vw, calc(62vh - var(--sat) - var(--sab)));
+        height: min(calc(82vh - var(--sat) - var(--sab)), 132vw);
+        max-width: calc(100vw - var(--sal) - var(--sar) - 8px);
+        max-height: calc(100vh - var(--sat) - var(--sab) - 8px);
+        border-radius: 22px;
+    }
+    /* 署名：竖屏牌桌外侧、左上角。第一行固定在原位；第二行单独定位，离牌桌上沿更近 */
+    #credit-label, #credit-label-2 {
+        display: none;
+        pointer-events: none;
+        user-select: none;
+    }
+    body.portrait-layout #credit-label,
+    body.portrait-layout #credit-label-2 {
+        display: block;
+        position: absolute;
+        left: max(6px, var(--sal));
+        color: var(--gold);
+        font-size: 11px;
+        font-weight: 600;
+        letter-spacing: 0.04em;
+        line-height: 1.4;
+        text-align: left;
+        opacity: 0.85;
+        z-index: 5;
+    }
+    body.portrait-layout #credit-label {
+        bottom: calc(100% + var(--hand-tile-h, 39px) / 2 + 6px);
+    }
+    body.portrait-layout #credit-label-2 {
+        bottom: calc(100% + var(--hand-tile-h, 39px) / 8 + 3px);
+    }
+    body.portrait-layout #game-table {
+        border-radius: 20px;
+    }
+    body.portrait-layout .top {
+        top: 3.5%;
+        left: 50%;
+        transform: translateX(-50%);
+    }
+    body.portrait-layout .left {
+        left: 2%;
+        top: calc(50% - 36px);
+        transform: translateY(-50%) rotate(90deg);
+    }
+    body.portrait-layout .right {
+        right: 2%;
+        top: calc(50% - 36px);
+        transform: translateY(-50%) rotate(90deg);
+    }
+    body.portrait-layout .left .player-label,
+    body.portrait-layout .right .player-label {
+        transform: rotate(-90deg);
+    }
+    /* 竖屏不使用横屏的 side-stack 反向旋转叠加，避免头像方向错乱 */
+    body.portrait-layout .left .player-side-stack,
+    body.portrait-layout .right .player-side-stack {
+        transform: none;
+    }
+    body.portrait-layout .bottom {
+        bottom: calc(1% + 4px);
+        left: 50%;
+        transform: translateX(-50%);
+        max-width: 94%;
+        width: auto;
+        padding: 4px 8px 2px;
+        display: block;
+    }
+    body.portrait-layout .bottom .player-label { order: unset; }
+    body.portrait-layout .bottom #flow-log {
+        order: unset;
+        margin-top: 14px;
+        min-height: 30px;
+        padding: 3px 10px;
+        font-size: 12px;
+    }
+    body.portrait-layout .bottom #hand-bottom { order: unset; margin-bottom: 0; }
+    /* 原版竖屏手牌：固定 29×39，横向滑动，不缩放 */
+    body.portrait-layout .bottom .hand {
+        --tile-w: 29px;
+        --tile-h: 39px;
+        --tile-fs: 29px;
+        flex-wrap: nowrap;
+        overflow-x: auto;
+        overflow-y: hidden;
+        justify-content: flex-start;
+        -webkit-overflow-scrolling: touch;
+        overscroll-behavior-x: contain;
+        touch-action: pan-x;
+        width: 100%;
+        max-width: 100%;
+        gap: 1px;
+        margin-top: 5px;
+        padding-bottom: 0;
+    }
+    body.portrait-layout .bottom .hand .tile {
+        width: 29px !important;
+        height: 39px !important;
+        font-size: 29px !important;
+        border-radius: 5px;
+    }
+    body.portrait-layout .bottom .hand .tileback {
+        width: 17px !important;
+        height: 24px !important;
+        font-size: 11px !important;
+    }
+    body.portrait-layout .bottom .hand .tile-marker {
+        font-size: 10px;
+        height: 12px;
+    }
+    body.portrait-layout .bottom .avatar img {
+        width: 44px;
+        height: 44px;
+    }
+    /* 竖屏：所有位置（含底部自家）玩家数字统一字号，用一条全局规则代替原先重复的 .bottom 专属声明 */
+    body.portrait-layout .player-score {
+        font-size: 11px;
+    }
+    /* 牌墙统计：原版左上角 */
+    body.portrait-layout #wall-count {
+        position: absolute;
+        top: 6px;
+        left: 8px;
+        width: auto;
+        height: auto;
+        max-height: none;
+        z-index: 6;
+        padding: 0;
+        font-size: 11px;
+        color: #c5d4e0;
+        text-align: center;
+        overflow: visible;
+        background: transparent;
+        border: none;
+        box-shadow: none;
+        opacity: 0.92;
+    }
+    body.portrait-layout #wall-count-header {
+        display: block;
+        margin-bottom: 0;
+    }
+    body.portrait-layout #wall-count-row {
+        display: block;
+    }
+    body.portrait-layout #wall-count-text {
+        margin-bottom: 4px;
+        color: #c5d4e0;
+        font-weight: normal;
+        letter-spacing: 0;
+        text-align: center;
+        font-size: 10px;
+        white-space: nowrap;
+    }
+    body.portrait-layout #player-stats {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+    }
+    body.portrait-layout .stat-line { display: none !important; }
+    body.portrait-layout .stat-row {
+        display: flex;
+        gap: 5px;
+    }
+    body.portrait-layout .stat-cell {
+        width: 18px;
+        font-size: 11px;
+        line-height: 1.3;
+        color: #c5d4e0;
+    }
+    body.portrait-layout .stat-row.avatar-row .stat-cell {
+        font-size: 13px;
+    }
+    body.portrait-layout #wall-count-gap {
+        height: 8px;
+    }
+    /* 横屏专用控件：竖屏隐藏 */
+    body.portrait-layout #landscape-ctrl,
+    body.portrait-layout #view-scale-btns {
+        display: none !important;
+    }
+    /* 竖屏：废牌池上方「点击查询牌池」，功能与横屏相同 */
+    body.portrait-layout #discard-query-btn {
+        display: block !important;
+        position: absolute;
+        top: calc(28% - 11.5px);
+        left: 50%;
+        right: auto;
+        transform: translateX(-50%);
+        width: auto;
+        z-index: 11;
+        margin: 0;
+        padding: 2px 8px;
+        border: none;
+        background: transparent;
+        color: var(--gold);
+        font-size: 11px;
+        font-weight: 600;
+        letter-spacing: 0.06em;
+        font-family: inherit;
+        line-height: 1.3;
+        text-align: center;
+        cursor: pointer;
+        user-select: none;
+        white-space: nowrap;
+        box-shadow: none;
+        text-decoration: underline;
+        text-decoration-color: var(--gold-dim);
+        text-underline-offset: 2px;
+    }
+    body.portrait-layout #discard-query-btn:active {
+        color: var(--ice);
+    }
+    body.portrait-layout #discard-query-btn.active {
+        color: var(--ice);
+    }
+    /* 废牌区：原版中央 7 列网格 */
+    body.portrait-layout #discardWall {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        right: auto;
+        transform: translate(-50%, -50%);
+        margin-top: -12px;
+        width: 50%;
+        height: 37%;
+        display: grid;
+        grid-template-columns: repeat(7, 1fr);
+        grid-auto-rows: min-content;
+        align-content: flex-start;
+        justify-items: center;
+        gap: 2px;
+        background: transparent;
+        border: none;
+        padding: 6px;
+        overflow: hidden;
+        box-sizing: border-box;
+    }
+    body.portrait-layout .discardTile {
+        width: 17px;
+        height: 23px;
+        font-size: 14px;
+        border-radius: 2px;
+    }
+    /* 吃碰提示：原版位置与尺寸 */
+    /* 署名：原版牌桌上方 */
+    body.portrait-layout #img-display-badge {
+        position: absolute;
+        top: -28px;
+        left: 16px;
+        z-index: 40;
+        padding: 0 2px;
+        font-size: 13px;
+        font-weight: 500;
+        letter-spacing: 0.04em;
+    }
+
+
+    /* 竖屏：副露平时隐藏，点击头像在空地显示 */
+    body.portrait-layout .ai-exposed {
+        display: none !important;
+    }
+    /* 竖屏吃碰杠提示：龙(上家)右侧、狮(右家)上方空地居中
+       用 html + body.portrait-layout + #id 把优先级抬到 (1,1,2)，
+       高于 03 里的 #claim-indicator (1,0,0) 与 #claim-indicator.show (1,1,0)，无需 !important。
+       已核对 JS：只对该元素做 classList.add/remove('show')、innerHTML、appendChild 换父节点，
+       没有任何 element.style 写入，所以不会被内联样式盖过。 */
+    html body.portrait-layout #claim-indicator {
+        position: absolute;
+        top: 3%;
+        left: 86%;
+        right: auto;
+        transform: translate(-50%, 0);
+        width: auto;
+        max-width: 38%;
+        max-height: none;
+        margin: 0;
+        z-index: 25;
+        overflow: visible;
+        white-space: nowrap;
+        text-align: center;
+    }
+    html body.portrait-layout #claim-indicator.show {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 6px;
+    }
+    body.portrait-layout #claim-indicator .claim-actions { gap: 14px; }
+    body.portrait-layout #claim-indicator .claim-btn { font-size: 26px; }
+    body.portrait-layout #claim-indicator .claim-label {
+        font-size: 13px;
+        letter-spacing: 0.2em;
+        padding: 2px 10px;
+    }
+    /* 竖屏副露浮层：同一空地，金边框、分三排、无背景 */
+    body.portrait-layout #tile-tooltip {
+        position: absolute;
+        top: 3%;
+        left: 86%;
+        transform: translate(-50%, 0);
+        display: none;
+        z-index: 24;
+        max-width: min(38%, 180px);
+        max-height: 36%;
+        overflow-x: hidden;
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
+        overscroll-behavior-y: contain;
+        touch-action: pan-y;
+        text-align: center;
+        line-height: 1.35;
+        padding: 6px 8px;
+        border-radius: 8px;
+        color: var(--text);
+        font-size: 12px;
+        background: transparent !important;
+        border: 1px solid var(--gold);
+        box-shadow: none;
+        backdrop-filter: none;
+        -webkit-backdrop-filter: none;
+    }
+    body.portrait-layout #tile-tooltip.show { display: block; }
+    /* 注：.tt-title/.tt-empty/.tt-label 在 showExposedInfo() 中从未生成，已整体移除 */
+    body.portrait-layout #tile-tooltip .tt-meld {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0;
+        flex-wrap: nowrap;
+        padding: 0;
+        margin-top: 0;
+        margin-bottom: 0;
+        min-height: 0;
+        background: transparent !important;
+        border: none;
+        border-radius: 0;
+        line-height: 1;
+    }
+    body.portrait-layout #tile-tooltip .tt-meld + .tt-meld {
+        margin-top: 0px; /* 行距再压紧，相对原间距约减半 */
+    }
+    body.portrait-layout #tile-tooltip .tt-tiles {
+        display: flex;
+        gap: 1px;
+        flex-wrap: nowrap;
+        line-height: 0;
+    }
+    body.portrait-layout #tile-tooltip .tile {
+        width: 13.9px;
+        height: 19.3px;
+        font-size: 12.3px;
+        border-radius: 2px;
+    }
+    body.portrait-layout #tile-tooltip .tileback {
+        width: 10px;
+        height: 13.9px;
+        font-size: 7px;
+    }
+    body.portrait-layout #tile-tooltip .tt-avatar {
+        text-align: center;
+        font-size: 16px;
+        line-height: 1.2;
+        margin: 0 0 2px;
+        padding: 0;
+    }
+    body.portrait-layout #tile-tooltip .tile-wrap {
+        margin: 0;
+        padding: 0;
+    }
+    body.portrait-layout #tile-tooltip .tile-marker {
+        display: none;
+        height: 0;
+        font-size: 0;
+        margin: 0;
+        padding: 0;
+    }
+    /* 横屏不使用 tile-tooltip */
+    body:not(.portrait-layout) #tile-tooltip { display: none !important; }

@@ -1,0 +1,303 @@
+    .player { position: absolute; padding: 3px 6px; background: transparent; border: none;
+        text-align: center; font-size: 13px; color: var(--text); }
+    .top { top: 1%; left: 50%; transform: translateX(-50%); }
+    .left { left: calc(20% + 54px); top: calc(50% - 48px); transform: translateY(-50%) rotate(90deg); }
+    .right { right: calc(20% + 54px); top: calc(50% - 48px); transform: translateY(-50%) rotate(90deg); }
+    /* 左右家头像正向：由 .player-side-stack 统一 rotate(-90deg) 抵消 */
+    .bottom { bottom: 0; left: 50%; transform: translateX(-50%); max-width: 95%;
+        display: flex; flex-direction: column; align-items: center;
+        border: none; background: transparent; padding: 4px 8px 2px;
+        --hand-tile-h: 41px; }
+    .bottom .player-label { order: 1; }
+    .bottom #flow-log { order: 2; margin-top: calc(var(--hand-tile-h, 41px) * 0.15); }
+    .bottom #hand-bottom { order: 3; margin-bottom: 2px; }
+
+    /* 任何提示都不得挡住自家手牌 */
+    .player.bottom {
+        z-index: 40;
+    }
+    .bottom #hand-bottom, .bottom .hand {
+        position: relative;
+        z-index: 41;
+    }
+    #flow-log {
+        position: relative;
+        z-index: 40;
+    }
+
+    .top .hand, .left .hand, .right .hand { display: none; }
+    /* AI 副露：头像正下方、与手牌同向不旋转；尺寸=原侧牌 ×1.18（0.69→0.814）
+       自动换行：横向空间够就同一行紧凑排列，放不下则换行，最多叠三行 */
+    .ai-exposed {
+        display: flex;
+        flex-flow: row wrap;
+        justify-content: center;
+        align-content: flex-start;
+        gap: 2px;
+        margin-top: 4px;
+        max-width: 198px;
+        max-height: calc((var(--side-tile-h) * 0.814 + 4px) * 3 + 4px);
+        overflow: hidden;
+        pointer-events: none;
+        position: relative;
+        z-index: 9;
+    }
+    /* 左右家可横向利用的空间比顶部窄，缩小单行宽度，更容易换行叠放 */
+    .left .ai-exposed, .right .ai-exposed {
+        max-width: 127px;
+    }
+    .ai-exposed:empty { display: none; }
+    .ai-exposed .meld-group {
+        display: flex;
+        gap: 1px;
+        padding: 1px 2px;
+        border-radius: 3px;
+        flex-shrink: 0;
+    }
+    .ai-exposed .tile {
+        width: calc(var(--side-tile-w) * 0.814);
+        height: calc(var(--side-tile-h) * 0.814);
+        font-size: calc(var(--side-tile-fs) * 0.814);
+        border-radius: 2px;
+        cursor: default;
+    }
+    .ai-exposed .tileback {
+        width: calc(var(--side-tileback-w) * 0.814);
+        height: calc(var(--side-tileback-h) * 0.814);
+        font-size: calc(var(--side-tileback-fs) * 0.814);
+        border-radius: 2px;
+    }
+    .ai-exposed .tile-marker { height: 0; font-size: 0; }
+    /* 左右家：用侧向堆叠容器抵消父级 90°，副露与头像保持正向、头像正下方 */
+    .player-side-stack {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+    }
+    .left .player-side-stack,
+    .right .player-side-stack {
+        transform: rotate(-90deg);
+        transform-origin: center center;
+    }
+    .player-label {
+        display: flex; flex-direction: column; align-items: center; gap: 2px;
+        cursor: default; padding: 3px 7px; border-radius: 8px;
+        background: transparent;
+        position: relative; z-index: 8; pointer-events: auto;
+    }
+    .avatar {
+        font-size: 27px;
+        position: relative;
+        display: inline-block;
+        border-radius: 50%;
+        line-height: 0;
+        z-index: 8;
+        pointer-events: auto;
+        -webkit-touch-callout: none;
+        -webkit-user-select: none;
+        user-select: none;
+    }
+    .avatar img {
+        width: 48px; height: 48px; display: block; object-fit: cover; border-radius: 50%;
+        border: none;
+        background: transparent;
+        box-shadow: 0 2px 6px rgba(0,0,0,0.45);
+        filter: none;
+        position: relative;
+        z-index: 1;
+        -webkit-touch-callout: none;
+        -webkit-user-select: none;
+        user-select: none;
+        -webkit-user-drag: none;
+        pointer-events: none;
+    }
+    /* 自家头像外包：占位仍等于头像 → 猫中心不变。
+       同一行：对话气泡按钮（绝对贴左）→ 猫 → 胶囊（绝对贴右） */
+    .avatar-with-toggle {
+        display: inline-block;
+        position: relative;
+        line-height: 0;
+        z-index: 8;
+    }
+    /* 听牌开关：头像左侧 */
+    .tenpai-hint-toggle {
+        position: absolute;
+        right: 100%;
+        top: 50%;
+        transform: translateY(-50%);
+        margin: 0 6px 0 0;
+        padding: 0 8px;
+        min-width: 28px;
+        height: 26px;
+        border: 1px solid var(--gold-dim, rgba(212,175,55,0.45));
+        border-radius: 999px;
+        background: rgba(14, 22, 34, 0.55);
+        color: var(--text-muted, #8a9bb0);
+        font-size: 14px;
+        line-height: 1;
+        cursor: pointer;
+        user-select: none;
+        -webkit-tap-highlight-color: transparent;
+        box-shadow: none;
+        opacity: 0.72;
+        transition: color 0.18s ease, border-color 0.18s ease, background 0.18s ease,
+            box-shadow 0.18s ease, opacity 0.18s ease;
+        z-index: 9;
+        pointer-events: auto;
+        white-space: nowrap;
+    }
+    .tenpai-hint-toggle::after {
+        content: '';
+        position: absolute;
+        inset: -6px -4px;
+    }
+    .tenpai-hint-toggle.on {
+        color: var(--gold, #d4af37);
+        border-color: var(--gold, #d4af37);
+        background: rgba(212, 175, 55, 0.14);
+        opacity: 1;
+        box-shadow:
+            0 0 0 1px rgba(212, 175, 55, 0.35),
+            0 0 10px 2px rgba(212, 175, 55, 0.45),
+            0 0 18px 4px rgba(142, 200, 240, 0.2);
+    }
+    .tenpai-hint-toggle:active {
+        transform: translateY(-50%) scale(0.96);
+    }
+    /* 常驻细金圈：紧贴头像外缘，四家头像始终显示；不影响头像自身尺寸/居中点 */
+    .avatar::before {
+        content: '';
+        position: absolute;
+        inset: -2px;
+        border-radius: 50%;
+        pointer-events: none;
+        z-index: 0;
+        box-shadow: 0 0 0 1.5px rgba(212, 175, 55, 0.85);
+    }
+    /* 外侧光晕环（出牌方高亮时叠加在常驻金圈外面）：只画在头像外缘，不作用在面部像素上 */
+    .avatar::after {
+        content: '';
+        position: absolute;
+        inset: -3px;
+        border-radius: 50%;
+        pointer-events: none;
+        z-index: 0;
+        opacity: 0;
+        box-shadow: none;
+        transition: opacity 0.2s ease;
+    }
+    .player-score {
+        font-size: 13.2px; font-weight: 700; letter-spacing: 0.02em;
+        color: var(--ice); opacity: 0.95;
+        text-shadow: 0 1px 2px rgba(0,0,0,0.45);
+    }
+    .hand { display: flex; flex-wrap: nowrap; gap: 1px; margin-top: 5px; justify-content: center; overflow: visible; }
+    .bottom .hand {
+        --tile-w: 31px; --tile-h: 41px; --tile-fs: 31px;
+        flex-wrap: nowrap; overflow-x: hidden; overflow-y: hidden; justify-content: center;
+        width: 100%;
+        -webkit-overflow-scrolling: touch;
+        overscroll-behavior-x: contain;
+        touch-action: pan-x;
+        padding-bottom: 0;
+    }
+    /* 底牌区所有牌（含吃碰杠亮的组）统一按 --tile-w/--tile-h/--tile-fs 缩放，
+       以便无论多少张牌（含最多三次杠）都能不换行、不重叠地在一行内同时显示 */
+    .bottom .hand .tile { width: var(--tile-w); height: var(--tile-h); font-size: var(--tile-fs); }
+    .bottom .hand .tileback { width: calc(var(--tile-w) * 0.59); height: calc(var(--tile-h) * 0.62); font-size: calc(var(--tile-fs) * 0.38); }
+    .bottom .hand .tile-marker { font-size: calc(var(--tile-fs) * 0.34); height: calc(var(--tile-fs) * 0.41); }
+    .tile-wrap { display: flex; flex-direction: column; align-items: center; flex-shrink: 0; }
+    .tile-marker { font-size: 11px; line-height: 1; height: 13px; color: var(--gold); }
+    .tile {
+        width: 31px; height: 41px; cursor: pointer; flex-shrink: 0; border-radius: 5px;
+        background: linear-gradient(160deg, #fbfaf3 0%, #ece7d6 55%, #ddd6bd 100%);
+        border: 1px solid rgba(180,165,120,0.55);
+        box-shadow: 0 2px 3px rgba(0,0,0,0.4), inset 0 1px 1px rgba(255,255,255,0.85);
+        display: flex; justify-content: center; align-items: center;
+        font-size: 31px; line-height: 1; color: #2a2a2a;
+    }
+    .tile.disabled { cursor: default; }
+    .tile.exposed { opacity: 0.85; }
+    .tile.danger {
+        border: 1.5px solid #e06a6a;
+        box-shadow: 0 0 6px rgba(224,106,106,0.7), inset 0 1px 1px rgba(255,255,255,0.7);
+    }
+    .tile.win-glow {
+        opacity: 1;
+        border: 1.5px solid var(--gold);
+        box-shadow: 0 0 10px 2px rgba(212,175,55,0.75), 0 0 16px 4px rgba(142,200,240,0.25);
+        animation: winGlowPulse 1.4s ease-in-out infinite;
+    }
+    @keyframes winGlowPulse {
+        0%, 100% { box-shadow: 0 0 8px 2px rgba(212,175,55,0.6), 0 0 12px 3px rgba(142,200,240,0.2); }
+        50% { box-shadow: 0 0 14px 4px rgba(212,175,55,0.9), 0 0 20px 6px rgba(142,200,240,0.35); }
+    }
+    .meld-group { display: flex; gap: 1px; padding: 2px 3px; border-radius: 4px; flex-shrink: 0; }
+    .meld-group.reveal-group {
+        background: transparent;
+        border: 1px solid var(--gold);
+        border-radius: 5px;
+    }
+    .meld-group.angang-group {
+        background: transparent;
+        border: 1px solid rgba(100, 160, 220, 0.65);
+        border-radius: 5px;
+    }
+    /* 牌墙与统计：现移至左侧空地，纵向排布，无背景无边框，贴近原版轻量显示 */
+    #wall-count {
+        position: absolute; top: 7%; left: 1.5%; width: 16%; height: 84%; z-index: 6;
+        padding: 0;
+        font-size: 12px; color: #c5d4e0; text-align: left;
+        background: transparent;
+        border: none;
+        box-shadow: none;
+        opacity: 0.92;
+        overflow-y: auto; overflow-x: hidden;
+        -webkit-overflow-scrolling: touch;
+        overscroll-behavior-y: contain;
+        touch-action: pan-y;
+    }
+    #wall-count-gap { height: 12px; }
+    #player-stats { display: flex; flex-direction: column; gap: 4px; }
+    .stat-line { font-size: 13px; line-height: 1.3; color: #c5d4e0; white-space: nowrap; letter-spacing: 0.02em; }
+    .stat-row { display: none; gap: 5px; }
+    .stat-cell { width: 19px; font-size: 12px; line-height: 1.3; color: #c5d4e0; }
+    .stat-row.avatar-row .stat-cell { font-size: 14px; }
+    #table-wrap {
+        position: relative;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        transform: translateY(var(--view-pan-y, 0px)) scale(var(--view-scale, 1));
+        transform-origin: center center;
+        transition: transform 0.18s ease;
+        touch-action: none; /* 桌面拖动由脚本处理上下平移 */
+        /* 强制整体（边框+内部牌桌）作为同一合成层绘制，避免部分安卓/WebView
+           在缩放时出现"金边框已变、内部圆角裁剪内容未跟着重绘"的错位 */
+        will-change: transform;
+        backface-visibility: hidden;
+        -webkit-backface-visibility: hidden;
+    }
+    #table-wrap.panning {
+        transition: none;
+    }
+    /* 头像随桌面等比缩放（在 #table-wrap 内，勿单独反缩放） */
+    .avatar, .avatar img, .player-label, .player-score {
+        transform: none;
+    }
+    /* 弹层内容与桌面同一缩放比例（相对原始正常大小） */
+
+    /* ===== 竖屏专用：头像 / 分数 / 说明文字 放大 ===== */
+    body.portrait-layout .avatar img {
+        width: 52px;
+        height: 52px;
+    }
+    body.portrait-layout #wall-count {
+        font-size: 13px;
+    }
+    body.portrait-layout .stat-line {
+        font-size: 14px;
+    }
+    body.portrait-layout .player {
+        font-size: 14px;
+    }

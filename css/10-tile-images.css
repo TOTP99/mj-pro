@@ -1,0 +1,26 @@
+/* 牌面图片（tiles/*.webp）：牌图自带白底和黑边，容器去掉原来的象牙色底和边框，只保留投影。
+   .tile.danger / .tile.win-glow / .discardTile.latest 的高亮边框与发光在别的文件里，优先级更高，保持不变。 */
+.tile-img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: fill;
+    border-radius: inherit;
+    pointer-events: none;      /* 点击穿透到 .tile，保持原有点牌逻辑 */
+    user-select: none;
+    -webkit-user-drag: none;
+}
+.tile, .pool-tile, .discardTile { background: transparent; border: 0; }
+.tile      { box-shadow: 0 2px 3px rgba(0,0,0,0.4); }
+.pool-tile { box-shadow: 0 2px 3px rgba(0,0,0,0.4); }
+.discardTile { box-shadow: 0 1px 2px rgba(0,0,0,0.35); }
+
+/* 听牌提示等行内文字里的小牌 */
+.tile-img-inline {
+    display: inline-block;
+    width: auto;
+    height: 1.5em;
+    aspect-ratio: 250 / 358;
+    vertical-align: middle;
+}
+#tenpai-hint .th-w b .tile-img-inline { height: 1em; }   /* b 自身已是 1.6em */

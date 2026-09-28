@@ -1,0 +1,121 @@
+    /* —— 设计令牌：冷色基底 + 金色点缀 —— */
+    :root {
+        --gold: #d4af37;
+        --gold-soft: rgba(212, 175, 55, 0.55);
+        --gold-dim: rgba(212, 175, 55, 0.28);
+        --ice: #8ec8f0;
+        --text: #d6e4f0;
+        --text-muted: #8aa0b5;
+        --glass-strong: rgba(14, 22, 34, 0.72);
+        --shadow-soft: 0 8px 24px rgba(0, 0, 0, 0.4);
+        --font-ui: "Songti SC", "STSong", "PingFang SC", "SimSun", serif;
+        /* 侧区牌面 = 手牌基准 29×39 的 66% */
+        --side-tile-w: 19.14px;
+        --side-tile-h: 25.74px;
+        --side-tile-fs: 19.14px;
+        --side-tileback-w: 11.3px;
+        --side-tileback-h: 16px;
+        --side-tileback-fs: 7.3px;
+        /* iOS 安全区：constant 兼容旧 iOS，env 为标准 */
+        --sat: 0px;
+        --sar: 0px;
+        --sab: 0px;
+        --sal: 0px;
+        --sat: constant(safe-area-inset-top);
+        --sar: constant(safe-area-inset-right);
+        --sab: constant(safe-area-inset-bottom);
+        --sal: constant(safe-area-inset-left);
+        --sat: env(safe-area-inset-top, 0px);
+        --sar: env(safe-area-inset-right, 0px);
+        --sab: env(safe-area-inset-bottom, 0px);
+        --sal: env(safe-area-inset-left, 0px);
+        /* iOS Safari：用 JS 写入的可视宽高，避免 100vh 含地址栏空白 */
+        --app-width: 100vw;
+        --app-height: 100vh;
+        --app-width: 100dvw;
+        --app-height: 100dvh;
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; height: 100%; }
+    body {
+        background:
+            radial-gradient(ellipse at 50% 12%, rgba(120, 170, 220, 0.08), transparent 50%),
+            radial-gradient(ellipse at 50% 80%, rgba(212, 175, 55, 0.05), transparent 45%),
+            radial-gradient(ellipse at center, #15202e 0%, #0b121c 55%, #05080e 100%);
+        color: var(--text);
+        font-family: var(--font-ui);
+        display: flex; flex-direction: column; justify-content: center; align-items: center;
+        height: 100vh; overflow: hidden; gap: 8px;
+    }
+    body.modal-open {
+        overflow: hidden !important;
+        touch-action: none;
+        /* 防止 iOS 橡皮筋带动整页 */
+        position: fixed;
+        width: 100%;
+        left: 0;
+        right: 0;
+    }
+    #table-frame {
+        position: relative;
+        width: min(96vw, 200vh);
+        height: min(92vh, 52vw);
+        border: 1.5px solid var(--gold);
+        border-radius: 18px;
+        box-shadow:
+            0 16px 40px rgba(0,0,0,0.55),
+            0 0 0 1px rgba(212,175,55,0.18),
+            inset 0 0 0 1px rgba(255,255,255,0.04);
+        transform: translateZ(0);
+    }
+    #game-table {
+        width: 100%; height: 100%; position: relative;
+        background:
+            radial-gradient(circle at 50% 38%, rgba(255,255,255,0.03), transparent 50%),
+            /* 菱格：原先较淡 */
+            repeating-linear-gradient(45deg, rgba(212,175,55,0.04) 0, rgba(212,175,55,0.04) 1px, transparent 1px, transparent 26px),
+            repeating-linear-gradient(-45deg, rgba(212,175,55,0.04) 0, rgba(212,175,55,0.04) 1px, transparent 1px, transparent 26px),
+            /* 更深绿毡 */
+            linear-gradient(160deg, #0f2f22 0%, #0c241a 40%, #081a13 75%, #05110c 100%);
+        border-radius: 20px;
+        box-shadow: inset 0 0 60px rgba(0,0,0,0.68);
+        overflow: hidden;
+    }
+    /* 吃碰杠：桌面正中显示当前被叫的牌（与手牌同尺寸 29×39，立体阴影，无大底板以免挡内容） */
+    #claim-focus-tile {
+        display: none;
+        position: absolute;
+        left: 50%;
+        /* 原垂直居中再上移 60% 手牌高度（0.6×39px≈23.4px），避免挡猫上方提示字 */
+        top: calc(48% - 23.4px);
+        transform: translate(-50%, -50%);
+        z-index: 12;
+        pointer-events: none;
+        padding: 0;
+        background: transparent;
+        box-shadow: none;
+    }
+    #claim-focus-tile.show { display: flex; align-items: center; justify-content: center; }
+    #claim-focus-tile .tile {
+        width: 29px;
+        height: 39px;
+        font-size: 29px;
+        border-radius: 5px;
+        border: 1px solid rgba(180, 165, 120, 0.65);
+        box-shadow:
+            inset 0 1px 1px rgba(255, 255, 255, 0.9),
+            inset 0 -1px 1px rgba(0, 0, 0, 0.12),
+            0 1px 0 #e8dfc8,
+            0 2px 0 #d4c9a8,
+            0 3px 0 #b8a888,
+            0 4px 0 #9a8a68,
+            0 6px 12px rgba(0, 0, 0, 0.4),
+            0 0 0 1px rgba(212, 175, 55, 0.5);
+        transform: translateY(-3px);
+    }
+    #claim-focus-tile .tile-marker { height: 0; font-size: 0; }
+    body.portrait-layout #claim-focus-tile .tile {
+        width: 29px;
+        height: 39px;
+        font-size: 29px;
+    }

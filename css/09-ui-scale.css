@@ -1,0 +1,190 @@
+/* ========== 横屏界面元素自适应放大（须在其它 CSS 之后加载） ==========
+ * --ui-k 由 js/04-view-scale.js 的 autoUiScale() 按牌桌里的可用空间算出（≥1），
+ * 用来统一放大：四家头像+分数、你的手牌（在 12-render.js 里）、手牌上方提示文字、AI 副露牌、废牌池的牌、
+ * 状态栏四家文字（庄/听/牌墙张数）。
+ * 系数为 1（默认、竖屏、或 AUTO_UI_SCALE=false）时，下面所有值与原来的写法完全相同。
+ * 这里只覆盖「横屏」：选择器都带 body:not(.portrait-layout)，竖屏用它自己的固定尺寸，不受影响。
+ * 基准值照抄 02/03/06 里的横屏原值：头像 48（矮屏 36、更矮 30、宽平板 48）、分数 13.2（矮屏 10）、
+ * 提示文字 12/最小高 30（矮屏 10/24）、你的手牌行高 41（更矮 34）、状态栏文字 13（宽平板 12）、
+ * 牌墙张数文字 10（窄宽度 9；is-android 矮屏另有专门收紧，不参与这里的放大）。 */
+
+body:not(.portrait-layout) {
+    --avatar-base: 48px;
+    --score-base: 13.2px;
+    --log-fs-base: 14px;
+    --log-minh-base: 34px;
+    --statline-fs-base: 13px;
+    --wallcount-fs-base: 10px;
+}
+@media screen and (orientation: landscape) and (max-height: 420px) {
+    body:not(.portrait-layout) {
+        --avatar-base: 36px;
+        --score-base: 10px;
+        --log-fs-base: 12px;
+        --log-minh-base: 28px;
+    }
+}
+@media screen and (orientation: landscape) and (max-height: 360px) {
+    body:not(.portrait-layout) { --avatar-base: 30px; }
+}
+@media screen and (orientation: landscape) and (min-width: 900px) and (min-height: 500px) {
+    body:not(.portrait-layout) { --avatar-base: 48px; --statline-fs-base: 12px; }
+}
+@media screen and (max-width: 520px) {
+    body:not(.portrait-layout) { --wallcount-fs-base: 9px; }
+}
+
+/* 头像 + 分数 */
+body:not(.portrait-layout) .avatar img {
+    width: calc(var(--avatar-base) * var(--ui-k, 1));
+    height: calc(var(--avatar-base) * var(--ui-k, 1));
+}
+body:not(.portrait-layout) .player-score {
+    font-size: calc(var(--score-base) * var(--ui-k, 1));
+}
+/* 状态栏四家文字（庄/听/牌墙张数）：和废牌池一样，容器 #wall-count 是屏幕百分比宽度、
+   文字原来是断点写死的固定字号，桌面大窗口下会显得比放大后的头像/手牌小一截 */
+body:not(.portrait-layout) .stat-line {
+    font-size: calc(var(--statline-fs-base) * var(--ui-k, 1));
+}
+/* is-android 排除在外：05-landscape-max.css 里矮屏(max-height:420px)专门把这个元素字号收紧到9px防挡牌，
+   是刻意收缩、不是"忘了接ui-k"，直接排除避免盖掉那条规则 */
+body:not(.portrait-layout):not(.is-android) #wall-count-text {
+    font-size: calc(var(--wallcount-fs-base) * var(--ui-k, 1));
+}
+/* 听牌开关：跟头像一起放大；仍绝对贴在头像左侧，不改变猫占位 */
+body:not(.portrait-layout) .tenpai-hint-toggle {
+    height: calc(26px * var(--ui-k, 1));
+    min-width: calc(28px * var(--ui-k, 1));
+    padding: 0 calc(8px * var(--ui-k, 1));
+    font-size: calc(14px * var(--ui-k, 1));
+    margin-right: calc(6px * var(--ui-k, 1));
+}
+
+/* 手牌上方的文字提示 */
+body:not(.portrait-layout) #flow-log {
+    font-size: calc(var(--log-fs-base) * var(--ui-k, 1));
+    min-height: calc(var(--log-minh-base) * var(--ui-k, 1));
+}
+
+/* 你的手牌行高（提示文字与手牌的间距按它算）；手牌本身的尺寸由 12-render.js 的 fitBottomHand 乘系数 */
+body:not(.portrait-layout) .bottom {
+    --hand-tile-h: calc(41px * var(--ui-k, 1));
+}
+@media screen and (orientation: landscape) and (max-height: 360px) {
+    body:not(.portrait-layout) .bottom {
+        --hand-tile-h: calc(34px * var(--ui-k, 1));
+    }
+}
+
+/* AI 副露（头像下方那几组牌）。注意：不改 --side-tile-* 变量本身，因为废牌区也在用它 */
+body:not(.portrait-layout) .ai-exposed {
+    max-width: calc(198px * var(--ui-k, 1));
+    max-height: calc((var(--side-tile-h) * 0.814 * var(--ui-k, 1) + 4px) * 3 + 4px);
+}
+body:not(.portrait-layout) .left .ai-exposed,
+body:not(.portrait-layout) .right .ai-exposed {
+    max-width: calc(127px * var(--ui-k, 1));
+    /* .left/.right 用 translateY(-50%) 把「容器自身高度的一半」当居中锚点：
+       只有一侧出副露时，该侧容器变高，连带头像一起被向上带偏，导致虎狮失去水平中线对齐。
+       把副露改成脱离文档流，使其不再计入容器高度——头像位置从此与副露数量、行数完全无关，
+       无论哪一侧有没有副露、有没有第二行，两侧头像永远对齐。 */
+    position: absolute;
+    top: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    margin-top: 4px;
+}
+/* 给上面的绝对定位提供正确的定位基准（= player-label 的外框，而不是整个 .player） */
+body:not(.portrait-layout) .left .player-side-stack,
+body:not(.portrait-layout) .right .player-side-stack {
+    position: relative;
+}
+body:not(.portrait-layout) .ai-exposed .tile {
+    width: calc(var(--side-tile-w) * 0.814 * var(--ui-k, 1));
+    height: calc(var(--side-tile-h) * 0.814 * var(--ui-k, 1));
+    font-size: calc(var(--side-tile-fs) * 0.814 * var(--ui-k, 1));
+}
+body:not(.portrait-layout) .ai-exposed .tileback {
+    width: calc(var(--side-tileback-w) * 0.814 * var(--ui-k, 1));
+    height: calc(var(--side-tileback-h) * 0.814 * var(--ui-k, 1));
+    font-size: calc(var(--side-tileback-fs) * 0.814 * var(--ui-k, 1));
+}
+/* 废牌池：牌本身原来是写死的 --side-tile-*（手机像素），容器 #discardWall 却是屏幕百分比宽度——
+   桌面大窗口下容器变宽、牌不变，中间空当越来越大。这里补上 --ui-k，跟上面 AI 副露牌用同一套系数 */
+body:not(.portrait-layout) .discardTile {
+    width: calc(var(--side-tile-w) * var(--ui-k, 1));
+    height: calc(var(--side-tile-h) * var(--ui-k, 1));
+    font-size: calc(var(--side-tile-fs) * var(--ui-k, 1));
+}
+
+/* ========== 牌桌平滑过渡 ==========
+ * 1) 自动适配重新算出新的缩放/位置时，牌桌平滑地变到新大小（原来是 0.18s 的线性感过渡，稍微放慢并加缓动）。
+ * 2) 横竖屏切换：04-view-scale.js 检测到方向翻转会给 <html> 加 orient-changing → 牌桌瞬间隐藏（无过渡），
+ *    排版稳定后移除该类 → 这里的 opacity 过渡让它淡入。
+ * #table-wrap.panning（拖动/测量时）在 02 里是 transition:none，优先级更高，不受影响；
+ * 系统开启「减少动效」时 06 里会把 transition 关掉，同样不受影响。 */
+#table-wrap {
+    transition: transform 0.28s cubic-bezier(0.2, 0.7, 0.2, 1), opacity 0.26s ease;
+}
+html.orient-changing #table-wrap {
+    opacity: 0;
+    transition: none;
+}
+
+/* ========== 听牌提示（js/12-render.js 的 updateTenpaiHint） ==========
+ * 挂在 .avatar-with-toggle 上：绝对贴在头像右侧；对话气泡按钮在左侧。横竖屏同一行：气泡 → 猫 → 胶囊。
+ * 始终单行；竖屏上听只显示胡啥（JS）；横屏完整信息。不改变猫占位。 */
+#tenpai-hint {
+    position: absolute;
+    left: 100%;
+    top: 50%;
+    transform: translateY(-50%);
+    margin-left: 6px;
+    display: none;
+    max-width: min(48vw, 260px);
+    padding: 3px 12px;
+    border-radius: 999px;
+    /* 半透明冷色玻璃，避免死黑块；与金色边框统一主题 */
+    background: rgba(28, 48, 72, 0.72);
+    border: 1px solid var(--gold-dim, rgba(212, 175, 55, 0.45));
+    box-shadow:
+        0 1px 4px rgba(0, 0, 0, 0.25),
+        inset 0 1px 0 rgba(255, 255, 255, 0.08);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    color: var(--text, #e8eef6);
+    font-size: 12px;
+    line-height: 1.5;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    pointer-events: none;
+    z-index: 45;
+    opacity: 0;
+    transition: opacity 0.18s ease;
+}
+#tenpai-hint.show {
+    display: block;
+    opacity: 1;
+}
+#tenpai-hint .th-lab { color: var(--gold); font-weight: 700; margin-right: 6px; letter-spacing: 0.06em; }
+#tenpai-hint .th-lab.th-part { color: var(--ice); }
+#tenpai-hint .th-w { display: inline-flex; align-items: baseline; margin-right: 6px; }
+#tenpai-hint .th-w b { font-weight: 400; font-size: 1.6em; line-height: 1; }
+#tenpai-hint .th-w i { font-style: normal; font-size: 0.85em; color: var(--gold); margin-left: 1px; }
+#tenpai-hint .th-w.th-none { opacity: 0.45; }
+#tenpai-hint .th-sum, #tenpai-hint .th-miss, #tenpai-hint .th-more { color: var(--text-muted); }
+#tenpai-hint .th-sum::before { content: '· '; }
+/* 横屏：字号随 --ui-k */
+body:not(.portrait-layout) #tenpai-hint {
+    font-size: calc(12px * var(--ui-k, 1));
+    margin-left: calc(6px * var(--ui-k, 1));
+}
+body.portrait-layout #tenpai-hint {
+    max-width: min(55vw, 200px);
+}
+/* 减少动效偏好：不做淡入淡出 */
+@media (prefers-reduced-motion: reduce) {
+    #tenpai-hint { transition: none; }
+}
