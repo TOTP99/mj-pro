@@ -1,12 +1,37 @@
 ;(function(){
 // ---------- 横屏牌桌大小（手动滑杆） ----------
-// default = 一直以来的原始大小（scale=1，不做自动适配）；
-// 黄色滑杆左右拉动：相对默认 80%~110%；按住牌桌上下拖动平移（见 13-game-actions.js initTablePan）；
-// 刷新恢复默认（滑杆/拖动都不持久化）。
-const VIEW_SIZE_MIN = 80, VIEW_SIZE_MAX = 110; // 相对默认的百分比
+// default = 100% 即原始大小（scale=1），位置由 fitViewPanX 智能计算：
+//   左侧栏（TP制作→黄线）左边被切掉时自动向右平移，保证不切掉并留呼吸量。
+// 黄色滑杆反向：向左拉放大（最大110%），向右拉缩小（最小70%）；不存档，刷新恢复 100%。
+const VIEW_SIZE_MIN = 70, VIEW_SIZE_MAX = 110; // 相对默认的百分比
 const ORIGINAL_VIEW_SCALE = 1;
+const VIEW_BREATH_PX = 6; // 左/右呼吸量
 
 Game.viewScale = ORIGINAL_VIEW_SCALE;
+
+/** 智能横向定位：左侧栏不被切掉，左右留呼吸量（只在横屏生效） */
+function fitViewPanX() {
+    const wrapEl = document.getElementById('table-wrap');
+    const sideEl = document.getElementById('wall-count');
+    if (!wrapEl || !sideEl) return;
+    let portrait = false;
+    try { portrait = document.body.classList.contains('portrait-layout'); } catch (e) {}
+    if (portrait) { wrapEl.style.setProperty('--view-pan-x', '0px'); return; }
+    // 先清零平移再测量（保留当前缩放）
+    wrapEl.style.setProperty('--view-pan-x', '0px');
+    const sr = sideEl.getBoundingClientRect();
+    const wr = wrapEl.getBoundingClientRect();
+    const vw = window.innerWidth || document.documentElement.clientWidth || 0;
+    let dx = 0;
+    if (sr.left < VIEW_BREATH_PX) dx = VIEW_BREATH_PX - sr.left; // 左边被切 → 向右移
+    // 右边也别出屏（左侧优先，右边不够时回退）
+    if (vw > 0 && wr.right + dx > vw - VIEW_BREATH_PX) {
+        dx = Math.min(dx, vw - VIEW_BREATH_PX - wr.right);
+    }
+    dx = Math.round(dx * 10) / 10;
+    wrapEl.style.setProperty('--view-pan-x', dx + 'px');
+}
+Game.fitViewPanX = fitViewPanX;
 
 function applyViewScale() {
     Game.viewScale = Math.round(Game.viewScale * 1000) / 1000;
@@ -21,20 +46,33 @@ function applyViewScale() {
         // 下一帧再强制读取一次布局尺寸，确保边框与内部内容按同一次合成结果绘制
         if (wrapEl) void wrapEl.offsetHeight;
         if (frameEl) void frameEl.offsetHeight;
+        try { fitViewPanX(); } catch (e) {} // 缩放落稳后智能定位
     });
     setTimeout(() => { try { Game.fitBottomHand(); } catch (e) {} }, 120);
 }
 
-/** 黄色滑杆 oninput 入口：钳制 80~110 → 设 --view-scale；不存档，刷新恢复 100% */
+/** 黄色滑杆 oninput 入口：钳制 70~110 → 设 --view-scale；不存档，刷新恢复 100% */
 function setViewSize(pct) {
     let v = Math.round(Number(pct));
     if (!isFinite(v)) v = 100;
     v = Math.min(VIEW_SIZE_MAX, Math.max(VIEW_SIZE_MIN, v));
     Game.viewScale = v / 100;
     applyViewScale();
-    const s = document.getElementById('size-slider');
-    if (s && String(s.value) !== String(v)) s.value = String(v);
     try { autoUiScale('full'); } catch (e) {} // 牌桌大小变了，头像/手牌放大系数重算
+}
+
+/** 滑杆原始值 → 实际百分比（滑杆反向：左端=110%放大，右端=70%缩小，100→100）
+    70..100 → 110..100，100..110 → 100..70，两段线性 */
+function setViewSizeSlider(raw) {
+    let r = Math.round(Number(raw));
+    if (!isFinite(r)) r = 100;
+    r = Math.min(VIEW_SIZE_MAX, Math.max(VIEW_SIZE_MIN, r));
+    let actual;
+    if (r <= 100) actual = 110 - (r - VIEW_SIZE_MIN) * (10 / 30);
+    else actual = 100 - (r - 100) * (30 / 10);
+    setViewSize(Math.round(actual));
+    const s = document.getElementById('size-slider');
+    if (s && String(s.value) !== String(r)) s.value = String(r); // 手柄保持在用户拉的位置
 }
 
 /* ==================== 横竖屏切换过渡 ====================
@@ -93,7 +131,7 @@ function endOrientTransition() {
     try {
         if (typeof Game.checkPortraitGuard === 'function') Game.checkPortraitGuard();
         if (document.body.classList.contains('portrait-layout')) { try { Game.fitBottomHand(); } catch (e) {} }
-        else { try { autoUiScale('full'); } catch (e) {} try { Game.fitBottomHand(); } catch (e) {} }
+        else { try { autoUiScale('full'); } catch (e) {} try { Game.fitBottomHand(); } catch (e) {} try { fitViewPanX(); } catch (e) {} }
         if (typeof Game.hardenResultModalInteract === 'function') Game.hardenResultModalInteract();
     } catch (e) { /* 出任何问题都要继续去显示 */ }
     requestAnimationFrame(() => requestAnimationFrame(() => {
@@ -266,6 +304,7 @@ function uiScaleOnRender() {
 /* ---- 本文件对外接口（IIFE 收敛，唯一出口） ---- */
 Game.ORIGINAL_VIEW_SCALE = ORIGINAL_VIEW_SCALE;
 Game.setViewSize = setViewSize;
+Game.setViewSizeSlider = setViewSizeSlider;
 Game.orientTransitionCheck = orientTransitionCheck;
 Game.uiScaleOnRender = uiScaleOnRender;
 

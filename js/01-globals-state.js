@@ -53,8 +53,13 @@ function freshAxisConfidence() {
 }
 Game.aiLearn = {
     games: 0,
-    confidence: { conservative: freshAxisConfidence(), aggressive: freshAxisConfidence(), shrewd: freshAxisConfidence() }
+    confidence: { conservative: freshAxisConfidence(), aggressive: freshAxisConfidence(), shrewd: freshAxisConfidence() },
+    // 样本稳定：每条轴累计被归因的次数，用于"越学越稳"（早期学得快、后期学得慢）
+    samples: { conservative: freshAxisConfidence(), aggressive: freshAxisConfidence(), shrewd: freshAxisConfidence() }
 };
+// 攻守转换（带迟滞的防守模式）：一旦转守，不会因一巡风险略降就反复横跳；每局开局重置
+Game.aiDefenseMode = { top: false, left: false, right: false };
+function resetAiDefenseMode() { Game.aiDefenseMode = { top: false, left: false, right: false }; }
 // 每局临时记录三个AI各自"这局真的用上了哪几条轴"（牌局结束记完账就清空，不落盘）
 Game.aiAxisUsed = { top: new Set(), left: new Set(), right: new Set() };
 function resetAiAxisUsed() { Game.aiAxisUsed = { top: new Set(), left: new Set(), right: new Set() }; }
@@ -84,6 +89,19 @@ function loadAiLearn() {
                 for (const ax of AI_AXES) fresh[ax] = typeof saved[ax] === 'number' ? saved[ax] : 0;
             }
             out.confidence[style] = fresh;
+        }
+        // 样本计数：老存档没有就从 0 开始（向后兼容）
+        out.samples = { conservative: freshAxisConfidence(), aggressive: freshAxisConfidence(), shrewd: freshAxisConfidence() };
+        if (parsed.samples && typeof parsed.samples === 'object') {
+            for (const style of ['conservative', 'aggressive', 'shrewd']) {
+                const saved = parsed.samples[style];
+                if (saved && typeof saved === 'object') {
+                    for (const ax of AI_AXES) {
+                        if (typeof saved[ax] === 'number' && saved[ax] > 0)
+                            out.samples[style][ax] = Math.min(500, saved[ax]);
+                    }
+                }
+            }
         }
         Game.aiLearn = out;
     } catch (e) { /* 本地存储不可用则用默认值 */ }
@@ -133,24 +151,55 @@ function scoreHandForStyle(style, ctx) {
     return 0; // shrewd：不算成也不算败
 }
 
+// 每局结算前先做衰减：旧经验随时间淡化（0.97/局），防止早期样本永久主导；
+// 样本计数过大时回缩，避免"学不动"（配合下面的越学越稳，长期保持适应性）
+function decayAiLearn() {
+    for (const style of ['conservative', 'aggressive', 'shrewd']) {
+        for (const ax of AI_AXES) {
+            Game.aiLearn.confidence[style][ax] *= 0.97;
+            if (Math.abs(Game.aiLearn.confidence[style][ax]) < 0.01) Game.aiLearn.confidence[style][ax] = 0;
+            if (Game.aiLearn.samples[style][ax] > 300) Game.aiLearn.samples[style][ax] = 300;
+        }
+    }
+}
+
 // 这局结束，把 score 记到这个AI这局真正用上的那几条轴上（没用上的轴不动）
 // justCalled=true 时说明这次点炮是"这一巡刚吃/碰完就打出去"逼出来的——归因细化：
 // 吃碰相关的轴(callAggr/chaseSpecial)多担责任，其余轴（防守/残局/字牌/位置感等）少担，
 // 因为这张牌很可能是被那次吃碰打乱了手牌节奏才被迫打出的，不是这些轴自己选错了
+// 样本稳定：|score|<0.25 视为噪声不记；更新幅度随样本数递减（早期学得快、后期稳）；
+// 单局单轴变化封顶 ±0.6，防止一局极端结果把某条轴打穿
 function applyAxisScore(player, style, score, justCalled) {
     const used = Game.aiAxisUsed[player];
     if (!used || used.size === 0) return;
+    if (Math.abs(score) < 0.25) return; // 噪声过滤：不痛不痒的局不调整
     const CALL_AXES = new Set(['callAggr', 'chaseSpecial']);
     for (const axis of used) {
         const weight = justCalled ? (CALL_AXES.has(axis) ? 1.4 : 0.4) : 1;
-        Game.aiLearn.confidence[style][axis] = clampConfidence(Game.aiLearn.confidence[style][axis] + score * weight);
+        const n = Game.aiLearn.samples[style][axis] || 0;
+        const stability = Math.min(1, 12 / (12 + n)); // 样本越多学得越慢
+        let delta = score * weight * stability;
+        delta = Math.max(-0.6, Math.min(0.6, delta)); // 单局封顶
+        Game.aiLearn.confidence[style][axis] = clampConfidence(Game.aiLearn.confidence[style][axis] + delta);
+        Game.aiLearn.samples[style][axis] = n + 1;
     }
+}
+
+// A/B 对比与测试用：把学习状态清零重来（不删盘，调用方决定要不要 save）
+function resetAiLearn() {
+    Game.aiLearn = {
+        games: 0,
+        confidence: { conservative: freshAxisConfidence(), aggressive: freshAxisConfidence(), shrewd: freshAxisConfidence() },
+        samples: { conservative: freshAxisConfidence(), aggressive: freshAxisConfidence(), shrewd: freshAxisConfidence() }
+    };
+    resetAiDefenseMode();
 }
 
 // 一局定输赢后调用。meta: { fan, turns }（自摸/点炮都算胡，不再区分对"这局的分"的影响——
 // 三种性格各自在乎的东西已经在 scoreHandForStyle 里体现了）
 function learnFromWin(winnerPlayer, payerPlayer, meta) {
     meta = meta || {};
+    decayAiLearn(); // 先衰减旧经验，再记新账
     for (const p of ['top', 'left', 'right']) {
         const style = Game.aiPersonality[p];
         if (!style) continue;
@@ -161,11 +210,13 @@ function learnFromWin(winnerPlayer, payerPlayer, meta) {
     }
     resetAiAxisUsed();
     resetLastCallTurn();
+    resetAiDefenseMode();
     Game.aiLearn.games += 1;
     scheduleSaveAiLearn();
 }
 // 流局时调用：听牌的性格按自己的表加分，没听牌的按自己的表扣分/加分
 function learnFromDraw(tenpaiPlayers) {
+    decayAiLearn();
     for (const p of ['top', 'left', 'right']) {
         const style = Game.aiPersonality[p];
         if (!style) continue;
@@ -174,6 +225,7 @@ function learnFromDraw(tenpaiPlayers) {
     }
     resetAiAxisUsed();
     resetLastCallTurn();
+    resetAiDefenseMode();
     Game.aiLearn.games += 1;
     scheduleSaveAiLearn();
 }
@@ -684,6 +736,9 @@ Game.markAxisUsed = markAxisUsed;
 Game.resetLastCallTurn = resetLastCallTurn;
 Game.learnFromWin = learnFromWin;
 Game.learnFromDraw = learnFromDraw;
+Game.resetAiLearn = resetAiLearn;
+Game.resetAiDefenseMode = resetAiDefenseMode;
+Game.decayAiLearn = decayAiLearn;
 Game.$ = $;
 Game.setPhase = setPhase;
 Game.pushPhase = pushPhase;
@@ -692,6 +747,7 @@ Game.resetPhaseStats = resetPhaseStats;
 Game.totalTilesOf = totalTilesOf;
 Game.FULL_DECK_SIZE = FULL_DECK_SIZE;
 Game.markDealer = markDealer;
+Game.baseNames = baseNames; // 玩家固定门风：bottom=东/right=南/top=西/left=北（17-field-manager 的局数/风/圈数显示用）
 Game.MAHJONG_STORAGE_KEY = MAHJONG_STORAGE_KEY;
 Game.flushSaveProgress = flushSaveProgress;
 Game.saveGameProgress = saveGameProgress;

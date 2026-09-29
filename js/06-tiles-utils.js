@@ -1,10 +1,30 @@
 ;(function(){
-// 你的这张牌会不会点炮给某个 AI：等价于「该 AI 的听牌列表里有这张牌」。
-// 原先每张牌、每次渲染都要对三家各跑一次完整 checkHu；改用带缓存的 getWinningTilesOf，
-// 结果一致（getWinningTilesOf 要求暗牌张数=完整手牌-1，与 checkHu([...手牌, tile]) 的张数要求相同），
-// 同一副手牌命中缓存后不再重复计算。
+// 你的这张牌会不会点炮：公开信息危险度模型（現物/筋/壁/已见张数/对手威胁度）。
+// 不再读 AI 的暗牌——AI 做决策不再偷看你，你的危险提示也不偷看 AI，对等公平。
+// （提示是"看起来危险"，不是"必定点炮"，和成熟麻将游戏的危险牌提示同一定位。）
 function isDangerousTile(tile) {
-    return ['top', 'left', 'right'].some(p => Game.getWinningTilesOf(Game.hands[p], Game.exposedMelds[p], p).includes(tile));
+    if (Game.assist && Game.assist.dangerHint === false) return false; // 开关=否：不再标炮牌
+    return ['top', 'left', 'right'].some(p => Game.publicDangerVs('bottom', tile, p) >= 0.5);
+}
+
+// 危险原因（一句话，给提示/教练用）：只解释"为什么危险"，依据全是公开信息，不读暗牌
+function dangerReason(tile) {
+    if (!isDangerousTile(tile)) return '';
+    const oppName = { top: '对家', left: '上家', right: '下家' };
+    const parts = [];
+    for (const opp of ['top', 'left', 'right']) {
+        if (Game.publicDangerVs('bottom', tile, opp) < 0.5) continue;
+        const seen = Game.tileSeenCount(tile) + (Game.hands.bottom || []).filter(t => t === tile).length;
+        const suit = Game.tileSuit(tile), rank = Game.tileRank(tile);
+        let kind;
+        if (suit === '字') kind = seen === 0 ? '生张字牌' : '字牌仅见' + seen + '张';
+        else if (rank === 1 || rank === 9) kind = '幺九';
+        else if (rank === 2 || rank === 8) kind = seen >= 3 ? '边张' : '边张生张';
+        else kind = seen >= 3 ? '中张' : '中张生张';
+        const melds = (Game.exposedMelds[opp] || []).length;
+        parts.push(oppName[opp] + (melds >= 2 ? melds + '组副露' : '有威胁') + '，' + kind + '危险');
+    }
+    return parts.join('；');
 }
 
 function buildDeck() {
@@ -76,6 +96,7 @@ function tileBackImg() {
 
 /* ---- 本文件对外接口（IIFE 收敛，唯一出口） ---- */
 Game.isDangerousTile = isDangerousTile;
+Game.dangerReason = dangerReason;
 Game.buildDeck = buildDeck;
 Game.tileSuit = tileSuit;
 Game.tileRank = tileRank;

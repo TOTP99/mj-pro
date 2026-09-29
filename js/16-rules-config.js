@@ -90,6 +90,8 @@ function ruleAllowsSevenPairs() { return isDailyMode() ? false : !!Game.rulesCon
 // kind: 'winds' | 'dragons'（新版已合并为总开关，参数仅保留兼容）；firstTurn: 是否该家首巡
 function ruleAllowsReveal(kind, firstTurn) {
     if (isDailyMode()) return true; // 日常：调用方已限定首巡，沿用旧版
+    // 「中发白第一张亮」选否：首巡不亮中发白（仅首巡，其它时机走下面开关）
+    if (kind === 'dragons' && firstTurn && Game.assist && Game.assist.dragonsFirst === false) return false;
     if (!Game.rulesConfig.revealAllowed) return false; // 总开关关：完全不能亮
     if (Game.rulesConfig.revealAnytime) return true;   // 随时可亮
     if (!Game.rulesConfig.revealFirstTurn) return false;
@@ -98,6 +100,47 @@ function ruleAllowsReveal(kind, firstTurn) {
 
 // 启动时加载
 loadRulesConfig();
+
+// ---------- 辅助开关（模式选择页）：危险提示 / 教练模式 / 中发白第一张亮 ----------
+// dangerHint   默认是：标出可能点炮的牌；选否则完全不标
+// coachMode    默认否：轮到你时 AI 推荐一张弃牌并给一句话理由
+// dragonsFirst 默认是：中发白凑齐时在首巡（打第一张牌前）亮出；选否则首巡不亮中发白
+const ASSIST_STORAGE_KEY = 'qj_mahjong_assist';
+const DEFAULT_ASSIST = { dangerHint: true, coachMode: false, dragonsFirst: true };
+Game.assist = { ...DEFAULT_ASSIST };
+function loadAssist() {
+    try {
+        const raw = localStorage.getItem(ASSIST_STORAGE_KEY);
+        if (raw) {
+            const saved = JSON.parse(raw);
+            for (const k of Object.keys(DEFAULT_ASSIST)) {
+                if (typeof saved[k] === 'boolean') Game.assist[k] = saved[k];
+            }
+        }
+    } catch (e) { /* 用默认 */ }
+}
+function saveAssist() {
+    try { localStorage.setItem(ASSIST_STORAGE_KEY, JSON.stringify(Game.assist)); } catch (e) {}
+}
+function setAssistYN(key, val) {
+    if (!(key in DEFAULT_ASSIST)) return;
+    Game.assist[key] = !!val;
+    saveAssist();
+    syncAssistYN(key);
+    if (key === 'dangerHint') Game.requestRender('setAssistYN/dangerHint'); // 标记开关变化即时生效
+}
+function syncAssistYN(key) {
+    const row = document.querySelector('.rule-row[data-assist="' + key + '"]');
+    if (!row) return;
+    const on = !!Game.assist[key];
+    row.querySelectorAll('.yn-seg button').forEach(function (b) {
+        b.classList.toggle('sel', (b.getAttribute('data-yn') === '1') === on);
+    });
+}
+function syncAssistUI() { Object.keys(DEFAULT_ASSIST).forEach(syncAssistYN); }
+Game.setAssistYN = setAssistYN;
+Game.syncAssistUI = syncAssistUI;
+loadAssist();
 
 // ---------- 模式选择 UI ----------
 // 显示/隐藏弹窗（复用 .show 类）
@@ -157,6 +200,7 @@ function openModeSelect() {
     document.querySelectorAll('#mode-select-modal .mode-option').forEach(function (b) {
         b.classList.toggle('cur', b.getAttribute('data-mode') === Game.gameMode);
     });
+    Game.syncAssistUI(); // 辅助开关（危险提示/教练模式）同步当前值
     // 先在牌桌中央提示，弹窗稍后跟上，把注意力先引到牌桌
     showTablePrompt('请选择模式');
     glowSelectButtons('mode-select-modal', false);
@@ -248,6 +292,7 @@ function confirmRules() {
 function backToModeSelect() {
     hideModal('rules-modal');
     Game.setPhase(Game.PHASE.MODE_SELECT, 'backToModeSelect');
+    Game.syncAssistUI();
     showTablePrompt('请选择模式');
     glowSelectButtons('mode-select-modal', false);
     showModal('mode-select-modal');

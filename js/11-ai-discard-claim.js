@@ -1,145 +1,9 @@
 ;(function(){
-/** 向听缓存：向听数只取决于「暗牌多重集 + 还缺几个面子」，同一手牌在一次 AI 决策里会被反复计算，
- *  这里按 排序后暗牌 + 副露数 缓存，结果与 estimateShanten 完全一致，只是不重复跑 DFS */
-const _shantenCache = new Map();
-function estimateShantenCached(concealed, exposed) {
-    const key = concealed.slice().sort().join(',') + '|' + (exposed ? exposed.length : 0);
-    let v = _shantenCache.get(key);
-    if (v === undefined) {
-        v = Game.estimateShanten(concealed, exposed);
-        if (_shantenCache.size > 4000) _shantenCache.clear();
-        _shantenCache.set(key, v);
-    }
-    return v;
-}
-
-function removeTilesFromHand(hand, tilesToRemove) {
-    const next = hand.slice();
-    for (const t of tilesToRemove) {
-        const i = next.indexOf(t);
-        if (i >= 0) next.splice(i, 1);
-    }
-    return next;
-}
-
-/** 三门齐相关：吃/碰后是否仍覆盖三门（或至少不比现在更差） */
-function suitDiversity(hand, exposed) {
-    const suits = new Set();
-    for (const t of hand) {
-        if (Game.tileSuit(t) !== '字') suits.add(Game.tileSuit(t));
-    }
-    for (const m of (exposed || [])) {
-        for (const t of m.tiles) {
-            if (Game.tileSuit(t) !== '字') suits.add(Game.tileSuit(t));
-        }
-    }
-    return suits.size;
-}
-
-/** 评估一种吃法：向听下降优先，其次三门齐，再次不拆对子 */
-function scoreChiCombo(hand, tile, combo, exposed, player) {
-    const style = aiPersonality[player] || 'shrewd';
-    const before = estimateShantenCached(hand, exposed);
-    const handAfter = removeTilesFromHand(hand, combo);
-    const expAfter = exposed.concat([{ type: 'chi', tiles: [...combo, tile].sort(Game.tileCompare) }]);
-    const after = estimateShantenCached(handAfter, expAfter);
-    let score = (before - after) * 10; // 向听改善越大越好
-    // 未开门时，吃能开门有额外价值：没开门自摸要被单独×2惩罚、没开门点炮也×2，
-    // 未开门代价比以前更高，这里把权重从 4 调到 6，让AI更愿意为了开门吃这口
-    if (!Game.isKaimen(exposed)) score += 6;
-    // 三门齐
-    const divBefore = suitDiversity(hand, exposed);
-    const divAfter = suitDiversity(handAfter, expAfter);
-    score += (divAfter - divBefore) * 3;
-    if (divAfter >= 3) score += 2;
-    // 穷胡专属条件（三门齐/幺九/刻子）完整度：标准向听改善之外，额外奖励真正推进胡牌资格的吃法
-    const qhBefore = Game.analyzeHu(hand, exposed, player);
-    const qhAfter = Game.analyzeHu(handAfter, expAfter, player);
-    if (!qhBefore.sanmenqi && qhAfter.sanmenqi) score += 3;
-    if (!qhBefore.yaojiu && qhAfter.yaojiu) score += 3;
-    if (!qhBefore.kezi && qhAfter.kezi) score += 2;
-    // 尽量不拆对子：combo 里若拆了对子则扣分
-    for (const t of combo) {
-        if (hand.filter(x => x === t).length >= 2) score -= 2;
-    }
-    // 性格：保守要求至少不升高向听；激进可略接受持平
-    if (style === 'conservative' && after > before) score -= 20;
-    if (style === 'shrewd' && after > before + 1) score -= 20;
-    if (style === 'aggressive' && after > before + 1) score -= 12;
-    return score;
-}
-
-/** 是否应该吃：有正收益（或未开门且不太亏）。学习偏好：这个性格最近战绩好就放宽门槛，战绩差就收紧 */
-function shouldAiChi(player, tile, combo) {
-    if (Game.isTenpai(player)) return false;
-    const exposed = Game.exposedMelds[player];
-    if (exposed.length >= 3) return false;
-    const score = scoreChiCombo(Game.hands[player], tile, combo, exposed, player);
-    const style = aiPersonality[player] || 'shrewd';
-    const conf = (Game.aiLearn.confidence[style] && Game.aiLearn.confidence[style].callAggr) || 0;
-    const open = Game.isKaimen(exposed);
-    // 开门：要有明显收益；未开门：新规则下没开门自摸/点炮都要多罚一倍，门槛降到 1，更愿意开门
-    const baseThreshold = open ? 4 : 1;
-    const actual = score >= baseThreshold - conf * 0.6;
-    // 轴1归因：跟"没学过(conf=0)"时会不会选得不一样比一比，选得不一样说明这条轴真的起作用了
-    if (actual !== (score >= baseThreshold)) Game.markAxisUsed(player, 'callAggr');
-    return actual;
-}
-
-function tileKeepTier(hand, tile, style, neutralHonor) {
-    const suit = Game.tileSuit(tile);
-    const rank = Game.tileRank(tile);
-    const sameCount = hand.filter(t => t === tile).length;
-    let tier;
-
-    if (sameCount >= 3) tier = 4; // 刻子
-    else if (sameCount === 2) tier = 6; // 对子：不要轻易拆
-    else if (suit === '字') {
-        // 轴5 字牌保留倾向：孤立字牌原本一律tier 0（最先丢），按性格+学习加一点保留倾向
-        // （aggressive更愿意赌字牌刻子，conservative维持原来的0，不倒扣成负数）
-        // neutralHonor=true 时强制当作没有这条轴（bias=0），给归因用的"没学过会怎么选"对照
-        const learn = Game.aiLearn.confidence[style] || {};
-        const learnedBias = neutralHonor ? 0 : (learn.honorHold >= 1.5 ? 1 : (learn.honorHold <= -1.5 ? -1 : 0));
-        const bias = neutralHonor ? 0 : (AI_TRAITS[style] || AI_TRAITS.shrewd).honorHoldBias;
-        tier = Math.max(0, bias + learnedBias);
-    }
-    else {
-        // 同花色±1/±2内是否还有别的牌，用来判断是不是“完全孤立”
-        let hasNear = false;
-        for (let d = 1; d <= 2; d++) {
-            if (hand.includes((rank - d) + suit) || hand.includes((rank + d) + suit)) { hasNear = true; break; }
-        }
-        const inRun = hand.includes((rank - 1) + suit) || hand.includes((rank + 1) + suit);
-        if (!hasNear) {
-            tier = (rank === 1 || rank === 9) ? 3 : ([4, 5, 6].includes(rank) ? 2 : 1);
-        } else if (inRun) {
-            // 连张/搭子（如45、56、67）：默认高优先级保留；但若是边张（12等3 / 89等7）
-            // 且那张已经死绝（记牌确认4张都看得见了），就不用死守这个没指望的等张
-            let edgeDeadWait = false;
-            if (rank === 1 && hand.includes(2 + suit) && Game.isTileDead(3 + suit, hand)) edgeDeadWait = true;
-            if (rank === 2 && hand.includes(1 + suit) && Game.isTileDead(3 + suit, hand)) edgeDeadWait = true;
-            if (rank === 8 && hand.includes(9 + suit) && Game.isTileDead(7 + suit, hand)) edgeDeadWait = true;
-            if (rank === 9 && hand.includes(8 + suit) && Game.isTileDead(7 + suit, hand)) edgeDeadWait = true;
-            tier = edgeDeadWait ? 1 : 5;
-        } else {
-            // 嵌张（如4_6空档等5）：记牌检查缺的那张是不是已经死了，死了就不用留着盼了
-            let deadWait = false;
-            if (hand.includes((rank - 2) + suit) && Game.isTileDead((rank - 1) + suit, hand)) deadWait = true;
-            if (hand.includes((rank + 2) + suit) && Game.isTileDead((rank + 1) + suit, hand)) deadWait = true;
-            tier = deadWait ? 1 : 3;
-        }
-    }
-
-    // 三门齐保护：这是本门(万/条/筒)僅剩的一张，且三门都还在，打了就彻底断这门了 —— 提高保留优先级
-    if (tier < 5 && Game.protectsThreeSuits(hand, tile)) tier = 5;
-    return tier;
-}
-
 // 三家AI性格：北(上家)保守 / 南(下家)激进 / 西(对家)精明
 const aiPersonality = { left: 'conservative', right: 'aggressive', top: 'shrewd' };
 
 // ---------- AI 7轴静态差异化参数（第一步：先写死三性格的不同倾向，暂不接学习） ----------
-// 轴1(吃碰激进度)/轴2(防守让牌) 已经在 scoreChiCombo/shouldAiChi/shouldAiPeng/chooseAiDiscardTile
+// 轴1(吃碰激进度)/轴2(防守让牌) 已经在 shouldAiChi/shouldAiPeng/chooseAiDiscardTile
 // 里天然按 style 分支，不需要额外的表；这里只收 3~7 这5条目前代码里没有性格区分的开关
 const AI_TRAITS = {
     conservative: {
@@ -148,7 +12,10 @@ const AI_TRAITS = {
         honorHoldBias: -1,     // 轴5 字牌保留：孤立字牌保留档加成（越低越想早丢）
         cannonHoldTier: 2,     // 轴6 炮牌截留：为压住炮牌，愿意多容忍几档tier变差
         blockXiajiaTier: 2,    // 轴7a 不喂下家：为不喂下家，愿意多容忍几档tier变差
-        riskDefenseAt: 0.5     // 轴2扩展：对手"看起来要听牌"的风险分到多少就转防守，越低越神经质
+        riskDefenseAt: 0.75,   // 轴2扩展：对手"看起来要听牌"的风险分到多少就转防守，越低越神经质
+        // 调参 2026-09-29：0.5 时 2 组副露（0.7 分）就转守，太频繁 → 0.75（需 2 组副露 + 其它信号）
+        ukeireKeepAt: 0.5,     // 吃/碰后进张数至少保留几成（保守：腰斩就 veto）
+        // 调参 2026-09-29：0.6 时保守派几乎不碰、做不起牌 → 0.5 放宽
     },
     aggressive: {
         chaseSpecialSlack: 2,
@@ -156,7 +23,8 @@ const AI_TRAITS = {
         honorHoldBias: 1,
         cannonHoldTier: 0,
         blockXiajiaTier: 0,
-        riskDefenseAt: 1.15    // 只有极端信号（比如对家已经3组副露）才会让激进型也收一收
+        riskDefenseAt: 1.15,   // 只有极端信号（比如对家已经3组副露）才会让激进型也收一收
+        ukeireKeepAt: 0.25     // 激进：几乎不看进张损失，只看向听
     },
     shrewd: {
         chaseSpecialSlack: 1,
@@ -164,7 +32,9 @@ const AI_TRAITS = {
         honorHoldBias: 0,
         cannonHoldTier: 1,
         blockXiajiaTier: 1,
-        riskDefenseAt: 0.85
+        riskDefenseAt: 0.95,
+        // 调参 2026-09-29：0.85 时稍有风吹草动就转守 → 0.95（需强信号）
+        ukeireKeepAt: 0.45     // 精明：进张损失过大也 veto，但比保守宽容
     }
 };
 
@@ -176,23 +46,103 @@ function acrossPlayerOf(p) {
     const idx = Game.turnOrder.indexOf(p);
     return Game.turnOrder[(idx + 2) % Game.turnOrder.length];
 }
-// 轴6兜底用：这张牌有几家能靠它胡（而不只是"有没有"），候选全是炮牌时挑数字最小的那张
-function dangerCount(player, tile) {
-    return Game.turnOrder.filter(p => p !== player && Game.checkHu([...Game.hands[p], tile], Game.exposedMelds[p], p)).length;
+// ---------- 公开信息危险牌模型（替代偷看对手暗牌） ----------
+// 成熟麻将 AI 的做法：只用看得见的信息——
+//   現物（对手打过的牌对他 100% 安全）、筋（suji：他打过 4，则 1/7 的两面听被堵住一侧）、
+//   壁（kabe：相邻关键牌死绝则两面听不可能）、已见张数、对手威胁度（副露数/舍牌趋势）。
+// 对包括 bottom（人类玩家）在内的所有对手一视同仁，不再读任何一家的暗牌。
+function discardsOfSet(player) {
+    const s = new Set();
+    for (const d of Game.discardPile) if (d.player === player) s.add(d.tile);
+    return s;
 }
-// 轴7a：这张牌会不会让下家吃/碰（下家是"你"时不受此轴约束——喂不喂你不算AI的"位置感"问题）
+function countDiscardsOf(player, tile) {
+    let n = 0;
+    for (const d of Game.discardPile) if (d.player === player && d.tile === tile) n++;
+    return n;
+}
+// 筋源头：rank1~3 → [rank+3]；rank7~9 → [rank-3]；rank4~6 → 双侧 [rank-3, rank+3]
+function sujiSources(suit, rank) {
+    if (rank <= 3) return [(rank + 3) + suit];
+    if (rank >= 7) return [(rank - 3) + suit];
+    return [(rank - 3) + suit, (rank + 3) + suit];
+}
+// 壁：这张牌的两面听搭子关键牌（r-1 / r+1）都已死绝 → 两面听不可能
+function kabeSafe(tile, ownHand) {
+    const suit = Game.tileSuit(tile), rank = Game.tileRank(tile);
+    if (suit === '字') return false;
+    let sides = 0, blocked = 0;
+    if (rank >= 3) { sides++; if (Game.isTileDead((rank - 1) + suit, ownHand)) blocked++; }
+    if (rank <= 7) { sides++; if (Game.isTileDead((rank + 1) + suit, ownHand)) blocked++; }
+    return sides > 0 && blocked === sides;
+}
+// 公开信息危险度 0~1：只看牌河/副露/已见牌/对手威胁度
+function publicDangerVs(player, tile, opp) {
+    const disc = discardsOfSet(opp);
+    // 現物：本项目无振听/打过不能胡规则，对手打过的牌仍可能点炮（换听等），
+    // 不能按 0 算。给 0.18 基础风险（远低于生张，但非零）。2026-09-29 AI3.0 修正。
+    if (disc.has(tile)) return 0.18;
+    const threat = estimateTenpaiRisk(opp); // 0~1.2，纯公开信号
+    if (threat < 0.15) return 0; // 毫无威胁的对手，不草木皆兵
+    const ownHand = Game.hands[player];
+    const suit = Game.tileSuit(tile), rank = Game.tileRank(tile);
+    // 已见张数 = 公开（弃牌+明副露）+ 自己手牌。自己手里的牌对手不可能有，
+    // 这是 AI 对自己信息的合法利用（人类也这么算："我三张 5万，他不可能听 5万"），不是偷看。
+    const seen = Game.tileSeenCount(tile) + ownHand.filter(t => t === tile).length;
+    let base;
+    if (suit === '字') {
+        base = seen >= 3 ? 0.15 : seen === 2 ? 0.45 : seen === 1 ? 0.7 : 0.85;
+        // 调参 2026-09-29：未见字牌 0.95 太悲观，人类没见过字牌不会默认按 95% 危险算 → 0.85
+    } else if (rank === 1 || rank === 9) {
+        base = 0.3;
+    } else if (rank === 2 || rank === 8) {
+        base = seen >= 3 ? 0.2 : 0.5;
+    } else {
+        base = seen >= 3 ? 0.25 : 0.75; // 中张
+    }
+    if (suit !== '字') {
+        const srcs = sujiSources(suit, rank);
+        const hit = srcs.filter(s => disc.has(s)).length;
+        if (hit === srcs.length) base *= 0.35; // 双侧筋全中
+        else if (hit > 0) base *= 0.65;        // 单侧筋
+        if (kabeSafe(tile, ownHand)) base *= 0.5;
+    }
+    return base * Math.min(1, 0.2 + threat * 0.8); // 对手越像听牌，危险越实在
+    // 调参 2026-09-29：0.3+threat 在 threat=0.7 时直接拉满 1.0，太悲观 → 0.2+0.8*threat 缓和
+}
+// 轴6兜底用：这张牌有几家按公开信息看是危险的（而不只是"有没有"），候选全是炮牌时挑数字最小的那张
+function dangerCount(player, tile) {
+    return Game.turnOrder.filter(p => p !== player && publicDangerVs(player, tile, p) >= 0.5).length;
+}
+// 轴7a：这张牌会不会让下家吃/碰（公开信息版：不再读下家暗牌）
+// 下家是"你"时不受此轴约束——喂不喂你不算AI的"位置感"问题（沿用原规则）
 function feedsXiajia(player, tile) {
     const next = nextPlayerOf(player);
     if (next === 'bottom') return false;
-    if (Game.isTenpai(next)) return false; // 下家已听牌，危险度已经由 isTileDangerousFor 覆盖，这里不重复算
+    if (estimateTenpaiRisk(next) >= 1.0) return false; // 下家已听牌相，危险度已由危险牌模型覆盖，这里不重复算
     if (Game.exposedMelds[next].length >= 3) return false;
-    if (Game.canPeng(Game.hands[next], tile)) return true;
-    return Game.findChiCombos(Game.hands[next], tile).length > 0;
+    const seen = Game.tileSeenCount(tile) + (Game.hands[player] || []).filter(t => t === tile).length;
+    if (seen >= 3) return false; // 场上快没了，喂不出来
+    const sameDiscarded = countDiscardsOf(next, tile);
+    if (sameDiscarded >= 2) return false; // 他扔过2张，碰不成了
+    const suit = Game.tileSuit(tile);
+    if (suit === '字') return sameDiscarded === 0; // 字牌：没扔过就可能在握对子等碰
+    // 数牌：他在做这个花色吗（副露带该花色，或已有副露且该花色一张没扔=在憋）
+    let buildingSuit = false;
+    for (const m of Game.exposedMelds[next]) {
+        if (m.tiles.some(t => Game.tileSuit(t) === suit)) { buildingSuit = true; break; }
+    }
+    if (!buildingSuit && Game.exposedMelds[next].length > 0) {
+        const suitDisc = Game.discardPile.filter(d => d.player === next && Game.tileSuit(d.tile) === suit).length;
+        buildingSuit = suitDisc === 0;
+    }
+    return buildingSuit;
 }
 
-// 检查某玩家打出这张牌，是否会点炮给别的玩家（用于AI出牌时的危险牌回避）
+// 检查某玩家打出这张牌，是否会点炮给别的玩家（公开信息版：不再读对手暗牌，
+// 改用危险度模型；给"这一刻打出去是否危险"一个诚实估计）
 function isTileDangerousFor(player, tile) {
-    return Game.turnOrder.some(p => p !== player && Game.checkHu([...Game.hands[p], tile], Game.exposedMelds[p], p));
+    return Game.turnOrder.some(p => p !== player && publicDangerVs(player, tile, p) >= 0.5);
 }
 
 // 轴2扩展：对手"看起来要听牌了"的启发式风险分（不是读心，纯看得见的信号）——
@@ -262,18 +212,6 @@ function getWinningTilesOf(concealed, exposed, player) {
     return res.slice(); // 返回副本，调用方随便改也不会污染缓存
 }
 
-// 进张数：打出这张后，还有多少种（未死绝的）牌摸到能让向听数继续下降
-// 用于同保留档位打平时的 tie-break，取代纯随机，让AI优先留住选择面更宽的牌
-function ukeireCount(hand, exposed) {
-    const shan = estimateShantenCached(hand, exposed);
-    let count = 0;
-    for (const t of Game.allTileTypes()) {
-        if (Game.isTileDead(t, hand)) continue; // 已经死绝的牌（含自己手里的）摸不到，没有实际意义
-        if (estimateShantenCached([...hand, t], exposed) < shan) count++;
-    }
-    return count;
-}
-
 function chooseAiDiscardTile(hand, player) {
     const exposed = Game.exposedMelds[player];
     const style = aiPersonality[player] || 'shrewd';
@@ -315,134 +253,9 @@ function chooseAiDiscardTile(hand, player) {
     // 已无法保听（或尚未上听）→ 清空听口记忆；按「向听优先 + 安全 + 保留档」舍牌
     Game.aiWaitTiles[player] = [];
 
-    const candidates = [];
-    for (const t of hand) {
-        const remain = removeTilesFromHand(hand, [t]);
-        const shan = estimateShantenCached(remain, exposed);
-        const tier = tileKeepTier(hand, t, style);
-        const safe = !isTileDangerousFor(player, t);
-        const feedsNext = feedsXiajia(player, t); // 轴7a：这张牌会不会喂下家吃/碰
-        // 穷胡专属条件：打出这张后，三门齐/幺九/刻子还保不保得住（标准向听算法看不到这三条，靠这里补）
-        const qh = Game.analyzeHu(remain, exposed, player);
-        let qhPenalty = 0;
-        if (!qh.sanmenqi) qhPenalty += 2;
-        if (!qh.yaojiu) qhPenalty += 2;
-        if (!qh.kezi) qhPenalty += 1;
-        candidates.push({ tile: t, shan, tier, safe, feedsNext, qhPenalty });
-    }
-    // 向听越小越好；同向听优先保住三门齐/幺九/刻子；再优先安全；再优先扔掉保留档低的牌
-    candidates.sort((a, b) => {
-        if (a.shan !== b.shan) return a.shan - b.shan;
-        if (a.qhPenalty !== b.qhPenalty) return a.qhPenalty - b.qhPenalty;
-        if (a.safe !== b.safe) return a.safe ? -1 : 1;
-        if (a.tier !== b.tier) return a.tier - b.tier;
-        return 0;
-    });
-    const bestShan = candidates[0].shan;
-    // 性格：可在最佳向听的邻近档里找安全牌
-    let shanSlack = style === 'conservative' ? 1 : (style === 'aggressive' ? 0 : 1);
-    // 轴：速度vs牌值——保守永远只看上面这套、不受牌值影响；激进平时求快，但牌值真的大了愿意多等一巡；
-    // 精明本来就想要大牌，牌值越高越愿意等（跟激进那条一样封顶多等1巡，别真等成流局）
-    const handValue = estimateHandValue(hand, exposed);
-    if (style === 'aggressive' && handValue >= 2) shanSlack += 1;
-    if (style === 'shrewd' && handValue >= 1.5) shanSlack += 1;
-    const learn = Game.aiLearn.confidence[style] || {};
-    const urgency = wallUrgencyBonus(style);
-    let pool = candidates.filter(c => c.shan <= bestShan + shanSlack);
-    // 轴2(防守让牌)的学习值
-    const defenseConf = learn.defense || 0;
-    // 轴7b/7c 位置感：读一眼对家/上家是什么性格，微调自己求稳的门槛
-    // 对家凶（激进）→ 收紧（更容易触发cautious）；上家稳（保守）→ 松一点（威胁小，不用太紧张）
-    let posSlack = 0;
-    if (aiPersonality[acrossPlayerOf(player)] === 'aggressive') posSlack -= 1;
-    if (aiPersonality[prevPlayerOf(player)] === 'conservative') posSlack += 1;
-    const cautious = defenseConf <= -1.5 - posSlack;
-    const confident = defenseConf >= 1.5;
-    // 没开门点炮×2：自己还没开门时点炮要多付一倍，安全牌优先级必须更硬，
-    // 不受性格/战绩自信影响——哪怕是激进/战绩好的AI，没开门也不能对危险牌掉以轻心
-    const notOpen = !Game.isKaimen(exposed);
-    // 轴2扩展：对手有没有"看起来要听牌"的信号（副露数/连续切中张），门槛按性格+学习值调
-    // （战绩差的更神经质、更容易转防守；战绩好的更迟钝一点）
-    const riskAt = Math.max(0.3, (AI_TRAITS[style] || AI_TRAITS.shrewd).riskDefenseAt - Math.round(defenseConf) * 0.15);
-    const highRiskNow = Game.turnOrder.some(p => p !== player && estimateTenpaiRisk(p) >= riskAt);
-    const safeFilterActive = (u, c, cf, hr) => (u >= 1 || c || notOpen || hr) || (style !== 'aggressive' && !cf);
-    const actualFilterOn = safeFilterActive(urgency, cautious, confident, highRiskNow);
-    const safePoolNow = pool.filter(c => c.safe);
-    // 只有"求稳"这一开关真的能改变候选范围（池子里本来就有安全/危险两种牌混着）时，
-    // 归因才有意义——否则开不开都一样，不能算某条轴"起了作用"
-    const filterWouldNarrow = safePoolNow.length > 0 && safePoolNow.length < pool.length;
-    if (actualFilterOn && filterWouldNarrow) pool = safePoolNow;
-    if (filterWouldNarrow) {
-        // 归因：defense / wallCaution / 位置感 / 对手风险信号 分别单独归零（只改这一个、其它保持实际值），
-        // 看开关会不会翻——翻了说明这条轴自己就能决定这一把的选择
-        const defenseIfZero = 0 <= -1.5 - posSlack; // 假设 defense 学习值为 0 时的对照
-        if (safeFilterActive(urgency, defenseIfZero, false, highRiskNow) !== actualFilterOn) {
-            Game.markAxisUsed(player, 'defense');
-        }
-        if (safeFilterActive(wallUrgencyBonus(style, 0), cautious, confident, highRiskNow) !== actualFilterOn) {
-            Game.markAxisUsed(player, 'wallCaution');
-        }
-        if (safeFilterActive(urgency, defenseConf <= -1.5, confident, highRiskNow) !== actualFilterOn) {
-            Game.markAxisUsed(player, 'position');
-        }
-        if (safeFilterActive(urgency, cautious, confident, false) !== actualFilterOn) {
-            Game.markAxisUsed(player, 'defense'); // 对手风险信号算在防守这条轴上
-        }
-    }
-    // 轴6 炮牌截留：上面"求稳"已经把pool收紧到安全牌了；这里补的是剩下那种情形——
-    // 不在求稳范围内，但当前最优tier里其实没有安全牌——性格+学习允许的话，
-    // 宁可退让几档tier也要换一张安全牌（不允许就是cannonHoldTier=0，跟以前行为一样）
-    const cannonHoldTier = Math.max(0, (AI_TRAITS[style] || AI_TRAITS.shrewd).cannonHoldTier
-        + (learn.cannonHold >= 1.5 ? 1 : (learn.cannonHold <= -1.5 ? -1 : 0)));
-    if (cannonHoldTier > 0) {
-        const curBestTier = Math.min(...pool.map(c => c.tier));
-        const bestTierHasSafe = pool.some(c => c.tier === curBestTier && c.safe);
-        if (!bestTierHasSafe) {
-            const widened = pool.filter(c => c.tier <= curBestTier + cannonHoldTier && c.safe);
-            if (widened.length) { pool = widened; Game.markAxisUsed(player, 'cannonHold'); }
-        }
-    }
-    // 轴7a 不喂下家：跟轴6同样的"退让几档tier"思路，只不过换成躲"会喂下家"的牌而不是"危险牌"
-    const blockXiajiaTier = Math.max(0, (AI_TRAITS[style] || AI_TRAITS.shrewd).blockXiajiaTier
-        + (learn.position >= 1.5 ? 1 : (learn.position <= -1.5 ? -1 : 0)));
-    if (blockXiajiaTier > 0) {
-        const curBestTier = Math.min(...pool.map(c => c.tier));
-        const bestTierFeedsNext = pool.filter(c => c.tier === curBestTier).every(c => c.feedsNext);
-        if (bestTierFeedsNext) {
-            const widened = pool.filter(c => c.tier <= curBestTier + blockXiajiaTier && !c.feedsNext);
-            if (widened.length) { pool = widened; Game.markAxisUsed(player, 'position'); }
-        }
-    }
-    // 在池内按 tier 升序（先丢不保的）
-    pool.sort((a, b) => a.tier - b.tier || (a.safe === b.safe ? 0 : (a.safe ? -1 : 1)));
-    const topTier = pool[0].tier;
-    let finalPool = pool.filter(c => c.tier === topTier);
-    // 轴6兜底：候选（当前tier里）如果一张安全牌都没有——说明真的是"矮子里挑将军"，
-    // 全是炮牌——这时候不比tier了，直接按"能胡的家数"挑最少的那几张
-    if (finalPool.length > 1 && !finalPool.some(c => c.safe)) {
-        finalPool = finalPool.map(c => ({ ...c, danger: dangerCount(player, c.tile) }))
-            .sort((a, b) => a.danger - b.danger);
-        const minDanger = finalPool[0].danger;
-        finalPool = finalPool.filter(c => c.danger === minDanger);
-    }
-    // 同档打平：改用进张数排序（谁打出去后选择面更宽就先打谁），而不是纯随机
-    if (finalPool.length > 1) {
-        finalPool = finalPool.map(c => ({
-            ...c,
-            ukeire: ukeireCount(removeTilesFromHand(hand, [c.tile]), exposed)
-        })).sort((a, b) => b.ukeire - a.ukeire);
-        const bestUkeire = finalPool[0].ukeire;
-        finalPool = finalPool.filter(c => c.ukeire === bestUkeire);
-    }
-    const chosen = finalPool[Math.floor(Math.random() * finalPool.length)].tile;
-    // 轴5归因（事后判定）：如果最终选中的这张恰好是一张"因为性格+学习倾向而被抬过tier"的孤立字牌，
-    // 且没有这条倾向时tier会不一样，就算这条轴真的影响了这次的选择
-    if (Game.tileSuit(chosen) === '字' && hand.filter(x => x === chosen).length === 1) {
-        const withBias = tileKeepTier(hand, chosen, style, false);
-        const withoutBias = tileKeepTier(hand, chosen, style, true);
-        if (withBias !== withoutBias) Game.markAxisUsed(player, 'honorHold');
-    }
-    return chosen;
+    // AI 3.0：字典序（向听→穷胡→进张→保留→危险）+ EV 攻守 + 7轴微调
+    // 保听段已在上方处理；这里处理未听牌/无法保听的一般弃牌
+    return Game.chooseDiscard3(hand, exposed, player, style);
 }
 
 function aiDiscard(player) {
@@ -558,77 +371,51 @@ function isGoingForTriplets(hand) {
     return true;
 }
 
+/** 是否应该碰/杠：EV 统一比较为主（叫后状态期望 vs 不叫期望，取高者）。
+ *  手里 3 张暗 + 这张时按"明杠"算 EV（含补牌期望），否则按"碰"算。
+ *  中发白刻子×2番、补穷胡缺项的价值已进 EV（winValue 龙刻加成 / qhDiscount），不再另行加分。
+ *  学习偏好（轴1 吃碰激进度 / 轴3 冲特殊牌型）以 EV 点数偏移参与；归因由 findAiPeng 做。 */
 function shouldAiPeng(p, tile, overrides) {
     overrides = overrides || {};
     if (Game.isTenpai(p)) return false; // 已上听不碰，避免拆听
+    const inDefense = !!Game.aiDefenseMode[p]; // 转守后不一刀切：只接受向听严格改善的碰
     const style = aiPersonality[p] || 'shrewd';
     const learn = Game.aiLearn.confidence[style] || {};
     // conf=轴1(吃碰激进度)的学习值；chaseConf=轴3(特殊牌型追逐)的学习值；两条轴分开学，互不影响
     const conf = overrides.callAggr !== undefined ? overrides.callAggr : (learn.callAggr || 0);
     const chaseConf = overrides.chaseSpecial !== undefined ? overrides.chaseSpecial : (learn.chaseSpecial || 0);
     const exposed = Game.exposedMelds[p];
-    const openCount = exposed.length;
-    if (openCount >= 3) return false; // 穷胡：不能手把一
+    if (exposed.length >= 3) return false; // 穷胡：不能手把一
 
     const hand = Game.hands[p];
-    const handAfter = removeTilesFromHand(hand, [tile, tile]);
-    const expAfter = exposed.concat([{ type: 'peng', tiles: [tile, tile, tile] }]);
-    const shanBefore = estimateShantenCached(hand, exposed);
-    const shanAfter = estimateShantenCached(handAfter, expAfter);
+    const cnt = hand.filter(x => x === tile).length;
+    const kind = cnt >= 3 ? 'gang' : 'peng';
+    let r;
+    try { r = Game.meldCallEV(p, tile, kind, null); }
+    catch (e) { return false; }
+    if (inDefense && r.shanAfter >= r.shanBefore) return false; // 转守：碰完向听没改善就别碰
 
-    const otherPairs = [...new Set(hand)].filter(t => t !== tile && hand.filter(x => x === t).length >= 2);
-    // 中发白可作将，也可直接算有价值字牌
+    // 向听硬轨：碰/杠不能把牌打烂（保守最严）
+    if (style === 'conservative' && r.shanAfter > r.shanBefore) return false;
+    if (style !== 'conservative' && r.shanAfter > r.shanBefore + 1) return false;
+
+    // 将保护：碰掉唯一的对子等于拆将（中发白对子本身可作将，不在此限）
+    const pairCount = h => {
+        const c = {};
+        for (const t of h) c[t] = (c[t] || 0) + 1;
+        return Object.values(c).filter(n => n >= 2).length;
+    };
+    const afterSim = hand.slice();
+    afterSim.splice(afterSim.indexOf(tile), 1);
+    afterSim.splice(afterSim.indexOf(tile), 1);
     const isDragon = Game.dragonTilesArr.includes(tile);
-    const isWind = Game.windTilesArr.includes(tile);
-    const isHonorValue = isDragon || isWind;
-    const keepsJiang = otherPairs.length > 0 || isDragon;
-    const chasingPengPeng = isGoingForTriplets(hand);
+    if (pairCount(afterSim) === 0 && pairCount(hand) > 0 && !isDragon) return false;
 
-    // 穷胡专属条件：碰完是否补上了原本缺的三门齐/幺九/刻子
-    // 缺的条件补上了就值得放宽一档向听要求
-    const qhBefore = Game.analyzeHu(hand, exposed, p);
-    const qhAfter = Game.analyzeHu(handAfter, expAfter, p);
-    const qhGain = (!qhBefore.sanmenqi && qhAfter.sanmenqi)
-        || (!qhBefore.yaojiu && qhAfter.yaojiu)
-        || (!qhBefore.kezi && qhAfter.kezi);
-
-    // 副露数量上限
-    // 激进可略多；冲碰碰胡再按性格+学习给不同额度；学习战绩很好再多给1个名额，很差则少给1个
-    // 中发白刻子本身带番，即使已接近上限也允许碰（下面用 isHonorValue 放行）
-    const chaseSlack = (AI_TRAITS[style] || AI_TRAITS.shrewd).chaseSpecialSlack
-        + (chaseConf >= 1.5 ? 1 : (chaseConf <= -1.5 ? -1 : 0));
-    const cap = (style === 'conservative' ? 2 : (style === 'aggressive' ? 3 : 2))
-        + (chasingPengPeng ? chaseSlack : 0)
-        + (conf >= 1.5 ? 1 : 0) - (conf <= -1.5 ? 1 : 0);
-    if (openCount >= cap && !isHonorValue) return false;
-
-    // 向听约束：默认不能明显变差
-    // 学习战绩好 / 补上穷胡缺项 / 中发白刻子 → 各可多容忍一档
-    const confSlack = conf >= 1.5 ? 1 : (conf <= -1.5 ? -1 : 0);
-    const qhSlack = qhGain ? 1 : 0;
-    const dragonSlack = isDragon ? 1 : 0; // 中发白刻子×2是稳赚的，比赌三门齐更确定
-    const baseSlack = confSlack + qhSlack + dragonSlack;
-    // 没开门自摸×2 / 没开门点炮×2：不开门的代价比以前更高，三种性格都该多容忍1档向听去换开门，
-    // 保守派也不例外（以前只有精明/激进有这个宽容）
-    const openSlack = openCount === 0 ? 1 : 0;
-
-    if (style === 'conservative') {
-        if (shanAfter > shanBefore + Math.max(0, openSlack + baseSlack)) return false;
-    } else if (style === 'shrewd') {
-        if (shanAfter > shanBefore + Math.max(0, openSlack + baseSlack)) return false;
-    } else {
-        // aggressive：允许为开门或有价值字牌略损向听
-        if (shanAfter > shanBefore + Math.max(0, (openSlack || isHonorValue ? 1 : 0) + baseSlack)) return false;
-    }
-
-    // 未开门：优先碰（在向听可接受的前提下）
-    if (openCount === 0) return true;
-
-    // 已开门：优先级 中发白 > 冲碰碰胡 > 普通有价值字牌(风) > 保住将
-    if (isDragon && shanAfter <= shanBefore + 1) return true; // 中发白刻子带番，多容忍1档也碰
-    if (chasingPengPeng && shanAfter <= shanBefore + chaseSlack) return true;
-    if (isHonorValue && shanAfter <= shanBefore + 1) return true;
-    return keepsJiang && shanAfter <= shanBefore;
+    // EV 偏移：轴1 + 轴3（冲碰碰胡时）− 副露数量成本（保守最忌多副露）
+    const chasing = isGoingForTriplets(hand) ? 1 : 0;
+    const meldCost = exposed.length * (style === 'conservative' ? 80 : style === 'shrewd' ? 50 : 30);
+    const off = conf * 60 + (chasing ? chaseConf * 40 : 0) - meldCost;
+    return (r.evCall + off) > r.evPass;
 }
 
 // 除discarder外，检查是否有AI能碰（或杠）这张牌，且局势上值得碰
@@ -664,6 +451,36 @@ function nextPlayerOf(p) {
 }
 
 // 只有出牌者的下家能吃；如果下家是AI，检查AI是否能吃
+/** 是否应该吃：EV 统一比较为主（吃后状态期望 vs 不吃期望，取高者），
+ *  向听硬轨 + 转守门槛作安全轨。学习偏好（轴1 吃碰激进度）以 EV 点数偏移参与，
+ *  偏移改变决策时记归因。 */
+function shouldAiChi(player, tile, combo) {
+    if (Game.isTenpai(player)) return false;
+    const inDefense = !!Game.aiDefenseMode[player]; // 转守后不一刀切：只接受明显赚的吃
+    const exposed = Game.exposedMelds[player];
+    if (exposed.length >= 3) return false;
+    const style = aiPersonality[player] || 'shrewd';
+    const conf = (Game.aiLearn.confidence[style] && Game.aiLearn.confidence[style].callAggr) || 0;
+    let r;
+    try { r = Game.meldCallEV(player, tile, 'chi', combo); }
+    catch (e) { return false; }
+    // 向听硬轨：吃不能把牌打烂（保守最严；沿用旧性格线）
+    if (style === 'conservative' && r.shanAfter > r.shanBefore) return false;
+    if (style !== 'conservative' && r.shanAfter > r.shanBefore + 1) return false;
+    const open = Game.isKaimen(exposed);
+    // EV 偏移：未开门时开门本身值钱（没开门自摸/点炮×2惩罚）→ +120；
+    // 已有副露越多，再吃的信息代价越大 → 按性格扣减（保守最忌多副露）
+    const meldCost = exposed.length * (style === 'conservative' ? 80 : style === 'shrewd' ? 50 : 30);
+    const off = conf * 60 + (open ? 0 : 120) - meldCost;
+    const evTake = r.evCall + off;
+    // 转守：EV 必须明显为正（>120 净胜）才吃
+    if (inDefense && evTake - r.evPass < 120) return false;
+    const take = evTake > r.evPass;
+    // 轴1归因：跟"没学过(conf=0)"时会不会选得不一样比一比
+    if (take !== (r.evCall > r.evPass)) Game.markAxisUsed(player, 'callAggr');
+    return take;
+}
+
 function findAiChi(discarder, tile) {
     const next = nextPlayerOf(discarder);
     if (next === 'bottom') return null; // 你的吃已经在别处处理
@@ -671,14 +488,15 @@ function findAiChi(discarder, tile) {
     if (Game.exposedMelds[next].length >= 3) return null; // 穷胡规则：不能手把一
     const combos = Game.findChiCombos(Game.hands[next], tile);
     if (!combos.length) return null;
-    // 在多种吃法里选评分最高且 shouldAiChi 通过的
+    // 多种吃法：先过 EV 决策门槛，再按"吃后状态期望"选最高的吃法（统一 EV 比较）
     let best = null;
-    let bestScore = -Infinity;
+    let bestEV = -Infinity;
     for (const combo of combos) {
         if (!shouldAiChi(next, tile, combo)) continue;
-        const sc = scoreChiCombo(Game.hands[next], tile, combo, Game.exposedMelds[next], next);
-        if (sc > bestScore) {
-            bestScore = sc;
+        let ev = -Infinity;
+        try { ev = Game.meldCallEV(next, tile, 'chi', combo).evCall; } catch (e) {}
+        if (ev > bestEV) {
+            bestEV = ev;
             best = combo;
         }
     }
@@ -688,7 +506,15 @@ function findAiChi(discarder, tile) {
 function aiPengClaim(p, tile) {
     Game.lastCallTurn[p] = Game.handTurnCount; // 归因细化：记这次碰/杠发生在第几巡
     const cnt = Game.hands[p].filter(x => x === tile).length;
-    const useGang = cnt >= 3; // 凑齐3张暗的+这张，直接杠比碰更优
+    // 凑齐3张暗的+这张：EV 比较"明杠（补牌期望+番）"vs"碰（手牌灵活）"，取高者；否则碰
+    let useGang = cnt >= 3;
+    if (useGang) {
+        try {
+            const rG = Game.meldCallEV(p, tile, 'gang', null);
+            const rP = Game.meldCallEV(p, tile, 'peng', null);
+            useGang = rG.evCall > rP.evCall;
+        } catch (e) { useGang = true; }
+    }
     const takeCount = useGang ? 3 : 2;
     Game.TileFlow.claim(p, useGang ? 'gang' : 'peng',
         Array(takeCount).fill(tile), null, useGang ? { concealed: false } : undefined);
@@ -798,8 +624,11 @@ function advanceTurn() {
 
 /* ---- 本文件对外接口（IIFE 收敛，唯一出口） ---- */
 Game.aiPersonality = aiPersonality;
+Game.publicDangerVs = publicDangerVs;
 Game.getWinningTilesOf = getWinningTilesOf;
 Game.chooseAiDiscardTile = chooseAiDiscardTile;
+Game.shouldAiPeng = shouldAiPeng;
+Game.shouldAiChi = shouldAiChi;
 Game.aiDiscard = aiDiscard;
 Game.findRonPriority = findRonPriority;
 Game.nextPlayerOf = nextPlayerOf;

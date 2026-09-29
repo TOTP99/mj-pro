@@ -38,7 +38,7 @@ function tileToIndex(t) {
     if (s === '万') return r - 1;
     if (s === '条') return 9 + r - 1;
     if (s === '筒') return 18 + r - 1;
-    return 26 + r; // 1字..7字 → 27..33
+    return 26 + r; // 1字..7字 → 27..33（牌码即如此命名，'东'只是显示名）
 }
 
 function buildCount34(concealed) {
@@ -49,118 +49,55 @@ function buildCount34(concealed) {
     }
     return c;
 }
-
-/** 在已去掉完整面子、并已取走将牌（或确定无将）的剩余里，贪心数搭子。
- *  搭子 = 连张(45) / 嵌张(46) / 对子(55，可碰)。对子以前漏数了，导致多对子的手牌向听被高估。 */
-function countTaatsu34(cnt) {
-    const c = cnt.slice();
-    let taatsu = 0;
-    // 数牌：连张优先，再嵌张，再对子；剩下的是孤张
-    for (let base = 0; base < 27; base += 9) {
-        for (let i = 0; i < 9; i++) {
-            const p = base + i;
-            while (c[p] > 0) {
-                if (i <= 7 && c[p + 1] > 0) {
-                    c[p]--; c[p + 1]--;
-                    taatsu++;
-                } else if (i <= 6 && c[p + 2] > 0) {
-                    c[p]--; c[p + 2]--;
-                    taatsu++;
-                } else if (c[p] >= 2) {
-                    c[p] -= 2; // 对子也是搭子（等碰）
-                    taatsu++;
-                } else {
-                    c[p]--; // 孤张
-                }
-            }
-        }
-    }
-    // 字牌没有顺子搭子，但对子同样是搭子
-    for (let p = 27; p < 34; p++) {
-        if (c[p] >= 2) taatsu++;
-    }
-    return taatsu;
-}
-
-/**
- * 已知已拆出 melds 个完整面子后，对剩余牌枚举将牌选择，计算向听。
- * 公式：还缺 m 个面子时，向听 ≈ 2m - (有将?1:0) - 可用搭子数（有上限）。
- */
-function shantenFromRest(cnt, melds, needMelds) {
+// ---------- AI：精确向听（DFS 穷举面子/搭子/将；替代旧贪心搭子计数） ----------
+// 状态=(下标, 已拆面子数, 已拆搭子数, 是否有将)。分支在同一位置 i 递归（while 跳过 0），
+// 保证 1111+23 这类"刻子剩一张仍可组顺子"被正确穷举；终点公式 s = 2*needMelds - 2*melds - min(tatsu, needMelds-melds) - pair。
+// 13 张手牌微秒级。旧贪心在 3445/4556/多对子等复合牌型上会数错搭子。
+function shantenExact34(cnt, needMelds) {
     let best = 20;
-    const mNeed = Math.max(0, needMelds - melds);
-
-    const evalWith = (pair, taatsu) => {
-        // 搭子最多补 mNeed 个面子（面子+搭子的块数不能超过还缺的面子数）
-        let t = taatsu;
-        if (t > mNeed) t = mNeed;
-        if (t < 0) t = 0;
-        // 完成形：melds==needMelds 且 pair→ -1；听牌 → 0
-        return 2 * mNeed - (pair ? 1 : 0) - t;
-    };
-
-    // 不加将
-    best = Math.min(best, evalWith(0, countTaatsu34(cnt)));
-
-    // 枚举一种将牌
-    for (let i = 0; i < 34; i++) {
-        if (cnt[i] >= 2) {
-            cnt[i] -= 2;
-            best = Math.min(best, evalWith(1, countTaatsu34(cnt)));
-            cnt[i] += 2;
+    const c = cnt.slice();
+    const cap = Math.max(0, needMelds);
+    (function dfs(i, melds, tatsu, pair) {
+        while (i < 34 && c[i] === 0) i++;
+        if (i >= 34) {
+            const t = Math.min(tatsu, Math.max(0, cap - melds));
+            const s = 2 * cap - 2 * melds - t - pair;
+            if (s < best) best = s;
+            return;
         }
-    }
+        const r = i % 9;
+        if (c[i] >= 3) { c[i] -= 3; dfs(i, melds + 1, tatsu, pair); c[i] += 3; } // 刻子
+        if (i < 27 && r <= 6 && c[i + 1] > 0 && c[i + 2] > 0) { // 顺子
+            c[i]--; c[i + 1]--; c[i + 2]--;
+            dfs(i, melds + 1, tatsu, pair);
+            c[i]++; c[i + 1]++; c[i + 2]++;
+        }
+        if (!pair && c[i] >= 2) { c[i] -= 2; dfs(i, melds, tatsu, 1); c[i] += 2; } // 将
+        if (i < 27 && r <= 7 && c[i + 1] > 0) { // 两面/边张搭子
+            c[i]--; c[i + 1]--; dfs(i, melds, tatsu + 1, pair); c[i]++; c[i + 1]++;
+        }
+        if (i < 27 && r <= 6 && c[i + 2] > 0) { // 嵌张搭子
+            c[i]--; c[i + 2]--; dfs(i, melds, tatsu + 1, pair); c[i]++; c[i + 2]++;
+        }
+        dfs(i + 1, melds, tatsu, pair); // 跳过：此牌作孤张
+    })(0, 0, 0, 0);
     return best;
 }
 
-/**
- * 复杂向听：对「拆出完整面子」的所有分支做 DFS，再评估剩余。
- * 只衡量一般形（面子+将），不含穷胡的开门/三门齐/幺九。
- * 返回：-1 已和（结构），0 听牌，1+ 向听数。
- */
-function calcComplexShanten(concealed, needMelds) {
-    if (needMelds < 0) return 8;
-    if (needMelds === 0) {
-        // 只剩将：0～1 张或一对
-        if (concealed.length === 0) return 1;
-        if (concealed.length === 1) return 0;
-        if (concealed.length === 2 && concealed[0] === concealed[1]) return -1;
-        return Math.max(0, concealed.length - 1);
+/** 七小对向听（闭式）：6 - 对子数 + max(0, 7 - 牌种数)。仅无副露时有效。 */
+function shantenChiitoi34(cnt) {
+    let pairs = 0, kinds = 0;
+    for (let t = 0; t < 34; t++) {
+        if (cnt[t] > 0) kinds++;
+        if (cnt[t] >= 2) pairs++;
     }
-    const root = buildCount34(concealed);
-    let minS = 20;
-
-    function dfs(cnt, from, melds) {
-        // 每个节点都可「停止拆面子」并评估
-        const s = shantenFromRest(cnt, melds, needMelds);
-        if (s < minS) minS = s;
-        if (melds >= needMelds || minS < 0) return;
-
-        for (let i = from; i < 34; i++) {
-            if (cnt[i] === 0) continue;
-            // 刻子
-            if (cnt[i] >= 3) {
-                cnt[i] -= 3;
-                dfs(cnt, i, melds + 1);
-                cnt[i] += 3;
-            }
-            // 顺子（仅数牌，且起点 rank<=7）
-            if (i < 27 && (i % 9) <= 6 && cnt[i] > 0 && cnt[i + 1] > 0 && cnt[i + 2] > 0) {
-                cnt[i]--; cnt[i + 1]--; cnt[i + 2]--;
-                dfs(cnt, i, melds + 1);
-                cnt[i]++; cnt[i + 1]++; cnt[i + 2]++;
-            }
-        }
-    }
-
-    dfs(root, 0, 0);
-    if (minS > 8) minS = 8;
-    return minS;
+    return 6 - pairs + Math.max(0, 7 - kinds);
 }
 
 /**
  * AI 用向听入口：按副露数决定手牌还需几个面子。
  * -1 结构已和；0 结构听牌；正数越大越远。
+ * 七小对分支仅在无副露且规则允许时参与取最小。
  */
 function estimateShanten(concealed, exposed) {
     const needMelds = 4 - (exposed ? exposed.length : 0);
@@ -171,7 +108,12 @@ function estimateShanten(concealed, exposed) {
     const tenpaiLen = needMelds * 3 + 1;
     if (n === 0) return needMelds * 2 + 1;
     if (n > winLen + 3) return Math.min(8, n - tenpaiLen);
-    return calcComplexShanten(concealed, needMelds);
+    const cnt = buildCount34(concealed);
+    let s = shantenExact34(cnt, needMelds);
+    if (needMelds === 4 && typeof Game !== 'undefined' && Game.ruleAllowsSevenPairs) {
+        try { if (Game.ruleAllowsSevenPairs()) s = Math.min(s, shantenChiitoi34(cnt)); } catch (e) {}
+    }
+    return s;
 }
 
 // ========== 性能基准（控制台：benchmarkMahjongAI()）==========
@@ -385,6 +327,7 @@ try { window.benchmarkMahjongAI = benchmarkMahjongAI; } catch (e) { /* non-brows
 /* ---- 本文件对外接口（IIFE 收敛，唯一出口） ---- */
 Game.protectsThreeSuits = protectsThreeSuits;
 Game.isTileDead = isTileDead;
+Game.tileSeenCount = tileSeenCount;
 Game.estimateShanten = estimateShanten;
 
 ;})();

@@ -114,7 +114,7 @@ function showRoundReminder() {
     const el = Game.$('round-modal');
     if (!el) return;
     Game.pushPhase(Game.PHASE.ROUND_END, 'showRoundReminder'); // 覆盖式提醒，压栈
-    Game.$('round-message').innerText = '已打满 ' + Game.fieldGameCount + ' 局，走骰子仪式重新调庄。';
+    Game.$('round-message').innerText = '4 圈已打完（16 局），掷骰子决定下一个起始庄家。';
     el.classList.add('show');
 }
 
@@ -163,8 +163,9 @@ function chooseAmount(amt) {
         n = Math.floor(Number(amt));
     }
     n = Math.max(1, n || 50);
-    // 对局进行中、非输光重开、金额没变 → 不重开场，手牌不动
-    if (!Game.gameOver && Game.fieldActive && !Game.bustRestartPending && n === Game.fieldInitialAmount) return;
+    // 明确点选即重开新场：openAmountSelect 的确认框已承诺"重新开场"，
+    // 同金额也不再静默跳过（否则确认框说了重开却没动，头像数字原地不动）。
+    // chooseAmount 只被三个按钮调用，每次都是用户明确意图，无需防误触。
     startNewField(n);
     // 输光重开：选完金额先走骰子仪式重新调庄，再开始新场
     if (Game.bustRestartPending) {
@@ -181,19 +182,38 @@ function chooseAmount(amt) {
     else if (typeof Game.initGame === 'function') Game.initGame();
 }
 
-/** 界面显示局数（由 render 调用） */
+/** 界面显示：局/风/圈 = 本圈第几局(1-4) / 当前庄家的门风 / 第几圈(1-4)
+    东西南北过一遍（4 局）圈数 +1；圈数 >4 时走调庄。
+    「风是当前庄」：直接读 Game.dealer 的固定门风，不按局数推算（庄家是骰子定的，乱序时推算不对）。 */
+function fieldCircleText() {
+    const c = Game.fieldGameCount || 0;
+    const game = (c % 4) + 1;
+    const bn = Game.baseNames || {};
+    const wind = bn[Game.dealer] || '东';
+    const circle = Math.floor(c / 4) + 1;
+    return game + '/' + wind + '/' + circle;
+}
 function renderFieldAmounts() {
-    const txt = '局 ' + Game.fieldGameCount + '/' + FIELD_ROUNDS;
+    const txt = fieldCircleText();
     const a = Game.$('field-count');
     if (a) a.innerText = txt;
     const b = Game.$('field-count-ls');
     if (b) b.innerText = txt;
 }
 
+/** 骰子调庄后：新开一个 4 圈周期（局数清零） */
+function resetFieldCycle() {
+    Game.fieldGameCount = 0;
+    Game.fieldActive = true;
+    saveField();
+    renderFieldAmounts();
+}
+
 loadField();
 
 /* ---- 本文件对外接口（IIFE 收敛，唯一出口） ---- */
 Game.startNewField = startNewField;
+Game.resetFieldCycle = resetFieldCycle;
 Game.onFieldGameSettled = onFieldGameSettled;
 Game.onFieldDraw = onFieldDraw;
 Game.showBustModal = showBustModal;
@@ -202,6 +222,7 @@ Game.cancelBustRestart = cancelBustRestart;
 Game.showRoundReminder = showRoundReminder;
 Game.confirmRoundReselect = confirmRoundReselect;
 Game.showAmountModal = showAmountModal;
+Game.fieldCircleText = fieldCircleText; // 局数/风/圈显示（测试用）
 Game.openAmountSelect = openAmountSelect;
 Game.closeAmountModal = closeAmountModal;
 Game.chooseAmount = chooseAmount;

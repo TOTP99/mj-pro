@@ -386,6 +386,16 @@ function bootGame() {
     } else {
         Game.initGame(); // 兜底：规则模块未加载时直接开局
     }
+    // 首屏布局落稳后智能定位横屏牌桌（左侧栏不被切）
+    setTimeout(() => { try { if (typeof Game.fitViewPanX === 'function') Game.fitViewPanX(); } catch (e) {} }, 400);
+    // 16 局时刷新重进：直接弹出 4 圈结束调庄
+    setTimeout(() => {
+        try {
+            if (Game.fieldActive && (Game.fieldGameCount || 0) >= 16 && typeof Game.showRoundReminder === 'function') {
+                Game.showRoundReminder();
+            }
+        } catch (e) {}
+    }, 800);
 }
 document.addEventListener('DOMContentLoaded', bootGame);
 // 兜底：脚本若被动态/defer 注入、已错过 DOMContentLoaded
