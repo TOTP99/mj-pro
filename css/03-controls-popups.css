@@ -88,7 +88,7 @@
         flex-shrink: 0;
     }
     #wall-count-header {
-        display: flex; flex-direction: column; align-items: center;
+        display: flex; flex-direction: column; align-items: flex-start; /* 不能用 center：内容比 #wall-count(overflow-x:hidden) 宽时会向两侧均分溢出，左边首字被裁 */
         gap: 3px;
         margin-bottom: 4px;
         text-align: center;
@@ -100,6 +100,7 @@
     }
     .wc-row {
         display: flex; align-items: center; gap: 5px;
+        flex-wrap: wrap; max-width: 100%;
     }
     .wc-row .field-rounds { margin-left: 0; }
     /* 滑杆独占第 5 行，拉满整宽 */

@@ -281,7 +281,7 @@
         display: flex;
         flex-direction: column;
         align-items: center;
-        transform: translate(var(--view-pan-x, 0px), var(--view-pan-y, 0px)) scale(var(--view-scale, 1));
+        transform: translate(calc(var(--view-pan-x, 0px) + var(--auto-pan-x, 0px)), calc(var(--view-pan-y, 0px) + var(--auto-pan-y, 0px))) scale(var(--view-scale, 1));
         transform-origin: center center;
         transition: transform 0.18s ease;
         touch-action: none; /* 桌面拖动由脚本处理上下平移 */

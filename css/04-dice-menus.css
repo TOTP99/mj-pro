@@ -1,4 +1,4 @@
-    /* ========== 双金骰（34px 立体骰子 ×2，物理抛掷） ========== */
+    /* ========== 金骰（34px 立体骰子，物理抛掷） ========== */
     #dice-stage {
         position: absolute; left: 0; right: 0; top: 0; bottom: 22%;
         z-index: 25;
