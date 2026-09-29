@@ -119,10 +119,8 @@ body:not(.portrait-layout) .discardTile {
 }
 
 /* ========== 牌桌平滑过渡 ==========
- * 1) 自动适配重新算出新的缩放/位置时，牌桌平滑地变到新大小（原来是 0.18s 的线性感过渡，稍微放慢并加缓动）。
- * 2) 横竖屏切换：04-view-scale.js 检测到方向翻转会给 <html> 加 orient-changing → 牌桌瞬间隐藏（无过渡），
- *    排版稳定后移除该类 → 这里的 opacity 过渡让它淡入。
- * #table-wrap.panning（拖动/测量时）在 02 里是 transition:none，优先级更高，不受影响；
+ * 缩放/位置变化时牌桌平滑过渡；横竖屏切换由 orient-changing 类先瞬间隐藏、稳定后淡入。
+ * #table-wrap.panning（拖动/测量时）在 02 里是 transition:none，不受影响；
  * 系统开启「减少动效」时 06 里会把 transition 关掉，同样不受影响。 */
 #table-wrap {
     transition: transform 0.28s cubic-bezier(0.2, 0.7, 0.2, 1), opacity 0.26s ease;

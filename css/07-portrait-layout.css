@@ -82,15 +82,13 @@
         padding: 4px 8px 2px;
         display: block;
     }
-    body.portrait-layout .bottom .player-label { order: unset; }
     body.portrait-layout .bottom #flow-log {
-        order: unset;
         margin-top: 14px;
         min-height: 30px;
         padding: 3px 10px;
         font-size: 10px;
     }
-    body.portrait-layout .bottom #hand-bottom { order: unset; margin-bottom: 0; }
+    body.portrait-layout .bottom #hand-bottom { margin-bottom: 0; }
     /* 原版竖屏手牌：固定 29×39，横向滑动，不缩放 */
     body.portrait-layout .bottom .hand {
         --tile-w: 29px;

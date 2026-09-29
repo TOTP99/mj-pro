@@ -7,12 +7,18 @@
             border-radius: 12px;
         }
         .avatar img { width: 36px; height: 36px; }
-        .player-score { font-size: 8px; }
         #wall-count { font-size: 8px; top: 5%; height: 88%; }
         #discardWall { top: calc(5% + 1.3em + 12.87px); height: 50%; }
         .bottom { padding: 2px 4px 1px; }
-        #flow-log { font-size: 8px; min-height: 24px; padding: 2px 6px; }
-        .result-box, .hu-box { max-height: min(88vh, 360px); }
+        #flow-log { padding: 2px 6px; }
+        .hu-box { max-height: min(88vh, 360px); }
+        /* Android 横屏矮屏：收紧控件字号，避免挡牌 */
+        html.is-android #img-display-badge,
+        body.is-android #img-display-badge,
+        html.is-android #wall-count-text,
+        body.is-android #wall-count-text { font-size: 8px; }
+        html.is-android #discard-query-btn,
+        body.is-android #discard-query-btn { font-size: 8px; }
     }
 
     @media screen and (orientation: landscape) and (max-height: 360px) {
@@ -29,7 +35,6 @@
         .bottom .hand {
             --tile-w: 26px; --tile-h: 34px; --tile-fs: 24px;
         }
-        .bottom { --hand-tile-h: 34px; }
     }
 
     /* 宽横屏平板 */
@@ -41,7 +46,6 @@
         }
         .avatar img { width: 48px; height: 48px; }
         #wall-count { font-size: 10px; }
-        .stat-line { font-size: 10px; }
     }
 
     /* 竖屏兜底：仅在尚未挂上 portrait-layout 时生效（避免与竖屏专用布局冲突） */
@@ -64,9 +68,6 @@
     /* 很窄宽度（弹窗字号放大后，宽度相应放宽） */
     @media screen and (max-width: 520px) {
         #wall-count-row { gap: 2px 3px; }
-        #img-display-badge { font-size: 8px; }
-        #wall-count-text { font-size: 8px; }
-        .result-box { width: min(88vw, 200px); }
         .hu-box { width: min(88vw, 240px); }
     }
 
@@ -125,12 +126,3 @@
         #field-count-ls { display: inline; }
     }
 
-    /* Android 横屏矮屏：收紧控件字号，避免挡牌（原 05-landscape-max.css，横屏最大功能已删，规则保留） */
-    @media screen and (orientation: landscape) and (max-height: 420px) {
-        html.is-android #img-display-badge,
-        body.is-android #img-display-badge,
-        html.is-android #wall-count-text,
-        body.is-android #wall-count-text { font-size: 8px; }
-        html.is-android #discard-query-btn,
-        body.is-android #discard-query-btn { font-size: 8px; }
-    }

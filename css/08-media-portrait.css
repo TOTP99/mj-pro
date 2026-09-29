@@ -1,8 +1,8 @@
     /* —— 竖屏响应式细化：矮屏 / 窄屏 / 大屏 —— */
     @media screen and (orientation: portrait) and (max-height: 700px) {
         body.portrait-layout #table-frame {
-            width: min(calc(94vw), calc(70vh - var(--sat) - var(--sab)));
-            height: min(calc(86vh - var(--sat) - var(--sab)), calc(128vw));
+            width: min(94vw, 70vh - var(--sat) - var(--sab));
+            height: min(86vh - var(--sat) - var(--sab), 128vw);
             border-radius: 16px;
         }
         body.portrait-layout .bottom .avatar img {
@@ -25,8 +25,8 @@
     }
     @media screen and (orientation: portrait) and (max-height: 580px) {
         body.portrait-layout #table-frame {
-            width: min(calc(96vw), calc(78vh - var(--sat) - var(--sab)));
-            height: min(calc(90vh - var(--sat) - var(--sab)), calc(120vw));
+            width: min(96vw, 78vh - var(--sat) - var(--sab));
+            height: min(90vh - var(--sat) - var(--sab), 120vw);
             border-radius: 12px;
         }
         body.portrait-layout .bottom .hand .tile {
@@ -51,7 +51,7 @@
     }
     @media screen and (orientation: portrait) and (max-width: 360px) {
         body.portrait-layout #table-frame {
-            width: min(calc(98vw), calc(70vh));
+            width: min(98vw, 70vh);
         }
         body.portrait-layout .bottom {
             max-width: 98%;
@@ -70,7 +70,7 @@
     /* 竖屏大屏：略放大牌桌，仍不超过视口 */
     @media screen and (orientation: portrait) and (min-height: 820px) and (min-width: 400px) {
         body.portrait-layout #table-frame {
-            width: min(calc(90vw), calc(58vh));
-            height: min(calc(80vh), calc(130vw));
+            width: min(90vw, 58vh);
+            height: min(80vh, 130vw);
         }
     }

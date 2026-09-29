@@ -64,7 +64,7 @@
     .field-rounds { color: var(--gold); font-size: 9px; font-weight: 600; white-space: nowrap; margin-left: 6px; vertical-align: baseline; }
     /* 横屏顶栏里的局数：竖屏隐藏，横屏跟按钮一起显示 */
     #field-count-ls { display: none; }
-    /* 左侧顶栏：TP制作 + 牌墙 + 横屏调整；下方 扩大/缩小 */
+    /* 左侧顶栏：TP制作 + 牌墙 + 横屏调整（模式/筹码按钮、黄线滑杆、局数） */
     #img-display-badge {
         position: static;
         top: auto; left: auto;
@@ -647,7 +647,6 @@
         padding: 6px 12px;
     }
 
-    /* 窄屏时点数区改为单列，更易读 */
     @media (max-width: 380px) {
         .result-payouts {
             grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -675,14 +674,6 @@
         -webkit-backdrop-filter: blur(6px);
     }
     #reveal-modal.show, #chi-choice-modal.show, #mode-select-modal.show, #rules-modal.show, #amount-modal.show, #bust-modal.show, #round-modal.show { display: flex; }
-
-    /* ===== 竖屏专用：说明文字放大 ===== */
-    body.portrait-layout #wall-count-text {
-        font-size: 10px;
-    }
-    body.portrait-layout #flow-log {
-        font-size: 11px;
-    }
 /* ===== 结算弹窗：横屏限制高度，内容滚动，底部确定 sticky ===== */
 @media (orientation: landscape) {
     #result-modal {

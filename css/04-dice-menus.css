@@ -25,15 +25,12 @@
     }
     #dice-cube {
         width: 18.36px; height: 18.36px; position: relative;
-        transform-style: preserve-3d;
-        will-change: transform;
+        transform-style: preserve-3d; will-change: transform;
     }
     #dice-cube .face {
         position: absolute; width: 18.9px; height: 18.9px;
         left: -0.27px; top: -0.27px;
-        border-radius: 2.1px;
-        border: none;
-        outline: none;
+        border-radius: 2.1px; border: none; outline: none;
         display: grid; place-items: center;
         backface-visibility: hidden;
         -webkit-backface-visibility: hidden;

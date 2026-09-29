@@ -29,10 +29,8 @@
         --sar: env(safe-area-inset-right, 0px);
         --sab: env(safe-area-inset-bottom, 0px);
         --sal: env(safe-area-inset-left, 0px);
-        /* iOS Safari：用 JS 写入的可视宽高，避免 100vh 含地址栏空白 */
-        --app-width: 100vw;
+        /* iOS Safari：用 JS 写入的可视高度，避免 100vh 含地址栏空白 */
         --app-height: 100vh;
-        --app-width: 100dvw;
         --app-height: 100dvh;
     }
     * { box-sizing: border-box; }
@@ -114,8 +112,3 @@
         transform: translateY(-3px);
     }
     #claim-focus-tile .tile-marker { height: 0; font-size: 0; }
-    body.portrait-layout #claim-focus-tile .tile {
-        width: 29px;
-        height: 39px;
-        font-size: 27px;
-    }
