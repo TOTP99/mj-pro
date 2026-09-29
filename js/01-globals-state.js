@@ -45,7 +45,7 @@ Game.afterKongDiscardPlayer = null; // 刚杠后打出的那一张，点炮时×
 // 7轴各自独立学习（不再是笼统一个数）：callAggr=吃碰激进度 defense=防守让牌
 // chaseSpecial=特殊牌型追逐 wallCaution=残局求稳 honorHold=字牌保留 cannonHold=炮牌截留 position=位置感
 const AI_AXES = ['callAggr', 'defense', 'chaseSpecial', 'wallCaution', 'honorHold', 'cannonHold', 'position'];
-const AI_LEARN_KEY = 'qionghu_mahjong_ai_learn_v1';
+const AI_LEARN_KEY = 'qionghu_mahjong_new_ai_learn_v1';
 function freshAxisConfidence() {
     const o = {};
     for (const ax of AI_AXES) o[ax] = 0;
@@ -520,7 +520,7 @@ function markDealer() {
 }
 
 // 完整对局记忆（积分/庄家/牌面/轮次）→ localStorage，刷新后原样恢复
-const MAHJONG_STORAGE_KEY = 'qionghu_mahjong_progress_v2';
+const MAHJONG_STORAGE_KEY = 'qionghu_mahjong_new_progress_v2';
 Game.restoringGame = false;
 Game.saveProgressTimer = 0;
 Game.savedPendingReveal = null; // 存档里记下的「等你选亮牌」类型，读档后由 resumeFromSave 使用

@@ -11,7 +11,7 @@
 //   revealFirstTurn 是=打第一张牌前可亮（旧版首巡），否=首巡也不可
 //   revealAnytime   是=随时可亮，否=仅看首巡项（开随时后首巡项置灰）
 //   sevenPairs      是=七小对可胡，否=不允许（旧版）
-const RULES_STORAGE_KEY = 'mahjong_rules_v2';
+const RULES_STORAGE_KEY = 'mahjong_new_rules_v2';
 const DEFAULT_RULES = {
     mustKaimen: true,
     mustPeng: true,
@@ -105,7 +105,7 @@ loadRulesConfig();
 // dangerHint   默认是：标出可能点炮的牌；选否则完全不标
 // coachMode    默认否：轮到你时 AI 推荐一张弃牌并给一句话理由
 // dragonsFirst 默认是：中发白凑齐时在首巡（打第一张牌前）亮出；选否则首巡不亮中发白
-const ASSIST_STORAGE_KEY = 'qj_mahjong_assist';
+const ASSIST_STORAGE_KEY = 'qj_mahjong_new_assist';
 const DEFAULT_ASSIST = { dangerHint: true, coachMode: false, dragonsFirst: true };
 Game.assist = { ...DEFAULT_ASSIST };
 function loadAssist() {

@@ -12,7 +12,7 @@
 'use strict';
 
 /* ---------------- 音效引擎（WebAudio 全合成，无外部资源） ---------------- */
-var SFX_KEY = 'qj_mahjong_sfx_on';
+var SFX_KEY = 'qj_mahjong_new_sfx_on';
 var _enabled = true;
 try { _enabled = localStorage.getItem(SFX_KEY) !== '0'; } catch (e) { /* 仿真桩无妨 */ }
 

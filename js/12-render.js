@@ -163,7 +163,7 @@ function fitBottomHand() {
 // 总开关：false 可彻底禁用（连 UI 开关也不出现）。
 const TENPAI_HINT_ENABLED = true;
 const TENPAI_HINT_MAX_TYPES = 6;   // 最多列出几种听牌，多了显示「…」
-const TENPAI_HINT_UI_KEY = 'qionghu_mahjong_tenpai_hint_ui_v1';
+const TENPAI_HINT_UI_KEY = 'qionghu_mahjong_new_tenpai_hint_ui_v1';
 /** UI 开关：只有为 true 时才显示 #tenpai-hint 胶囊；由猫头像旁的对话气泡按钮控制，localStorage 持久化。默认关。 */
 Game.tenpaiHintUiOn = (function () {
     try {

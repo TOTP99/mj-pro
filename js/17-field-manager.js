@@ -3,7 +3,7 @@
 // 场：从选定初始金额开始，到输光重开或手动重开为止
 // 每 16 局提醒一次，走骰子仪式重新调庄
 // 输光流程：输光确认 → 重新选初始金额 → 骰子仪式重新调庄 → 开始新场
-const FIELD_STORAGE_KEY = 'mahjong_field_v1';
+const FIELD_STORAGE_KEY = 'mahjong_new_field_v1';
 const FIELD_ROUNDS = 16;
 
 Game.fieldAmounts = { top: 0, left: 0, right: 0, bottom: 0 };
