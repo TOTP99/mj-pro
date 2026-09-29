@@ -1,6 +1,6 @@
 ;(function(){
-// ========== 金骰仪式（三击桌面清零 / 调庄掷骰，单骰） ==========
-// 流程：触发 → 一颗 34px 金骰从上方抛入，物理翻滚弹跳 → 落定亮出点数 → 缩小消失 → 回调
+// ========== 金骰仪式（三击桌面清零 / 调庄掷骰，双骰） ==========
+// 流程：触发 → 两颗 34px 金骰从上方抛入，落在四家头像中间 → 落定 → 缩小消失 → 回调
 const DICE = {
     SIZE: 34,            // 骰子边长 px
     GRAVITY: 2600,       // px/s²
@@ -45,7 +45,8 @@ function diceEls() {
     return {
         stage: Game.$('dice-stage'),
         scene: Game.$('dice-scene'),
-        dice: [1].map(i => ({
+        // 双骰：与 index.html 中 dice-throw-1 / dice-throw-2 对应
+        dice: [1, 2].map(i => ({
             wrap: Game.$('dice-throw-' + i),
             cube: document.querySelector('#dice-throw-' + i + ' .dice-cube'),
             shadow: document.querySelector('#dice-throw-' + i + ' .dice-shadow')
@@ -182,33 +183,39 @@ function startDiceRitualWithMode(mode) {
     if (!stage || !scene) { Game.diceBusy = false; return; }
     stage.classList.add('show');
 
-    // 调庄只有 4 家：骰面只掷 1~4（等概率，四家公平；6 不能被 4 整除，掷 1~6 会让两家多一倍机会）；清零菜单只是仪式，掷 1~6
-    const d1 = (Game.diceRitualMode === 'dealer') ? 1 + Math.floor(Math.random() * 4) : 1 + Math.floor(Math.random() * 6);
-    Game.diceLastFaces = [d1];
+    // 双骰：清零仪式各掷 1~6；调庄仍用第 1 颗的 1~4（四家等概率），第 2 颗仅作展示
+    const dealerMode = (Game.diceRitualMode === 'dealer');
+    const d1 = dealerMode ? (1 + Math.floor(Math.random() * 4)) : (1 + Math.floor(Math.random() * 6));
+    const d2 = 1 + Math.floor(Math.random() * 6);
+    Game.diceLastFaces = [d1, d2];
+    const faces = [d1, d2];
 
     const W = scene.clientWidth || 300;
     const H = scene.clientHeight || 260;
-    const cx = W / 2, cy = H * 0.55;
+    // 落点：牌桌几何中心（四家头像中间）；两颗左右错开约一颗半
+    const cx = W / 2, cy = H * 0.50;
     const S = DICE.SIZE;
+    const pairGap = S + 10; // 两骰落点水平间距
 
     Game.diceThrows = dice.map((d, i) => {
-        const dir = Math.random() < 0.5 ? -1 : 1; // 抛入方向随机
-        const floorX = cx + (Math.random() * 16 - 8);
-        const floorY = cy + (Math.random() * 12 - 6);
+        const side = (i === 0) ? -1 : 1; // 0 左、1 右
+        const dir = side; // 从外侧抛入，落向中心
+        const floorX = cx + side * (pairGap / 2) + (Math.random() * 8 - 4);
+        const floorY = cy + (Math.random() * 10 - 5);
         return {
             el: d,
             maxX: Math.max(16, W - 16 - S),
-            x: cx + dir * 26 + (Math.random() * 20 - 10),
-            y: -S - 12,
-            vx: dir * (150 + Math.random() * 90),
-            vy: 60 + Math.random() * 60,
+            x: cx + side * (pairGap + 18) + (Math.random() * 12 - 6),
+            y: -S - 12 - Math.random() * 20,
+            vx: -side * (120 + Math.random() * 80), // 向中心飞
+            vy: 50 + Math.random() * 50,
             rx: Math.random() * 360,
             ry: Math.random() * 360,
             vrx: (520 + Math.random() * 420) * (Math.random() < 0.5 ? -1 : 1),
             vry: (520 + Math.random() * 420) * (Math.random() < 0.5 ? -1 : 1),
             floorX: Math.max(16, Math.min(W - 16 - S, floorX)),
             floorY: Math.max(40, Math.min(H - 20 - S, floorY)),
-            face: d1,
+            face: faces[i] || d1,
             state: 'fly', // fly → settle → done
             settleT0: 0, fromRx: 0, fromRy: 0, toRx: 0, toRy: 0
         };
