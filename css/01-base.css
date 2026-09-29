@@ -9,6 +9,25 @@
         --glass-strong: rgba(14, 22, 34, 0.72);
         --shadow-soft: 0 8px 24px rgba(0, 0, 0, 0.4);
         --font-ui: "Songti SC", "STSong", "PingFang SC", "SimSun", serif;
+        /* —— 字阶：六级统一（展示/标题/分组/正文/说明/微注），clamp 智能缩放 ——
+           手机上≈原值（不打破现有排版），大屏/桌面适度放大，一步到位，不再逐处手写字号 */
+        --fs-d1: clamp(14px, 3.6vw, 18px);   /* 展示级：结算大标题、中央提示条 */
+        --fs-t1: clamp(12px, 3.2vw, 15px);   /* 弹窗标题 */
+        --fs-t2: clamp(11px, 3vw, 13px);     /* 分组标题 / 小标题 */
+        --fs-b1: clamp(10px, 2.8vw, 12px);   /* 正文 / 按钮 / 选项 */
+        --fs-b2: clamp(9px, 2.5vw, 10.5px);  /* 次要说明 */
+        --fs-c1: clamp(8px, 2.2vw, 9px);     /* 微注 / 标签 */
+        /* —— 间距阶：弹窗与菜单统一用，不再逐处手写 padding/margin —— */
+        --sp-1: 4px;
+        --sp-2: 8px;
+        --sp-3: 12px;
+        --sp-4: 16px;
+        --sp-5: 20px;
+        --sp-6: 28px;
+        /* —— 弹窗：宽度/内边距/圆角统一 —— */
+        --modal-w: min(72vw, 360px);
+        --modal-pad: clamp(12px, 3.5vw, 20px);
+        --modal-radius: 12px;
         /* 侧区牌面 = 手牌基准 29×39 的 66% */
         --side-tile-w: 19.14px;
         --side-tile-h: 25.74px;

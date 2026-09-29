@@ -156,6 +156,10 @@
     body.portrait-layout #wall-count-row {
         display: block;
     }
+    /* 竖屏：行容器不占位，内容按原来方式排（徽标/牌墙显示，按钮/滑杆/局数仍隐藏） */
+    body.portrait-layout .wc-row {
+        display: contents;
+    }
     body.portrait-layout #wall-count-text {
         margin-bottom: 4px;
         color: #c5d4e0;

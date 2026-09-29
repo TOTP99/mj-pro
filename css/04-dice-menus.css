@@ -101,11 +101,11 @@
     #claim-indicator .reset-btn {
         position: relative;
         display: inline-flex; align-items: center; justify-content: center;
-        min-width: 88px; min-height: 28px; padding: 5px 14px;
+        min-width: 8em; min-height: 2.8em; padding: 0.55em 1.5em;
         border: 1px solid var(--gold);
         border-radius: 5px;
         background: transparent;
-        color: var(--text); font-size: 9px; font-weight: 600;
+        color: var(--text); font-size: var(--fs-b2); font-weight: 600;
         letter-spacing: 0.12em; font-family: inherit;
         cursor: pointer; user-select: none;
         box-shadow: 0 0 8px rgba(212, 175, 55, 0.2);
@@ -121,17 +121,17 @@
         background: rgba(212, 175, 55, 0.12);
         box-shadow: 0 0 12px rgba(212, 175, 55, 0.4);
     }
-    /* 弹窗盒：与结算页统一 */
+    /* 弹窗盒：与结算页统一；尺寸全部走设计令牌 */
     .hu-box {
-        width: min(72vw, 360px);
+        width: var(--modal-w);
         max-height: min(72vh, 300px);
         overflow-x: auto; overflow-y: auto;
         -webkit-overflow-scrolling: touch;
         overscroll-behavior: contain;
         touch-action: pan-x pan-y;
         margin: auto;
-        padding: 8px 12px 8px;
-        border-radius: 10px;
+        padding: var(--modal-pad);
+        border-radius: var(--modal-radius);
         text-align: center;
         color: var(--text);
         background: var(--glass-strong);
@@ -141,20 +141,24 @@
         -webkit-backdrop-filter: blur(12px);
     }
     .hu-title {
-        font-size: 10px; font-weight: 700; letter-spacing: 0.08em;
-        color: var(--ice); margin: 0 0 8px;
+        font-size: var(--fs-t1); font-weight: 700; letter-spacing: 0.1em;
+        color: var(--ice); margin: 0 0 var(--sp-2);
+        /* 标题下细分隔线：标题/内容主次分明，商业弹窗标准做法 */
+        padding-bottom: var(--sp-2);
+        border-bottom: 1px solid var(--gold-dim);
     }
     .hu-options {
-        display: flex; flex-direction: column; gap: 6px;
-        margin-bottom: 10px;
+        display: flex; flex-direction: column; gap: var(--sp-2);
+        margin-bottom: var(--sp-3);
     }
     .hu-opt {
         display: flex; align-items: center; justify-content: center; gap: 4px;
-        min-height: 32px;
-        padding: 6px 10px; border-radius: 6px;
+        /* 高度由字号 em 智能推导：字号变，按钮整体跟着变，不再手写 px */
+        min-height: 3.2em;
+        padding: 0.55em 0.9em; border-radius: 6px;
         border: 1px solid var(--gold-dim);
         background: transparent;
-        color: var(--text-muted); font-size: 10px; cursor: not-allowed;
+        color: var(--text-muted); font-size: var(--fs-b1); cursor: not-allowed;
         transition: background 0.15s, border-color 0.15s, transform 0.12s;
     }
     .hu-opt.enabled {
@@ -172,14 +176,17 @@
         cursor: inherit;
     }
     .hu-opt .tile-marker { height: 0; font-size: 0; }
-    .hu-actions { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; }
+    .hu-actions { display: flex; gap: var(--sp-2); justify-content: center; flex-wrap: wrap; margin-top: var(--sp-3); }
     .hu-actions button {
-        margin: 0; padding: 6px 14px; min-height: 32px; border-radius: 5px; cursor: pointer;
+        margin: 0; padding: 0.65em 1.7em; min-width: 5.5em; border-radius: 6px; cursor: pointer;
         border: 1px solid var(--gold);
         background: transparent;
-        color: var(--text); font-size: 10px; font-family: inherit;
+        color: var(--text); font-size: var(--fs-b1); font-family: inherit;
         transition: background 0.15s, box-shadow 0.15s;
     }
+    /* 纵向拉满变体：如初始筹码页，按钮独占一行（替代内联样式） */
+    .hu-actions.stack { flex-direction: column; align-items: stretch; }
+    .hu-actions.stack button { width: 100%; }
     .hu-actions button:active {
         background: rgba(212, 175, 55, 0.12);
         box-shadow: 0 0 10px rgba(212, 175, 55, 0.25);
