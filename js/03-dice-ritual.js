@@ -421,7 +421,6 @@ function confirmFullReset() {
     Game.dealer = 'bottom';
     try {
         localStorage.removeItem(Game.MAHJONG_STORAGE_KEY);
-        localStorage.removeItem('qionghu_mahjong_progress_v1');
     } catch (e) { /* ignore */ }
     Game.winner = null;
     Game.gameOver = false;

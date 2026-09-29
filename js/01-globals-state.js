@@ -603,21 +603,8 @@ document.addEventListener('visibilitychange', () => {
 
 function loadGameProgress() {
     try {
-        // 兼容旧版仅存 scores+dealer 的存档
         let raw = localStorage.getItem(MAHJONG_STORAGE_KEY);
         if (!raw) {
-            const legacy = localStorage.getItem('qionghu_mahjong_progress_v1');
-            if (legacy) {
-                const old = JSON.parse(legacy);
-                if (old && old.scores) {
-                    for (const p of PLAYERS) {
-                        if (typeof old.scores[p] === 'number') Game.scores[p] = old.scores[p];
-                    }
-                }
-                if (old && PLAYERS.includes(old.dealer)) {
-                    Game.dealer = old.dealer;
-                }
-            }
             return false; // 无完整对局，走 initGame
         }
         const saved = JSON.parse(raw);
