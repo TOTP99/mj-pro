@@ -78,6 +78,7 @@
             el1.innerHTML = '<span class="credit-text">' + LINE1 + '</span>' +
                 '<button type="button" class="credit-btn" onclick="Game.openModeSelect()">模式选择</button>' +
                 '<button type="button" class="credit-btn" onclick="Game.openAmountSelect()">初始筹码</button>' +
+                '<button type="button" class="credit-btn" id="sfx-toggle" onclick="Game.toggleSfx()">音效开</button>' +
                 '<span id="field-count" class="field-rounds">局 0/16</span>';
         }
         if (html2 !== lastHtml2) { el2.innerHTML = html2; lastHtml2 = html2; }

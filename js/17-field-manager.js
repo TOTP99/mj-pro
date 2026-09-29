@@ -40,6 +40,7 @@ function saveField() {
 function startNewField(initialAmount) {
     const amt = Math.max(1, Math.floor(Number(initialAmount) || 50));
     Game.fieldAmounts = { top: amt, left: amt, right: amt, bottom: amt };
+    Game.scores = { top: amt, left: amt, right: amt, bottom: amt }; // 头像旁数字同步为初始筹码
     Game.fieldGameCount = 0;
     Game.fieldActive = true;
     Game.fieldInitialAmount = amt;

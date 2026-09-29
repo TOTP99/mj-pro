@@ -479,6 +479,7 @@ function aiDiscard(player) {
                 Game.TileFlow.addGang(player, gTile);
                 Game.logFlow(Game.nameOf(player) + ' 加杠 ' + Game.tileGlyph(gTile));
                 Game.speak('杠' + Game.tileName(gTile));
+                Game.sfx.gang(); Game.feel.banner('杠！');
                 Game.requestRender('aiDiscard/jia');
                 aiDrawReplacement(player);
                 return;
@@ -495,6 +496,7 @@ function aiDiscard(player) {
                 Game.TileFlow.meld(player, 'gang', [gangTile, gangTile, gangTile, gangTile], { concealed: true });
                 Game.logFlow(Game.nameOf(player) + ' 暗杠 ' + Game.tileGlyph(gangTile));
                 Game.speak('杠' + Game.tileName(gangTile));
+                Game.sfx.gang(); Game.feel.banner('杠！');
                 Game.requestRender('aiDiscard/an');
                 aiDrawReplacement(player);
                 return;
@@ -507,6 +509,8 @@ function aiDiscard(player) {
     Game.markKongDiscardIfNeeded(player);
     Game.validateHandCounts('aiDiscard');
     Game.requestRender('aiDiscard/discard');
+    Game.sfx.discard(); // 手感：AI 出牌脆响 + 从座位飞牌
+    Game.feel.flyAiDiscard(player, Game.tileImg(tile));
     Game.speak(Game.tileName(tile));
 
     // 多家可以胡的话，按下家方向离出牌人最近的先胡
@@ -692,14 +696,16 @@ function aiPengClaim(p, tile) {
     if (useGang) {
         Game.logFlow(Game.nameOf(p) + ' 杠了 ' + Game.tileGlyph(tile));
         Game.speak('杠' + Game.tileName(tile));
+        Game.sfx.gang(); Game.feel.banner('杠！');
         Game.requestRender('aiPengClaim/gang');
         aiDrawReplacement(p);
     } else {
         Game.logFlow(Game.nameOf(p) + ' 碰了 ' + Game.tileGlyph(tile));
         Game.speak('碰' + Game.tileName(tile));
+        Game.sfx.peng(); Game.feel.banner('碰！');
         Game.requestRender('aiPengClaim/peng');
         Game.setPhase(Game.PHASE.WAIT_DISCARD, 'aiPengClaim');
-        Game.scheduleAi(() => aiDiscard(p), 700, 'aiPengClaim/aiDiscard');
+        Game.scheduleAi(() => aiDiscard(p), Game.aiThinkMs(), 'aiPengClaim/aiDiscard');
     }
 }
 
@@ -709,9 +715,10 @@ function aiChiClaim(p, tile, combo) {
     Game.currentIndex = Game.turnOrder.indexOf(p);
     Game.logFlow(Game.nameOf(p) + ' 吃了 ' + Game.tileGlyph(tile));
     Game.speak('吃' + Game.tileName(tile));
+    Game.sfx.chi(); Game.feel.banner('吃！');
     Game.requestRender('aiChiClaim');
     Game.setPhase(Game.PHASE.WAIT_DISCARD, 'aiChiClaim');
-    Game.scheduleAi(() => aiDiscard(p), 700, 'aiChiClaim/aiDiscard');
+    Game.scheduleAi(() => aiDiscard(p), Game.aiThinkMs(), 'aiChiClaim/aiDiscard');
 }
 
 // AI杠后摸替补牌，检查杠上开花，否则继续正常出牌
@@ -719,19 +726,29 @@ function aiDrawReplacement(p) {
     Game.setPhase(Game.PHASE.REPLACEMENT, 'aiDrawReplacement');
     if (Game.deck.length <= Game.DEAD_WALL) { Game.declareDraw(); return; }
     const drawn = Game.TileFlow.draw(p, 'replacement');
-    const isLastTile = Game.deck.length === Game.DEAD_WALL;
     Game.hands[p].sort(Game.tileCompare);
     Game.lastDrawnTile[p] = drawn;
-    Game.lastDrawWasFinal[p] = isLastTile;
+    Game.lastDrawWasFinal[p] = Game.deck.length === Game.DEAD_WALL;
     Game.markKongDraw(p);
     Game.validateHandCounts('aiDrawReplacement');
     Game.requestRender('aiDrawReplacement');
+    // 杠后补牌与普通摸牌一致：先检查亮牌
+    const revealKind = Game.revealKindAfterDraw(p);
+    if (revealKind) {
+        if (!Game.applyReveal(p, revealKind)) return; // 补牌时牌墙已尽，流局已处理
+        // 亮出东南西北又补了一张：之后胡牌不再算杠上开花
+        if (revealKind === 'winds') Game.clearKongFlags();
+        Game.requestRender('aiDrawReplacement/reveal');
+    }
+    // 亮牌（东南西北）可能又补了一张：以实际最后摸到的牌为准
+    const winTile = Game.lastDrawnTile[p];
+    const winIsLast = Game.lastDrawWasFinal[p];
     if (Game.checkHu(Game.hands[p], Game.exposedMelds[p], p)) {
         Game.gameOver = true;
         Game.winner = p;
         const before = [...Game.hands[p]];
-        before.splice(before.indexOf(drawn), 1);
-        const bonus = Game.scoreWinningHand(before, drawn, Game.exposedMelds[p], isLastTile);
+        before.splice(before.indexOf(winTile), 1);
+        const bonus = Game.scoreWinningHand(before, winTile, Game.exposedMelds[p], winIsLast);
         Game.applyKongBonuses(bonus, p, 'selfdraw', null);
         const result = Game.settleScore(p, 'selfdraw', null, bonus);
         Game.clearKongFlags();
@@ -739,11 +756,11 @@ function aiDrawReplacement(p) {
         Game.speak('胡了，自摸');
         Game.learnFromWin(p, null, { fan: bonus.mult, turns: Game.handTurnCount });
         Game.requestRender('aiDrawReplacement/hu');
-        Game.showResultModal(p, 'selfdraw', null, bonus, result, drawn);
+        Game.showResultModal(p, 'selfdraw', null, bonus, result, winTile);
         return;
     }
     Game.setPhase(Game.PHASE.WAIT_DISCARD, 'aiDrawReplacement');
-    Game.scheduleAi(() => aiDiscard(p), 700, 'aiDrawReplacement/aiDiscard');
+    Game.scheduleAi(() => aiDiscard(p), Game.aiThinkMs(), 'aiDrawReplacement/aiDiscard');
 }
 
 // 你放弃碰/吃/杠（或没有机会）之后：先看有没有AI能碰/杠，再看下家AI能不能吃，否则正常进入下一家

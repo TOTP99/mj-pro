@@ -4,8 +4,11 @@ function renderTile(t, idx, clickable) {
     let marker = '';
     if (idx === Game.selectedIndex) marker = '<span class="mk-sel">▼</span>';
     else if (idx === Game.lastDrawnIndex) marker = '<span class="mk-new">●</span>';
+    // 手感：刚摸到的牌滑入一次（_drawnAnimPlayed 置位后不再重播，避免选牌重渲染时反复闪）
+    const drawnCls = (idx === Game.lastDrawnIndex && !Game._drawnAnimPlayed) ? ' feel-drawn' : '';
+    if (idx === Game.lastDrawnIndex) Game._drawnAnimPlayed = true;
     const danger = Game.isDangerousTile(t) ? 'danger' : '';
-    return `<div class="tile-wrap"><div class="tile-marker">${marker}</div><div class="tile ${clickable ? '' : 'disabled'} ${danger}" data-index="${idx}">${Game.tileImg(t)}</div></div>`;
+    return `<div class="tile-wrap${drawnCls}"><div class="tile-marker">${marker}</div><div class="tile ${clickable ? '' : 'disabled'} ${danger}" data-index="${idx}">${Game.tileImg(t)}</div></div>`;
 }
 
 function renderExposedFace(t) {

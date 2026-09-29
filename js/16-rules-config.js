@@ -1,25 +1,40 @@
 ;(function(){
-// ---------- 规则配置（2.0 一期） ----------
-// 两种模式：daily 日常（与旧版完全一致，不走配置）；advanced 高阶（走下方 7 开关）
-// 7 开关语义：每项 ON 都是相对旧版的额外许可/放宽，OFF 则严格等于旧版行为。
-// 因此 7 项全关的高阶 ≡ 日常旧版（用户要求：默认关就和现在玩法没区别）。
-//   kaimen        ON=闭手可胡（放宽），OFF=须开门（旧版）
-//   pinghu        ON=平胡可胡（无刻子；中发白作将亦可），OFF=须有刻子（旧版）
-//   yaojiu        ON=无幺九可胡（放宽），OFF=须含幺九（旧版）
-//   sanmenqi      ON=缺门可胡（放宽），OFF=须三门齐（旧版）
-//   revealDragons ON=中发白随时可亮，OFF=仅首巡可亮（旧版）
-//   revealWinds   ON=东南西北随时可亮，OFF=仅首巡可亮（旧版）
-//   sevenPairs    ON=允许七小对胡牌，OFF=不允许（旧版）
-const RULES_STORAGE_KEY = 'mahjong_rules_v2'; // v2：开关语义重定义，旧存档作废
+// ---------- 规则配置（2.0 一期，2026-09-28 新版语义） ----------
+// 两种模式：daily 日常（与旧版完全一致，不走配置）；advanced 高阶（走下方 9 开关）
+// 新版语义：开关直接描述规则本身（不再是“相对旧版的放宽”）；默认配置 ≡ 日常玩法。
+//   mustKaimen      是=必须开门（旧版），否=闭手可胡
+//   mustPeng        是=必须有碰牌/刻子（旧版），否=平胡可胡
+//   dragonsAsPeng   是=中发白作将相当于碰牌（旧版），否=不算（mustPeng=否时此项无意义，置灰）
+//   mustYaojiu      是=必须有幺九（旧版），否=无幺九可胡
+//   mustSanmenqi    是=必须三门齐（旧版），否=缺门可胡
+//   revealAllowed   是=中发白/东南西北可以亮牌，否=完全不能亮
+//   revealFirstTurn 是=打第一张牌前可亮（旧版首巡），否=首巡也不可
+//   revealAnytime   是=随时可亮，否=仅看首巡项（开随时后首巡项置灰）
+//   sevenPairs      是=七小对可胡，否=不允许（旧版）
+const RULES_STORAGE_KEY = 'mahjong_rules_v2';
 const DEFAULT_RULES = {
-    kaimen: false,
-    pinghu: false,
-    yaojiu: false,
-    sanmenqi: false,
-    revealDragons: true, // 用户要求：随时亮牌默认开启
-    revealWinds: true,
+    mustKaimen: true,
+    mustPeng: true,
+    dragonsAsPeng: true,
+    mustYaojiu: true,
+    mustSanmenqi: true,
+    revealAllowed: true,
+    revealFirstTurn: true,
+    revealAnytime: false,
     sevenPairs: false,
 };
+// 旧版 key → 新版 key 迁移（旧语义整体取反；亮牌两项合并为三项）
+function migrateLegacyRules(r) {
+    if (typeof r.mustKaimen !== 'boolean' && typeof r.kaimen === 'boolean') Game.rulesConfig.mustKaimen = !r.kaimen;
+    if (typeof r.mustPeng !== 'boolean' && typeof r.pinghu === 'boolean') Game.rulesConfig.mustPeng = !r.pinghu;
+    if (typeof r.mustYaojiu !== 'boolean' && typeof r.yaojiu === 'boolean') Game.rulesConfig.mustYaojiu = !r.yaojiu;
+    if (typeof r.mustSanmenqi !== 'boolean' && typeof r.sanmenqi === 'boolean') Game.rulesConfig.mustSanmenqi = !r.sanmenqi;
+    if (typeof r.revealAnytime !== 'boolean' && (typeof r.revealDragons === 'boolean' || typeof r.revealWinds === 'boolean')) {
+        Game.rulesConfig.revealAllowed = true;
+        Game.rulesConfig.revealFirstTurn = true;
+        Game.rulesConfig.revealAnytime = !!r.revealDragons || !!r.revealWinds; // 旧版开过随时亮≈新版随时
+    }
+}
 
 Game.gameMode = 'daily'; // 'daily' | 'advanced'
 Game.rulesConfig = { ...DEFAULT_RULES };
@@ -31,9 +46,11 @@ function loadRulesConfig() {
             const saved = JSON.parse(raw);
             Game.gameMode = saved.mode === 'advanced' ? 'advanced' : 'daily';
             Game.rulesConfig = { ...DEFAULT_RULES };
+            const r = saved.rules || {};
             for (const k of Object.keys(DEFAULT_RULES)) {
-                if (typeof saved.rules?.[k] === 'boolean') Game.rulesConfig[k] = saved.rules[k];
+                if (typeof r[k] === 'boolean') Game.rulesConfig[k] = r[k];
             }
+            migrateLegacyRules(r);
         }
     } catch (e) { /* 用默认 */ }
 }
@@ -56,19 +73,27 @@ function setRule(key, val) {
         saveRulesConfig();
     }
 }
+/** 恢复默认配置（默认 ≡ 日常玩法） */
+function resetRules() {
+    Game.rulesConfig = { ...DEFAULT_RULES };
+    saveRulesConfig();
+}
 
-// 高阶模式下 checkHu 用的判定开关；日常模式不走这里（直接用旧逻辑）
-// 全关时：须开门/须幺九/须三门齐/须刻子/不许七小对 ≡ 旧版
-function ruleRequiresKaimen() { return isDailyMode() ? true : !Game.rulesConfig.kaimen; }
-function ruleAllowsPinghu() { return isDailyMode() ? false : Game.rulesConfig.pinghu; }
-function ruleRequiresYaojiu() { return isDailyMode() ? true : !Game.rulesConfig.yaojiu; }
-function ruleRequiresSanmenqi() { return isDailyMode() ? true : !Game.rulesConfig.sanmenqi; }
-function ruleAllowsSevenPairs() { return isDailyMode() ? false : Game.rulesConfig.sevenPairs; }
-// kind: 'winds' | 'dragons'；firstTurn: 是否该家首巡
+// 高阶模式下 checkHu / 亮牌用的判定开关；日常模式不走这里（直接用旧逻辑）
+// 默认配置下：须开门/须刻子/中发白作将算刻子/须幺九/须三门齐/不许七小对/仅首巡可亮 ≡ 旧版
+function ruleRequiresKaimen() { return isDailyMode() ? true : !!Game.rulesConfig.mustKaimen; }
+function ruleRequiresPeng() { return isDailyMode() ? true : !!Game.rulesConfig.mustPeng; }
+function ruleDragonsPairAsPeng() { return isDailyMode() ? true : !!Game.rulesConfig.dragonsAsPeng; }
+function ruleRequiresYaojiu() { return isDailyMode() ? true : !!Game.rulesConfig.mustYaojiu; }
+function ruleRequiresSanmenqi() { return isDailyMode() ? true : !!Game.rulesConfig.mustSanmenqi; }
+function ruleAllowsSevenPairs() { return isDailyMode() ? false : !!Game.rulesConfig.sevenPairs; }
+// kind: 'winds' | 'dragons'（新版已合并为总开关，参数仅保留兼容）；firstTurn: 是否该家首巡
 function ruleAllowsReveal(kind, firstTurn) {
     if (isDailyMode()) return true; // 日常：调用方已限定首巡，沿用旧版
-    if (firstTurn) return true;      // 高阶首巡：沿用旧版（两种都可亮）
-    return kind === 'dragons' ? Game.rulesConfig.revealDragons : Game.rulesConfig.revealWinds;
+    if (!Game.rulesConfig.revealAllowed) return false; // 总开关关：完全不能亮
+    if (Game.rulesConfig.revealAnytime) return true;   // 随时可亮
+    if (!Game.rulesConfig.revealFirstTurn) return false;
+    return !!firstTurn; // 仅打第一张牌前可亮
 }
 
 // 启动时加载
@@ -164,6 +189,7 @@ function chooseMode(mode) {
 function setRuleYN(key, val) {
     setRule(key, val);
     syncRuleYN(key);
+    refreshRuleExclusions();
 }
 
 function syncRuleYN(key) {
@@ -177,6 +203,18 @@ function syncRuleYN(key) {
 
 function syncRulesUI() {
     Object.keys(DEFAULT_RULES).forEach(syncRuleYN);
+    refreshRuleExclusions();
+}
+
+// 互斥/从属：置灰不可选（值保留，条件恢复后自动可用）
+function refreshRuleExclusions() {
+    setRowDisabled('dragonsAsPeng', !Game.rulesConfig.mustPeng); // 不要求碰牌时，中发白作将项无意义
+    setRowDisabled('revealFirstTurn', !Game.rulesConfig.revealAllowed || !!Game.rulesConfig.revealAnytime);
+    setRowDisabled('revealAnytime', !Game.rulesConfig.revealAllowed); // 总开关关：两个时机项都置灰
+}
+function setRowDisabled(key, disabled) {
+    const row = document.querySelector('.rule-row[data-rule="' + key + '"]');
+    if (row) row.classList.toggle('disabled', !!disabled);
 }
 
 // 规则快照：进规则页时记下，对局进行中点"应用"时若一条没改就不重开
@@ -233,8 +271,10 @@ Game.isDailyMode = isDailyMode;
 Game.setGameMode = setGameMode;
 Game.getRules = getRules;
 Game.setRule = setRule;
+Game.resetRules = resetRules;
 Game.ruleRequiresKaimen = ruleRequiresKaimen;
-Game.ruleAllowsPinghu = ruleAllowsPinghu;
+Game.ruleRequiresPeng = ruleRequiresPeng;
+Game.ruleDragonsPairAsPeng = ruleDragonsPairAsPeng;
 Game.ruleRequiresYaojiu = ruleRequiresYaojiu;
 Game.ruleRequiresSanmenqi = ruleRequiresSanmenqi;
 Game.ruleAllowsSevenPairs = ruleAllowsSevenPairs;

@@ -4,7 +4,7 @@
 // player: 可选，传入后会应用该玩家的“亮牌”加成（东南西北/中发白亮牌 -> 算幺九+刻子但不算开门）
 // structuralOk: 能否拆成完整面子+对将（胡牌的基本前提）
 // kaimen: 是否真正“开过门”——本局至少碰/吃过一次（不能纯暗手自摸算开门；亮牌不算开门）
-// 特殊：中发白的对子做将，幺九+刻子自动满足（不影响开门，需另外满足）
+// 特殊：中发白的对子做将，幺九自动满足；刻子是否满足看“中发白作将相当于碰牌”开关（默认是；不影响开门，需另外满足）
 /** 是否开过门：吃/碰/明杠（暗杠、亮风/亮箭不算） */
 function isKaimen(exposed) {
     return (exposed || []).some(m =>
@@ -61,7 +61,10 @@ function analyzeHu(concealed, exposed = [], player = null) {
     const sanmenqi = numberSuitsUsed.size === 3;
     const kaimen = isKaimen(exposed);
 
-    if (dragonPairAsJiang) kezi = true;
+    // 2026-09-28：中发白作将是否相当于碰牌，高阶可配置（默认是），日常恒为是
+    // 注意：字牌作将本身满足幺九（yaojiu 按字牌判定，不受此开关影响），此开关只影响“碰牌/刻子”要求
+    const dragonsAsPeng = typeof Game.ruleDragonsPairAsPeng === 'function' ? Game.ruleDragonsPairAsPeng() : true;
+    if (dragonPairAsJiang && dragonsAsPeng) kezi = true;
     // 亮牌加成：只补幺九+刻子，不算开门
     if (player && Game.windDragonBonus[player]) { yaojiu = true; kezi = true; }
 
@@ -78,7 +81,7 @@ function checkHu(concealed, exposed = [], player = null) {
     return checkHuAdvanced(concealed, exposed, player);
 }
 
-/** 七小对：14 张恰为 7 个对子（不计亮牌加成，须全暗） */
+/** 七小对特例：手里 7 对 14 张即胡，不要求开门/亮牌 */
 function isSevenPairs(concealed) {
     if (!concealed || concealed.length !== 14) return false;
     const counts = {};
@@ -86,20 +89,20 @@ function isSevenPairs(concealed) {
     return Object.values(counts).every(c => c === 2);
 }
 
-/** 高阶胡牌判定：按 7 开关组合（每项 ON=相对旧版放宽，OFF=旧版要求） */
+/** 高阶胡牌判定：按 9 开关组合（默认配置 ≡ 日常旧版） */
 function checkHuAdvanced(concealed, exposed = [], player = null) {
-    // 七小对优先（须无已亮明牌）
-    if (Game.ruleAllowsSevenPairs() && (!exposed || exposed.length === 0) && isSevenPairs(concealed)) {
+    // 七小对优先：手里 7 对 14 张即胡，开门/亮牌都不要求
+    if (Game.ruleAllowsSevenPairs() && isSevenPairs(concealed)) {
         return true;
     }
     const a = analyzeHu(concealed, exposed, player);
     if (!a.structuralOk) return false;
-    // 全关时：须开门/须幺九/须三门齐/须刻子，与日常旧版分支完全一致
+    // 默认时：须开门/须幺九/须三门齐/须刻子，与日常旧版分支完全一致
     if (Game.ruleRequiresKaimen() && !a.kaimen) return false;
     if (Game.ruleRequiresYaojiu() && !a.yaojiu) return false;
     if (Game.ruleRequiresSanmenqi() && !a.sanmenqi) return false;
-    // 平胡开关 ON=允许平胡（无刻子；中发白作将满足幺九+刻子）；OFF=须有刻子（旧版）
-    if (!Game.ruleAllowsPinghu() && !a.kezi) return false;
+    // 必须有碰牌=是 → 须有刻子；否 → 平胡可胡（无刻子也行）
+    if (Game.ruleRequiresPeng() && !a.kezi) return false;
     return true;
 }
 
@@ -143,5 +146,6 @@ Game.isKaimen = isKaimen;
 Game.analyzeHu = analyzeHu;
 Game.checkHu = checkHu;
 Game.decompose = decompose;
+Game.isSevenPairs = isSevenPairs;
 
 ;})();

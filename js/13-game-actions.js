@@ -78,6 +78,7 @@ function callPeng() {
     Game.lastDrawnIndex = null;
     Game.logFlow('你碰了 ' + Game.tileGlyph(tile) + '（' + Game.nameOf(fromPlayer) + '打出），请出牌');
     Game.speak('碰' + Game.tileName(tile));
+    Game.sfx.peng(); Game.feel.banner('碰！');
     Game.requestRender('callPeng');
     Game.setPhase(Game.PHASE.WAIT_DISCARD, 'callPeng');
 }
@@ -125,6 +126,7 @@ function executeChi(combo) {
     Game.lastDrawnIndex = null;
     Game.logFlow('你吃了 ' + Game.tileGlyph(tile) + '，请出牌');
     Game.speak('吃' + Game.tileName(tile));
+    Game.sfx.chi(); Game.feel.banner('吃！');
     Game.requestRender('executeChi');
 }
 
@@ -162,6 +164,7 @@ function callGang() {
     Game.hideIndicator();
     Game.logFlow('你杠了 ' + Game.tileGlyph(tile) + '（' + Game.nameOf(fromPlayer) + '打出），补牌中...');
     Game.speak('杠' + Game.tileName(tile));
+    Game.sfx.gang(); Game.feel.banner('杠！');
     Game.requestRender('callGang');
     drawReplacementAndContinue();
 }
@@ -176,16 +179,30 @@ function drawReplacementAndContinue() {
     Game.lastDrawWasFinal.bottom = Game.deck.length === Game.DEAD_WALL;
     Game.lastDrawnIndex = Game.hands.bottom.lastIndexOf(drawn);
     Game.selectedIndex = null;
+    Game._drawnAnimPlayed = false; // 手感：补到的牌也滑入一次
     Game.markKongDraw('bottom');
     Game.validateHandCounts('drawReplacement');
     Game.requestRender('drawReplacement');
+    // 杠后补牌与普通摸牌一致：先检查亮牌
+    const revealKind = Game.revealKindAfterDraw('bottom');
+    if (revealKind) {
+        Game.pendingRevealContext = 'replacement';
+        Game.offerReveal(revealKind);
+        return;
+    }
+    continueReplacementAfterReveal();
+}
+
+// 杠后补牌续行（亮牌弹窗关闭后也会回到这里）：自摸/杠上开花判断 → 可选杠 → 等出牌
+function continueReplacementAfterReveal() {
+    if (Game.gameOver) return;
     if (Game.checkHu(Game.hands.bottom, Game.exposedMelds.bottom, 'bottom')) {
         offerHu({ mode: 'selfdraw' }); // 杠上开花×2 在 offerHu/applyKongBonuses
         return;
     }
     Game.offerSelfGangIfAny();
     if (!Game.pendingClaim) Game.setPhase(Game.PHASE.WAIT_DISCARD, 'drawReplacementAndContinue');
-    Game.logFlow('补牌：' + Game.tileGlyph(drawn) + '，请出牌');
+    Game.logFlow('补牌：' + Game.tileGlyph(Game.lastDrawnTile.bottom) + '，请出牌');
 }
 
 function handleDiscard(event) {
@@ -213,8 +230,9 @@ function handleDiscard(event) {
         return;
     }
 
-    // 再次点同一张：真正打出
+    // 再次点同一张：真正打出（出牌前先记牌面位置，供飞牌动画用）
     const card = Game.hands.bottom[idx];
+    const fromRect = target.getBoundingClientRect ? target.getBoundingClientRect() : null;
     Game.TileFlow.discard('bottom', card);
     Game.markKongDiscardIfNeeded('bottom');
     Game.selectedIndex = null;
@@ -223,6 +241,8 @@ function handleDiscard(event) {
     Game.logFlow('你打出了 ' + Game.tileGlyph(card));
     Game.validateHandCounts('handleDiscard');
     Game.requestRender('handleDiscard/discard');
+    Game.sfx.discard(); // 手感：脆响 + 飞牌落定
+    Game.feel.flyDiscard(fromRect, Game.tileImg(card));
 
     // 检查是否有AI能胡你打出的这张牌
     const ronPlayer = Game.findRonPriority('bottom', card);
@@ -380,6 +400,7 @@ Game.chooseChiCombo = chooseChiCombo;
 Game.closeChiChoice = closeChiChoice;
 Game.acceptClaim = acceptClaim;
 Game.drawReplacementAndContinue = drawReplacementAndContinue;
+Game.continueReplacementAfterReveal = continueReplacementAfterReveal;
 Game.handleDiscard = handleDiscard;
 
 ;})();

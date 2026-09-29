@@ -435,13 +435,16 @@ function ensurePortraitStatRows() {
 
 function markDealer() {
     const maxScore = Math.max(...Object.values(Game.scores));
+    // 奖杯只挂给真正领先的人：开场时四家同为初始筹码，不挂
+    const scoreBase = (Game.fieldActive && typeof Game.fieldInitialAmount === 'number') ? Game.fieldInitialAmount : 0;
+    const isLeader = p => maxScore > scoreBase && Game.scores[p] === maxScore;
     const isPortrait = document.body && document.body.classList.contains('portrait-layout');
     if (isPortrait) {
         // 竖屏：原版牌墙下五行列表（头像/风位/奖杯/庄/听）
         ensurePortraitStatRows();
         renderStatRow('stat-avatar', p => statAvatar[p]);
         renderStatRow('stat-wind', p => baseNames[p]);
-        renderStatRow('stat-medal', p => (maxScore > 0 && Game.scores[p] === maxScore) ? '<span class="ico-star">★</span>' : '');
+        renderStatRow('stat-medal', p => isLeader(p) ? '<span class="ico-star">★</span>' : '');
         renderStatRow('stat-dealer', p => p === Game.dealer ? '<span class="ico-badge ico-dealer">庄</span>' : '');
         renderStatRow('stat-tenpai', p => Game.isTenpai(p) ? '<span class="ico-badge ico-tenpai">听</span>' : '');
     } else {
@@ -449,7 +452,7 @@ function markDealer() {
         const ps = $('player-stats');
         if (ps) {
             ps.innerHTML = statOrder.map(p => {
-                const medal = (maxScore > 0 && Game.scores[p] === maxScore) ? ' <span class="ico-star">★</span>' : '';
+                const medal = isLeader(p) ? ' <span class="ico-star">★</span>' : '';
                 const dealerMark = p === Game.dealer ? ' <span class="ico-badge ico-dealer">庄</span>' : '';
                 const tenpaiMark = Game.isTenpai(p) ? ' <span class="ico-badge ico-tenpai">听</span>' : '';
                 return `<div class="stat-line" data-player="${p}">${statAvatar[p]} ${baseNames[p]}${medal}${dealerMark}${tenpaiMark}</div>`;
@@ -525,7 +528,9 @@ function saveGameProgress() {
             pendingRevealKind: (typeof Game.pendingReveal !== 'undefined') ? Game.pendingReveal : null,
             // 亮牌拒绝记录 & 已见牌型：刷新后不重复询问、牌型重凑后恢复提示资格
             revealDeclined: cloneState(Game.revealDeclined),
-            revealPatternSeen: cloneState(Game.revealPatternSeen)
+            revealPatternSeen: cloneState(Game.revealPatternSeen),
+            // 本局巡数：刷新恢复后 AI 学习评分（胡得快不快）不受影响
+            handTurnCount: Game.handTurnCount
         }));
     } catch (e) { /* 隐私模式等不可用时忽略 */ }
 }
@@ -603,6 +608,7 @@ function loadGameProgress() {
         Game.savedPendingReveal = saved.pendingRevealKind || null;
         if (saved.revealDeclined) Game.revealDeclined = saved.revealDeclined;
         if (saved.revealPatternSeen) Game.revealPatternSeen = saved.revealPatternSeen;
+        if (typeof saved.handTurnCount === 'number') Game.handTurnCount = saved.handTurnCount;
         Game.restoringGame = false;
         return true;
     } catch (e) {

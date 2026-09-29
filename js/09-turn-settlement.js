@@ -38,6 +38,7 @@ function seatLabel(p) {
 // 显示验胡结算画面：谁胡/自摸or点炮/完整手牌/吃碰杠亮/计分明细/每家加减分
 function showResultModal(winnerPlayer, mode, payer, bonus, result, winTile) {
     Game.setPhase(Game.PHASE.SETTLING, 'showResultModal');
+    Game.sfx.win(); Game.feel.banner('胡！'); // 手感：胡牌琶音 + 中央横幅
     // 例：东 猫 胡 / 自摸；或 东 猫 胡 / 南 狮 点炮
     Game.$('result-title').innerText = seatLabel(winnerPlayer) + ' 胡';
     Game.$('result-subtitle').innerText =

@@ -162,6 +162,8 @@ function currentRevealKinds(hand) {
  * 返回 'winds' | 'dragons' | null
  */
 function pickAdvancedRevealKind(player, firstTurn) {
+    // 穷胡规则：已有 3 组副露，不许第 4 组（亮牌也不行）
+    if ((Game.exposedMelds[player] || []).length >= 3) return null;
     const kinds = currentRevealKinds(Game.hands[player]);
     const prev = Game.revealPatternSeen[player] || {};
     if (!Game.revealDeclined[player]) Game.revealDeclined[player] = {};
@@ -177,6 +179,19 @@ function pickAdvancedRevealKind(player, firstTurn) {
     }
     Game.revealPatternSeen[player] = kinds;
     return picked;
+}
+
+/**
+ * 摸牌/杠后补牌后的统一亮牌检查（非首巡）：
+ * - 日常模式：非首巡不检查（与普通摸牌一致）
+ * - 高阶模式：按开关检查（3 组副露上限已在 pickAdvancedRevealKind 内）
+ * 返回 'winds' | 'dragons' | null
+ */
+function revealKindAfterDraw(player) {
+    if (typeof Game.isDailyMode === 'function' && !Game.isDailyMode()) {
+        return pickAdvancedRevealKind(player, false);
+    }
+    return null;
 }
 
 // 亮牌：把东南西北(4张)或中发白(3张)从暗牌里移出，变成一组“亮牌”明组，占一个面子位
@@ -200,6 +215,7 @@ function applyReveal(player, kind) {
 }
 
 Game.pendingReveal = null; // 'winds' | 'dragons'，等待你在弹窗里选择
+Game.pendingRevealContext = null; // 'replacement' = 杠后补牌时弹出的亮牌，关闭后回到补牌续行
 
 function offerReveal(kind) {
     Game.setPhase(Game.PHASE.REVEAL_PROMPT, 'offerReveal');
@@ -215,14 +231,22 @@ function confirmReveal(reveal) {
     const kind = Game.pendingReveal;
     Game.pendingReveal = null;
     Game.$('reveal-modal').classList.remove('show');
+    const ctx = Game.pendingRevealContext;
+    Game.pendingRevealContext = null;
     if (reveal) {
         if (!applyReveal('bottom', kind)) return; // 补牌时牌墙已尽，流局已处理
+        // 杠后补牌时亮出东南西北又补了一张：之后胡牌不再算杠上开花
+        if (ctx === 'replacement' && kind === 'winds') Game.clearKongFlags();
     } else if (typeof Game.isDailyMode === 'function' && !Game.isDailyMode()) {
         // 高阶：拒绝后同牌型不再提示（牌型变化/新凑齐后会重新允许）
         if (!Game.revealDeclined.bottom) Game.revealDeclined.bottom = {};
         Game.revealDeclined.bottom[kind] = true;
     }
-    continueAfterFirstTurnCheck('bottom');
+    if (ctx === 'replacement') {
+        Game.continueReplacementAfterReveal();
+    } else {
+        continueAfterFirstTurnCheck('bottom');
+    }
 }
 
 // 摸牌之后的自摸判断与后续流程（首次摸牌的亮牌选择处理完之后也会走到这里）
@@ -256,7 +280,7 @@ function continueAfterFirstTurnCheck(player) {
         logFlow('轮到你，请点击一张牌出牌');
     } else {
         Game.setPhase(Game.PHASE.WAIT_DISCARD, 'continueAfterFirstTurnCheck');
-        Game.scheduleAi(() => Game.aiDiscard(player), 700, 'continueAfterFirstTurnCheck/aiDiscard');
+        Game.scheduleAi(() => Game.aiDiscard(player), Game.aiThinkMs(), 'continueAfterFirstTurnCheck/aiDiscard');
     }
 }
 
@@ -317,6 +341,7 @@ function executeSelfGang() {
         Game.TileFlow.addGang('bottom', tile);
         logFlow('你加杠了 ' + Game.tileGlyph(tile) + '，补牌中...');
         speak('杠' + Game.tileName(tile));
+        Game.sfx.gang(); Game.feel.banner('杠！');
         Game.requestRender('executeSelfGang/jia');
         Game.drawReplacementAndContinue();
         return;
@@ -326,6 +351,7 @@ function executeSelfGang() {
     Game.TileFlow.meld('bottom', 'gang', [tile, tile, tile, tile], { concealed: true });
     logFlow('你暗杠了 ' + Game.tileGlyph(tile) + '，补牌中...');
     speak('杠' + Game.tileName(tile));
+    Game.sfx.gang(); Game.feel.banner('杠！');
     Game.requestRender('executeSelfGang/an');
     Game.drawReplacementAndContinue();
 }
@@ -340,18 +366,19 @@ function nextTurn() {
     Game.hands[player].sort(tileCompare);
     Game.lastDrawnTile[player] = drawn;
     Game.lastDrawWasFinal[player] = Game.deck.length === DEAD_WALL;
-    if (player === 'bottom') { Game.lastDrawnIndex = Game.hands.bottom.lastIndexOf(drawn); Game.selectedIndex = null; }
+    if (player === 'bottom') { Game.lastDrawnIndex = Game.hands.bottom.lastIndexOf(drawn); Game.selectedIndex = null; Game._drawnAnimPlayed = false; }
     // 普通摸牌不是杠上开花（杠补牌路径由各自的 mark 逻辑处理）
     Game.validateHandCounts('nextTurn');
     Game.requestRender('nextTurn');
+    Game.sfx.draw(); // 手感：摸牌轻响（AI 摸牌也有，节奏感）
     Game.highlightActive(player);
 
     const wasFirstTurn = !!Game.firstTurnPending[player];
     if (wasFirstTurn) {
         Game.firstTurnPending[player] = false;
-        // 日常：旧版首巡亮牌逻辑（一字不改）
+        // 日常：旧版首巡亮牌逻辑 + 用户规则：已有 3 组副露不许第 4 组（亮牌也不行）
         if (typeof Game.isDailyMode === 'function' && Game.isDailyMode()) {
-            const kind = checkWindDragonPattern(Game.hands[player]);
+            const kind = Game.exposedMelds[player].length >= 3 ? null : checkWindDragonPattern(Game.hands[player]);
             if (kind) {
                 if (player === 'bottom') {
                     offerReveal(kind);
@@ -388,6 +415,7 @@ Game.voiceName = voiceName;
 Game.logFlow = logFlow;
 Game.checkWindDragonPattern = checkWindDragonPattern;
 Game.pickAdvancedRevealKind = pickAdvancedRevealKind;
+Game.revealKindAfterDraw = revealKindAfterDraw;
 Game.applyReveal = applyReveal;
 Game.offerReveal = offerReveal;
 Game.confirmReveal = confirmReveal;
