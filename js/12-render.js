@@ -153,13 +153,10 @@ function fitBottomHand() {
 }
 
 // ---------- 听牌提示（只针对你自己的手牌） ----------
-// · 你出完牌、等别人时（暗牌张数 = 完整手牌 - 1）：显示「听 一万2 四万1 · 共3张」——听哪几张、每张场上还剩几张
-// · 轮到你、点选了一张牌（▼）：显示「打北 → 听 …」，告诉你打这张之后听什么；不听则显示「未听牌」
-// · 轮到你、还没点选：如果有能听牌的打法，列出来「可听牌：打 北 白」
-// · 结构上已经成型、但穷胡规则还缺条件（开门/三门齐/幺九/刻子）时：显示「成型 · 缺：开门」
-// 「余」= 4 − 你能看到的张数（你的手牌、所有弃牌、所有明面副露、你自己的暗杠）；别人手里的暗牌和暗杠你看不到，不计入。
-// 听哪几张直接用 getWinningTilesOf（与真正判胡的 checkHu 同一套规则、带缓存），不会和实际能不能胡不一致。
-// 总开关：改成 false 可彻底禁用听牌提示（连 UI 开关也不出现逻辑）。
+// 四种显示：等别人时「听 一万2 · 共3张」；点选牌后「打北 → 听 …」；未点选「可听牌：打 北 白」；
+// 结构成型但缺穷胡条件「成型 · 缺：开门」。「余」= 4 − 你能看到的张数。
+// 听口用 getWinningTilesOf（与 checkHu 同一套规则、带缓存），不会和实际胡牌不一致。
+// 总开关：false 可彻底禁用（连 UI 开关也不出现）。
 const TENPAI_HINT_ENABLED = true;
 const TENPAI_HINT_MAX_TYPES = 6;   // 最多列出几种听牌，多了显示「…」
 const TENPAI_HINT_UI_KEY = 'qionghu_mahjong_tenpai_hint_ui_v1';
@@ -272,7 +269,7 @@ function computeTenpaiHint() {
     if (hand.length === need - 1) return formatWaitsHtml(hand, ex, null) || '';           // 等牌中
     const myTurn = Game.turnOrder[Game.currentIndex] === 'bottom' && (!Game.pendingClaim || Game.pendingClaim.mode === 'selfGang');
     if (hand.length !== need || !myTurn) return '';
-    if (Game.selectedIndex !== null && Game.selectedIndex !== undefined && Game.selectedIndex >= 0 && Game.selectedIndex < hand.length) {
+    if (Game.selectedIndex != null && Game.selectedIndex >= 0 && Game.selectedIndex < hand.length) {
         const t = hand[Game.selectedIndex];
         const rest = hand.slice(); rest.splice(Game.selectedIndex, 1);
         const body = formatWaitsHtml(rest, ex, t);

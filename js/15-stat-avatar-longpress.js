@@ -37,7 +37,6 @@
 
         clearPress();
         press = {
-            player: player,
             x: e.clientX,
             y: e.clientY,
             el: cell,

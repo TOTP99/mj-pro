@@ -11,8 +11,7 @@ Game.viewScale = ORIGINAL_VIEW_SCALE;
 function applyViewScale() {
     Game.viewScale = Math.round(Game.viewScale * 1000) / 1000;
     document.documentElement.style.setProperty('--view-scale', String(Game.viewScale));
-    // 兜底：部分安卓 WebView 在缩放瞬间会出现"金边框已更新、内部圆角裁剪内容未同步重绘"
-    // 的错位现象，这里强制触发一次重排+重绘，确保边框与桌面内容一起刷新
+    // 兜底：部分安卓 WebView 缩放瞬间边框与内容重绘不同步，强制重排+重绘一次
     const frameEl = document.getElementById('table-frame');
     const wrapEl = document.getElementById('table-wrap');
     if (frameEl) {
@@ -266,7 +265,6 @@ function uiScaleOnRender() {
 
 /* ---- 本文件对外接口（IIFE 收敛，唯一出口） ---- */
 Game.ORIGINAL_VIEW_SCALE = ORIGINAL_VIEW_SCALE;
-Game.applyViewScale = applyViewScale;
 Game.setViewSize = setViewSize;
 Game.orientTransitionCheck = orientTransitionCheck;
 Game.uiScaleOnRender = uiScaleOnRender;

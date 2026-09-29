@@ -83,7 +83,8 @@ function showBustModal(player) {
     if (!el) { resetFieldAfterBust(); return; }
     // 覆盖式确认：800ms 后弹出时可能已开新局，压栈恢复才准确
     Game.pushPhase(Game.PHASE.BUST, 'showBustModal');
-    Game.$('bust-message').innerText = name + ' 金额已输光（' + Game.fieldAmounts[player] + '），是否重新开场？';
+    const msg = Game.$('bust-message');
+    if (msg) msg.innerText = name + ' 金额已输光（' + Game.fieldAmounts[player] + '），是否重新开场？';
     el.classList.add('show');
 }
 

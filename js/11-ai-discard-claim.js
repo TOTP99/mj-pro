@@ -375,7 +375,8 @@ function chooseAiDiscardTile(hand, player) {
     if (filterWouldNarrow) {
         // 归因：defense / wallCaution / 位置感 / 对手风险信号 分别单独归零（只改这一个、其它保持实际值），
         // 看开关会不会翻——翻了说明这条轴自己就能决定这一把的选择
-        if (safeFilterActive(urgency, 0 <= -1.5 - posSlack, false, highRiskNow) !== actualFilterOn) {
+        const defenseIfZero = 0 <= -1.5 - posSlack; // 假设 defense 学习值为 0 时的对照
+        if (safeFilterActive(urgency, defenseIfZero, false, highRiskNow) !== actualFilterOn) {
             Game.markAxisUsed(player, 'defense');
         }
         if (safeFilterActive(wallUrgencyBonus(style, 0), cautious, confident, highRiskNow) !== actualFilterOn) {
@@ -465,7 +466,7 @@ function aiDiscard(player) {
                     Game.winner = robber;
                     const before = [...Game.hands[robber]];
                     before.splice(before.indexOf(gTile), 1);
-                    const bonus = Game.scoreWinningHand(before, gTile, Game.exposedMelds[robber], false, false);
+                    const bonus = Game.scoreWinningHand(before, gTile, Game.exposedMelds[robber], false);
                     const result = Game.settleScore(robber, 'dianpao', player, bonus);
                     Game.clearKongFlags();
                     Game.logFlow(Game.nameOf(robber) + ' 抢杠胡了 ' + Game.nameOf(player) + '！' + result.detail);
@@ -520,7 +521,7 @@ function aiDiscard(player) {
         Game.winner = ronPlayer;
         const before = [...Game.hands[ronPlayer]];
         before.splice(before.indexOf(tile), 1);
-        const bonus = Game.scoreWinningHand(before, tile, Game.exposedMelds[ronPlayer], false, false);
+        const bonus = Game.scoreWinningHand(before, tile, Game.exposedMelds[ronPlayer], false);
         Game.applyKongBonuses(bonus, ronPlayer, 'dianpao', player);
         const result = Game.settleScore(ronPlayer, 'dianpao', player, bonus);
         Game.clearKongFlags();
@@ -730,7 +731,7 @@ function aiDrawReplacement(p) {
         Game.winner = p;
         const before = [...Game.hands[p]];
         before.splice(before.indexOf(drawn), 1);
-        const bonus = Game.scoreWinningHand(before, drawn, Game.exposedMelds[p], true, isLastTile);
+        const bonus = Game.scoreWinningHand(before, drawn, Game.exposedMelds[p], isLastTile);
         Game.applyKongBonuses(bonus, p, 'selfdraw', null);
         const result = Game.settleScore(p, 'selfdraw', null, bonus);
         Game.clearKongFlags();

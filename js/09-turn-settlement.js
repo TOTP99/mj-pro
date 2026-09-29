@@ -7,7 +7,6 @@ function canGang(hand, tile) {
     return hand.filter(t => t === tile).length >= 3;
 }
 
-// 返回可吃的组合（手牌中的两张），找不到返回 null
 // 返回所有可行的吃法组合(可能不止一种，比如摸到5万，手里有3万4万又有6万7万)
 function findChiCombos(hand, tile) {
     const suit = Game.tileSuit(tile);
@@ -285,7 +284,7 @@ function hideIndicator() {
     el.innerHTML = '';
     try { updateClaimFocusTile(); } catch (e) {}
     if (document.body && document.body.classList.contains('portrait-layout')
-        && typeof Game.exposedInfoShownFor !== 'undefined' && Game.exposedInfoShownFor) {
+        && Game.exposedInfoShownFor) {
         try { showExposedInfo(Game.exposedInfoShownFor); } catch (e) {}
     }
 }

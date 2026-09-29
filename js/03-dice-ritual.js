@@ -103,7 +103,7 @@ function onTableTap(e) {
     Game.tableTapTimes.push(now);
     if (Game.tableTapTimes.length >= 3) {
         Game.tableTapTimes = [];
-        startDiceRitual();
+        startDiceRitualWithMode('reset'); // 三击桌面清零菜单
     }
 }
 
@@ -122,11 +122,6 @@ function resetDiceDom() {
         shadow.style.transform = 'translateZ(-30px) scale(1)';
         shadow.style.opacity = '0.6';
     }
-}
-
-/** 三击桌面清零菜单用 */
-function startDiceRitual() {
-    startDiceRitualWithMode('reset');
 }
 
 /** 长按猫头调庄：同一颗骰子，点数按东起顺时针数到谁做庄 */
@@ -300,8 +295,6 @@ function cancelDiceRitual() {
     }
 }
 
-/** 清零重启：积分/庄家/存档全部归零并开新局 */
-
 /**
  * 调庄：一颗骰 1–6，从东（bottom/猫）起顺时针数
  * turnOrder: bottom → right → top → left → bottom …
@@ -347,6 +340,7 @@ function applyDealerFromDice(face) {
     }
 }
 
+/** 清零重启：积分/庄家/存档全部归零并开新局 */
 function confirmFullReset() {
     resetDiceDom();
     Game.hideIndicator();

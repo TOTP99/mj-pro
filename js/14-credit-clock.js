@@ -8,7 +8,7 @@
  * 只存内存，不写 localStorage；页面切到后台时暂停计时。
  * 横屏：竖屏那两行被 CSS 隐藏，改为在左侧栏的 #img-display-badge（TP制作）后面加当前时间的 时:分:秒，
  *       竖屏时该标签保持原样只显示"TP制作"。
- * 必须放在 13-game-actions.js 之后加载。
+ * 加载顺序无要求：只在事件/点击回调里用 Game，加载期只碰 DOM。
  */
 (function () {
     'use strict';
@@ -16,16 +16,16 @@
     var LINE1 = 'TP制作➸369❖❁';
     var WEEK = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
     var PLAYED_STYLE = 'color:#ffffff;font-weight:700;';
-    // 时分秒盒子：宽度取 6.8 个数字宽（6位数字+2个冒号的最大宽度），右侧间隙 0.6em（原空格约 0.3em 的两倍）
-    var HMS_STYLE = 'display:inline-block;width:6.8ch;margin-right:0.6em;';
+    // 时分秒盒子：宽度取 6.8 个数字宽（6位数字+2个冒号的最大宽度），避免秒数变化时右边文字抖动
+    var TIME_BOX = 'display:inline-block;width:6.8ch;';
+    var HMS_STYLE = TIME_BOX + 'margin-right:0.6em;'; // 第二行时钟：右侧间隙 0.6em
 
     var el1 = document.getElementById('credit-label');
     var el2 = document.getElementById('credit-label-2');
     var badge = document.getElementById('img-display-badge'); // 横屏左侧栏的"TP制作"
     if (!el1 || !el2) return;
     var BADGE_TEXT = 'TP制作';
-    // 时:分:秒 放固定宽度盒子（6位数字+2个冒号的最大宽度），秒数变化时右边的牌墙文字不抖动
-    var MS_STYLE = 'display:inline-block;width:6.8ch;margin-left:0.4em;';
+    var MS_STYLE = TIME_BOX + 'margin-left:0.4em;'; // 横屏徽标后的时钟：左侧间隙 0.4em
 
     // 两行都不换行，数字等宽，避免每秒跳动时宽度抖动
     [el1, el2].forEach(function (el) {
@@ -67,7 +67,6 @@
         var d = new Date();
         var mins = Math.floor(playedMs / 60000);
         var hms = pad(d.getHours()) + ':' + pad(d.getMinutes()) + ':' + pad(d.getSeconds());
-        // 时分秒放进固定宽度的盒子，间隙约为原来一个空格的两倍；秒数变化时后面的文字不再左右抖动
         var clock = '<span style="' + HMS_STYLE + '">' + hms + '</span>' +
                     WEEK[d.getDay()] + ' ' +
                     pad(d.getMonth() + 1) + '-' + pad(d.getDate()) + '-' + pad(d.getFullYear() % 100);
@@ -86,7 +85,7 @@
         if (badge) {
             var portrait = document.body && document.body.classList.contains('portrait-layout');
             var bh = portrait ? BADGE_TEXT
-                : BADGE_TEXT + '<span style="' + MS_STYLE + '">' + pad(d.getHours()) + ':' + pad(d.getMinutes()) + ':' + pad(d.getSeconds()) + '</span>';
+                : BADGE_TEXT + '<span style="' + MS_STYLE + '">' + hms + '</span>';
             if (bh !== lastBadgeHtml) { badge.innerHTML = bh; lastBadgeHtml = bh; }
         }
     }

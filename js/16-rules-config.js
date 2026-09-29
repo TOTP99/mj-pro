@@ -106,7 +106,6 @@ function placePromptAtDiamondCenter() {
     el.style.left = ((sx / n - fr.left) / scale) + 'px';
     el.style.top = ((sy / n - fr.top) / scale) + 'px';
 }
-Game.placePromptAtDiamondCenter = placePromptAtDiamondCenter;
 function showTablePrompt(text) {
     const el = Game.$('table-center-prompt');
     if (el) { el.textContent = text; placePromptAtDiamondCenter(); el.classList.add('show'); }
@@ -155,7 +154,7 @@ function chooseMode(mode) {
     // 日常：已在日常且对局进行中 → 同模式，不确认、不重开，手牌不动
     if (gameLive && Game.gameMode === 'daily') return;
     // 如果已有对局在进行，换模式开新局需先确认
-    if (typeof Game.gameOver !== 'undefined' && !Game.gameOver) {
+    if (!Game.gameOver) { // gameOver 在 01 加载时恒为 false，无需 typeof 守卫
         if (!confirm('切换到日常模式将重新开局，继续吗？')) return;
     }
     setGameMode('daily');
@@ -200,7 +199,7 @@ function confirmRules() {
         return;
     }
     rulesSnapshotBeforeEdit = null;
-    if (typeof Game.gameOver !== 'undefined' && !Game.gameOver) {
+    if (!Game.gameOver) { // gameOver 在 01 加载时恒为 false，无需 typeof 守卫
         if (!confirm('应用高阶规则将重新开局，继续吗？')) return;
     }
     hideModal('rules-modal');
@@ -248,5 +247,6 @@ Game.chooseMode = chooseMode;
 Game.setRuleYN = setRuleYN;
 Game.confirmRules = confirmRules;
 Game.backToModeSelect = backToModeSelect;
+Game.placePromptAtDiamondCenter = placePromptAtDiamondCenter;
 
 ;})();

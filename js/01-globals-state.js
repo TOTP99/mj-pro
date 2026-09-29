@@ -679,7 +679,6 @@ Game.resetLastCallTurn = resetLastCallTurn;
 Game.learnFromWin = learnFromWin;
 Game.learnFromDraw = learnFromDraw;
 Game.$ = $;
-Game.gameTimeout = gameTimeout;
 Game.setPhase = setPhase;
 Game.pushPhase = pushPhase;
 Game.popPhase = popPhase;

@@ -29,7 +29,7 @@ function hasSiGuiYi(decomp, exposed) {
 // concealedBeforeWin: 胡牌前的暗牌(不含winTile)；winTile: 刚好胡的这张
 // 在所有能胡的分解方式里取倍数最高的一种（对玩家最有利）
 /** 计算和牌番型倍数（不含自摸/点炮/庄家，那些在 settleScore） */
-function scoreWinningHand(concealedBeforeWin, winTile, exposed, isSelfDraw, isLastTile) {
+function scoreWinningHand(concealedBeforeWin, winTile, exposed, isLastTile) {
     const concealed = [...concealedBeforeWin, winTile].sort(Game.tileCompare);
     const neededSets = 4 - exposed.length;
     let best = { mult: 1, tags: [] };

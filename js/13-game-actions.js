@@ -51,7 +51,7 @@ function offerHu(ctx) {
         isLastTile = Game.lastDrawWasFinal.bottom;
     }
 
-    const bonus = Game.scoreWinningHand(before, winTile, Game.exposedMelds.bottom, isSelfDraw, isLastTile);
+    const bonus = Game.scoreWinningHand(before, winTile, Game.exposedMelds.bottom, isLastTile);
     const mode = isSelfDraw ? 'selfdraw' : 'dianpao';
     Game.applyKongBonuses(bonus, 'bottom', mode, payer);
     Game.gameOver = true;
@@ -232,7 +232,7 @@ function handleDiscard(event) {
         Game.winner = ronPlayer;
         const before = [...Game.hands[ronPlayer]];
         before.splice(before.indexOf(card), 1);
-        const bonus = Game.scoreWinningHand(before, card, Game.exposedMelds[ronPlayer], false, false);
+        const bonus = Game.scoreWinningHand(before, card, Game.exposedMelds[ronPlayer], false);
         Game.applyKongBonuses(bonus, ronPlayer, 'dianpao', 'bottom');
         const result = Game.settleScore(ronPlayer, 'dianpao', 'bottom', bonus);
         Game.clearKongFlags();
@@ -286,7 +286,7 @@ const VIEW_PAN_MAX = 180; /* px，相对中心上下限 */
 Game.viewPanY = 0;
 Game.panDrag = null; // { startY, startPan }
 
-/* persist 参数已删：拖动只更新 CSS 变量，刷新即恢复默认 */
+/* 拖动不持久化，刷新恢复默认 */
 function applyViewPan() {
     Game.viewPanY = Math.max(-VIEW_PAN_MAX, Math.min(VIEW_PAN_MAX, Game.viewPanY));
     document.documentElement.style.setProperty('--view-pan-y', Game.viewPanY.toFixed(1) + 'px');
@@ -330,16 +330,13 @@ function initTablePan() {
     frame.addEventListener('pointermove', (e) => {
         if (!Game.panDrag) return;
         onMove(e.clientY);
-    });
-    frame.addEventListener('pointerup', onEnd);
-    frame.addEventListener('pointercancel', onEnd);
-    // 避免拖动时触发三连击骰子：移动超过阈值则清空 tap
-    frame.addEventListener('pointermove', (e) => {
-        if (!Game.panDrag) return;
+        // 避免拖动时触发三连击骰子：移动超过阈值则清空 tap
         if (Math.abs(e.clientY - Game.panDrag.startY) > 8) {
             Game.tableTapTimes = [];
         }
     });
+    frame.addEventListener('pointerup', onEnd);
+    frame.addEventListener('pointercancel', onEnd);
 }
 
 initTablePan();
@@ -351,9 +348,8 @@ document.addEventListener('contextmenu', (e) => {
     }
 }, true);
 Game.initDicePips();
-// 横屏 default = 一直以来的原始大小（--view-scale:1）；黄线滑杆/按住拖动都不持久化，刷新即默认
-Game.viewScale = Game.ORIGINAL_VIEW_SCALE;
-Game.viewPanY = 0;
+// 横屏 default = 一直以来的原始大小；黄线滑杆/按住拖动都不持久化，刷新即默认
+// （viewScale/viewPanY 的归零已在 04 加载与 initTablePan 里做过，这里只显式复位 CSS 变量）
 document.documentElement.style.setProperty('--view-scale', '1');
 document.documentElement.style.setProperty('--view-pan-y', '0px');
 // 启动：等 DOMContentLoaded（此时全部 17 个脚本已执行完）再决定恢复存档还是显示模式选择。
@@ -361,6 +357,8 @@ document.documentElement.style.setProperty('--view-pan-y', '0px');
 // Game.ruleAllowsSevenPairs 等尚不存在，渲染抛出的 TypeError 会中断本文件尾部的导出，
 // 导致刷新后 Game.handleDiscard 等全部缺失、点牌无反应（一期 IIFE 化引入的回归）。
 function bootGame() {
+    if (Game._booted) return; // 幂等：防止动态注入时 DOMContentLoaded 与 setTimeout 双跑
+    Game._booted = true;
     if (Game.loadGameProgress()) {
         Game.resumeFromSave();
     } else if (typeof Game.openModeSelect === 'function') {

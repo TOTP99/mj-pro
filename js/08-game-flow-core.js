@@ -237,7 +237,7 @@ function continueAfterFirstTurnCheck(player) {
             const winTile = Game.lastDrawnTile[player];
             const before = [...Game.hands[player]];
             before.splice(before.indexOf(winTile), 1);
-            const bonus = Game.scoreWinningHand(before, winTile, Game.exposedMelds[player], true, Game.lastDrawWasFinal[player]);
+            const bonus = Game.scoreWinningHand(before, winTile, Game.exposedMelds[player], Game.lastDrawWasFinal[player]);
             Game.applyKongBonuses(bonus, player, 'selfdraw', null);
             const result = Game.settleScore(player, 'selfdraw', null, bonus);
             Game.clearKongFlags();
@@ -303,7 +303,7 @@ function executeSelfGang() {
             Game.winner = robber;
             const before = [...Game.hands[robber]];
             before.splice(before.indexOf(tile), 1);
-            const bonus = Game.scoreWinningHand(before, tile, Game.exposedMelds[robber], false, false);
+            const bonus = Game.scoreWinningHand(before, tile, Game.exposedMelds[robber], false);
             // 抢杠按点炮结算（不加杠后点炮；抢杠本身已是特殊）
             const result = Game.settleScore(robber, 'dianpao', 'bottom', bonus);
             Game.clearKongFlags();
@@ -341,8 +341,7 @@ function nextTurn() {
     Game.lastDrawnTile[player] = drawn;
     Game.lastDrawWasFinal[player] = Game.deck.length === DEAD_WALL;
     if (player === 'bottom') { Game.lastDrawnIndex = Game.hands.bottom.lastIndexOf(drawn); Game.selectedIndex = null; }
-    // 普通摸牌不是杠上开花
-    if (Game.afterKongDrawPlayer === player) { /* 保留：仅杠补牌路径会 mark */ }
+    // 普通摸牌不是杠上开花（杠补牌路径由各自的 mark 逻辑处理）
     Game.validateHandCounts('nextTurn');
     Game.requestRender('nextTurn');
     Game.highlightActive(player);

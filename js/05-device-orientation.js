@@ -45,7 +45,6 @@ function syncAppViewportVars() {
             h = window.innerHeight || h;
         }
     } catch (e) { /* ignore */ }
-    if (w > 0) document.documentElement.style.setProperty('--app-width', w + 'px');
     if (h > 0) document.documentElement.style.setProperty('--app-height', h + 'px');
     return { w, h };
 }
@@ -160,7 +159,7 @@ function checkPortraitGuard() {
     const body = document.body;
     if (!body) return;
     const wasPortrait = body.classList.contains('portrait-layout');
-    if (wasPortrait !== !!isPortrait) { try { Game.orientTransitionCheck(); } catch (e) { /* 04 未加载时忽略 */ } } // 方向翻转：先隐藏牌桌再切换布局
+    // 方向翻转时的牌桌隐藏过渡已由 handleOrientationEvent 开头的 orientTransitionCheck 触发，这里只管切换布局类
     // 双布局：竖屏用 portrait-layout，横屏用默认横屏样式；不再强制拦截
     body.classList.toggle('portrait-layout', !!isPortrait);
     placeClaimIndicatorForOrientation(!!isPortrait);
@@ -225,7 +224,7 @@ function handleOrientationEvent(source) {
             syncAppViewportVars();
             checkPortraitGuard();
             try { Game.fitBottomHand(); } catch (e) {}
-            // 提示条若正显示：布局变了就重算菱形中心（05 先于 16 加载，用 typeof 守卫）
+            // 提示条若正显示：布局变了就重算菱形中心（16 可能尚未加载，用 typeof 守卫）
             try {
                 const tp = Game.$('table-center-prompt');
                 if (tp && tp.classList.contains('show') && typeof Game.placePromptAtDiamondCenter === 'function') Game.placePromptAtDiamondCenter();
@@ -238,10 +237,6 @@ function handleOrientationEvent(source) {
         }, ms);
         Game._orientationTimers.push(id);
     });
-}
-
-function schedulePortraitGuardChecks() {
-    handleOrientationEvent('manual');
 }
 
 /** —— 屏幕旋转 / 视口事件绑定 —— */
@@ -303,7 +298,6 @@ function bindOrientationListeners() {
 bindOrientationListeners();
 applyDevicePlatformClass();
 handleOrientationEvent('init');
-syncAppViewportVars();
 try { placeClaimIndicatorForOrientation(isPortraitOrientation()); } catch (e) {}
 
 /* harden-result-on-orient：旋转全程多次加固结算确认可点 */
@@ -336,6 +330,5 @@ Game.syncAppViewportVars = syncAppViewportVars;
 Game.isPortraitOrientation = isPortraitOrientation;
 Game.hardenResultModalInteract = hardenResultModalInteract;
 Game.checkPortraitGuard = checkPortraitGuard;
-Game.schedulePortraitGuardChecks = schedulePortraitGuardChecks;
 
 ;})();
