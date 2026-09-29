@@ -1,13 +1,13 @@
 ;(function(){
-// ========== 双金骰仪式（三击桌面清零 / 调庄掷骰） ==========
-// 流程：触发 → 两颗 34px 金骰从上方抛入，物理翻滚弹跳 → 落定亮出点数 → 缩小消失 → 回调
+// ========== 金骰仪式（三击桌面清零 / 调庄掷骰，单骰） ==========
+// 流程：触发 → 一颗 34px 金骰从上方抛入，物理翻滚弹跳 → 落定亮出点数 → 缩小消失 → 回调
 const DICE = {
     SIZE: 34,            // 骰子边长 px
     GRAVITY: 2600,       // px/s²
     BOUNCE_DAMP: 0.52,   // 落地反弹保留系数
     BOUNCE_MIN_VY: 170,  // 撞击速度小于此值视为落定
     SETTLE_MS: 340,      // 落定转到目标面的时长
-    REST_MS: 700,        // 双双落定后停留
+    REST_MS: 700,        // 落定后停留
     VANISH_MS: 380,      // 缩小消失时长
     TAP_WINDOW: 450,     // 三击判定窗口
     // 3×3 点数格索引（0–8）
@@ -38,14 +38,14 @@ Game.diceVanishTimer = 0;
 Game.diceRestTimer = 0;
 Game.diceSavedClaim = null; // 仪式期间暂存吃碰杠/流局提示
 Game.diceRitualMode = 'reset'; // 'reset' | 'dealer'
-Game.diceLastFaces = [1, 1];
-Game.diceThrows = []; // 两颗骰子的物理状态
+Game.diceLastFaces = [1];
+Game.diceThrows = []; // 骰子的物理状态
 
 function diceEls() {
     return {
         stage: Game.$('dice-stage'),
         scene: Game.$('dice-scene'),
-        dice: [1, 2].map(i => ({
+        dice: [1].map(i => ({
             wrap: Game.$('dice-throw-' + i),
             cube: document.querySelector('#dice-throw-' + i + ' .dice-cube'),
             shadow: document.querySelector('#dice-throw-' + i + ' .dice-shadow')
@@ -162,7 +162,7 @@ function resetDiceDom() {
     });
 }
 
-/** 长按猫头调庄：掷双骰，按 36 种等概率结果定庄 */
+/** 长按猫头调庄：掷一颗骰，点数 1~4 从东起顺时针定庄 */
 function startDiceDealerRitual() {
     startDiceRitualWithMode('dealer');
 }
@@ -182,9 +182,9 @@ function startDiceRitualWithMode(mode) {
     if (!stage || !scene) { Game.diceBusy = false; return; }
     stage.classList.add('show');
 
-    const d1 = 1 + Math.floor(Math.random() * 6);
-    const d2 = 1 + Math.floor(Math.random() * 6);
-    Game.diceLastFaces = [d1, d2];
+    // 调庄只有 4 家：骰面只掷 1~4（等概率，四家公平；6 不能被 4 整除，掷 1~6 会让两家多一倍机会）；清零菜单只是仪式，掷 1~6
+    const d1 = (Game.diceRitualMode === 'dealer') ? 1 + Math.floor(Math.random() * 4) : 1 + Math.floor(Math.random() * 6);
+    Game.diceLastFaces = [d1];
 
     const W = scene.clientWidth || 300;
     const H = scene.clientHeight || 260;
@@ -192,9 +192,9 @@ function startDiceRitualWithMode(mode) {
     const S = DICE.SIZE;
 
     Game.diceThrows = dice.map((d, i) => {
-        const dir = i === 0 ? -1 : 1;
-        const floorX = cx + dir * (S * 0.78) + (Math.random() * 10 - 5);
-        const floorY = cy + (i === 0 ? 8 : -10) + (Math.random() * 8 - 4);
+        const dir = Math.random() < 0.5 ? -1 : 1; // 抛入方向随机
+        const floorX = cx + (Math.random() * 16 - 8);
+        const floorY = cy + (Math.random() * 12 - 6);
         return {
             el: d,
             maxX: Math.max(16, W - 16 - S),
@@ -208,7 +208,7 @@ function startDiceRitualWithMode(mode) {
             vry: (520 + Math.random() * 420) * (Math.random() < 0.5 ? -1 : 1),
             floorX: Math.max(16, Math.min(W - 16 - S, floorX)),
             floorY: Math.max(40, Math.min(H - 20 - S, floorY)),
-            face: i === 0 ? d1 : d2,
+            face: d1,
             state: 'fly', // fly → settle → done
             settleT0: 0, fromRx: 0, fromRy: 0, toRx: 0, toRy: 0
         };
@@ -229,7 +229,7 @@ function startDiceRitualWithMode(mode) {
             return;
         }
         Game.diceRafId = 0;
-        // 双双落定 → 停留 → 缩小消失 → 回调
+        // 落定 → 停留 → 缩小消失 → 回调
         Game.diceRestTimer = setTimeout(() => {
             Game.diceRestTimer = 0;
             void scene.offsetWidth; // 强制重绘一帧再加 vanish，确保 transition 生效
@@ -241,7 +241,7 @@ function startDiceRitualWithMode(mode) {
                 scene.style.transform = '';
                 scene.style.opacity = '';
                 if (Game.diceRitualMode === 'dealer') {
-                    applyDealerFromDice(Game.diceLastFaces[0], Game.diceLastFaces[1]);
+                    applyDealerFromDice(Game.diceLastFaces[0]);
                 } else {
                     showDiceResetMenu();
                 }
@@ -352,11 +352,11 @@ function cancelDiceRitual() {
 }
 
 /**
- * 调庄：两颗骰子共 36 种等概率结果，对 4 取模 → 四家完全等概率
+ * 调庄：一颗骰子，点数 1~4 → 东/南/西/北 依次（四家等概率）
  * turnOrder: bottom → right → top → left → bottom …
  * 保留积分，按新庄重新发牌开一局
  */
-function applyDealerFromDice(d1, d2) {
+function applyDealerFromDice(d1) {
     resetDiceDom();
     Game.hideIndicator();
     Game.diceBusy = false;
@@ -366,18 +366,16 @@ function applyDealerFromDice(d1, d2) {
     Game.diceSavedClaim = null;
     Game.pendingClaim = null;
 
-    const a = Math.max(1, Math.min(6, d1 | 0));
-    const b = Math.max(1, Math.min(6, d2 | 0));
-    const pick = (a - 1) * 6 + (b - 1); // 0–35 均匀
+    const a = Math.max(1, Math.min(4, d1 | 0));
     const start = Game.turnOrder.indexOf('bottom');
-    const idx = (start + (pick % 4)) % 4; // 36 % 4 == 0，四家等概率
+    const idx = (start + (a - 1)) % 4; // 1→东(你) 2→下家 3→对家 4→上家（turnOrder 顺序）
     Game.dealer = Game.turnOrder[idx];
     try { Game.markDealer(); } catch (e) {}
     // 调庄后新开一个 4 圈周期（局数清零，从 1/东/1 重新计）
     try { if (typeof Game.resetFieldCycle === 'function') Game.resetFieldCycle(); } catch (e) {}
 
     const who = (typeof Game.seatLabel === 'function') ? Game.seatLabel(Game.dealer) : Game.nameOf(Game.dealer);
-    Game.logFlow('调庄：骰子 ' + a + '+' + b + '=' + (a + b) + ' → ' + who + ' 做庄（保留积分开新局）');
+    Game.logFlow('调庄：骰子 ' + a + ' → ' + who + ' 做庄（保留积分开新局）');
     try {
         if (typeof Game.speak === 'function') Game.speak(Game.nameOf(Game.dealer) + '庄');
     } catch (e) {}

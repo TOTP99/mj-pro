@@ -1,6 +1,7 @@
 ;(function(){
 // ---------- 横屏牌桌大小（手动滑杆） ----------
-// default = 100% 即原始大小（scale=1），位置由 fitViewPanX 智能计算：
+// 现在 default = 自动适配大小（见 autoFitTable，滑杆是相对它的微调）；下面 fitViewPanX 仍负责左侧栏防切边：
+// （旧说明）default = 100% 即原始大小（scale=1），位置由 fitViewPanX 智能计算：
 //   左侧栏（TP制作→黄线）左边被切掉时自动向右平移，保证不切掉并留呼吸量。
 // 黄色滑杆反向：向左拉放大（最大110%），向右拉缩小（最小70%）；不存档，刷新恢复 100%。
 const VIEW_SIZE_MIN = 70, VIEW_SIZE_MAX = 110; // 相对默认的百分比
@@ -33,9 +34,115 @@ function fitViewPanX() {
 }
 Game.fitViewPanX = fitViewPanX;
 
+/* ==================== 牌桌自动适配（横屏） ====================
+ * 进入/旋转/窗口变化后，按真实可视区域（visualViewport 减去 body 的安全区内边距）算出「刚好放得下」的缩放，
+ * 并把牌桌居中——不再需要手动拉黄线、按住桌面上下拖。
+ * 黄线滑杆变成「相对自动大小」的微调（70%~110%，仍不存档）；按住上下拖动继续叠加在自动居中之上。
+ * 只在横屏生效；竖屏保持原样（缩放=Game.viewScale，不平移）。
+ * 参数：AUTO_FIT=false 关闭，回到原来的固定 100% + 手动调。地址栏加 ?dbg 可在左下角显示测量数据。 */
+const AUTO_FIT = true;
+const AUTO_FIT_FILL = 0.96;   // 占可用区域的比例（四周留 ~2% 呼吸量）
+const AUTO_FIT_MIN = 0.5, AUTO_FIT_MAX = 1.8;
+Game.autoBase = 1;            // 自动适配算出的基准缩放
+Game._autoPan = { x: 0, y: 0 };
+Game._autoFitSig = '';
+
+function _dbgShow(txt) {
+    try {
+        if (!/[?&]dbg\b/.test(location.search)) return;
+        let d = document.getElementById('fit-dbg');
+        if (!d) {
+            d = document.createElement('div'); d.id = 'fit-dbg';
+            d.style.cssText = 'position:fixed;left:4px;bottom:4px;z-index:99999;font:10px/1.3 monospace;color:#0f0;background:rgba(0,0,0,.6);padding:2px 4px;pointer-events:none;white-space:pre';
+            document.body.appendChild(d);
+        }
+        d.textContent = txt;
+    } catch (e) {}
+}
+
+/** 计算并应用自动大小 + 居中。force=true：即使尺寸没变也重算（滑杆调节时用） */
+function autoFitTable(force) {
+    const root = document.documentElement;
+    const wrap = document.getElementById('table-wrap');
+    const frame = document.getElementById('table-frame');
+    const portrait = document.body && document.body.classList.contains('portrait-layout');
+    if (!AUTO_FIT || !wrap || !frame || portrait) {
+        Game.autoBase = 1; Game._autoPan = { x: 0, y: 0 };
+        root.style.setProperty('--auto-pan-x', '0px'); root.style.setProperty('--auto-pan-y', '0px');
+        // 竖屏没有滑杆：一律按 100%，避免横屏缩小后带进竖屏、又调不回来（横屏的手动系数 Game.viewScale 保留，转回横屏仍生效）
+        root.style.setProperty('--view-scale', '1');
+        return;
+    }
+    const vv = window.visualViewport;
+    const W = (vv && vv.width) || window.innerWidth || document.documentElement.clientWidth || 0;
+    const H = (vv && vv.height) || window.innerHeight || document.documentElement.clientHeight || 0;
+    const offL = (vv && vv.offsetLeft) || 0, offT = (vv && vv.offsetTop) || 0;
+    if (!(W > 0 && H > 0)) return;
+    const cs = getComputedStyle(document.body);
+    const pl = parseFloat(cs.paddingLeft) || 0, pr = parseFloat(cs.paddingRight) || 0;
+    const pt = parseFloat(cs.paddingTop) || 0, pb = parseFloat(cs.paddingBottom) || 0;
+    const availW = W - pl - pr, availH = H - pt - pb;
+    const fw = frame.offsetWidth, fh = frame.offsetHeight; // 布局尺寸，不受 transform 影响
+    if (!(fw > 0 && fh > 0 && availW > 0 && availH > 0)) return;
+
+    let base = Math.min(availW * AUTO_FIT_FILL / fw, availH * AUTO_FIT_FILL / fh);
+    base = Math.max(AUTO_FIT_MIN, Math.min(AUTO_FIT_MAX, base));
+    base = Math.round(base * 1000) / 1000;
+    const S = Math.round(base * Game.viewScale * 1000) / 1000;
+
+    // 去掉 transform（且关掉过渡）量「不带缩放平移」的真实布局位置，量完立刻还原
+    const oldTrans = wrap.style.transition, oldTf = wrap.style.transform;
+    wrap.style.transition = 'none'; wrap.style.transform = 'none';
+    void wrap.offsetWidth;
+    const fr = frame.getBoundingClientRect(), wr = wrap.getBoundingClientRect();
+    wrap.style.transform = oldTf; void wrap.offsetWidth; wrap.style.transition = oldTrans;
+
+    const cx = fr.left + fr.width / 2, cy = fr.top + fr.height / 2;   // 牌桌边框中心
+    const ox = wr.left + wr.width / 2, oy = wr.top + wr.height / 2;   // 缩放原点（wrap 中心）
+    const vx = offL + pl + availW / 2, vy = offT + pt + availH / 2;   // 可视区中心
+    // 缩放后牌桌中心 = o + S*(c-o) + t，要它落在 v → t = v - o - S*(c-o)
+    const tx = Math.round((vx - ox - S * (cx - ox)) * 10) / 10;
+    const ty = Math.round((vy - oy - S * (cy - oy)) * 10) / 10;
+
+    const sig = [S, tx, ty].join('|');
+    _dbgShow('vv ' + Math.round(W) + 'x' + Math.round(H) + ' inner ' + window.innerWidth + 'x' + window.innerHeight +
+        '\npad ' + [pt, pr, pb, pl].join('/') + ' frame ' + fw + 'x' + fh + '\nbase ' + base + ' S ' + S + ' pan ' + tx + ',' + ty);
+    if (!force && sig === Game._autoFitSig) return;
+    Game._autoFitSig = sig;
+    Game.autoBase = base; Game._autoPan = { x: tx, y: ty };
+    root.style.setProperty('--auto-pan-x', tx + 'px');
+    root.style.setProperty('--auto-pan-y', ty + 'px');
+    root.style.setProperty('--view-scale', String(S));
+    if (!force) {
+        // 大小变了：头像/手牌放大系数、左侧栏防切边都要在过渡落稳后重算
+        setTimeout(() => {
+            try { autoUiScale('full'); } catch (e) {}
+            try { Game.fitBottomHand(); } catch (e) {}
+            try { fitViewPanX(); } catch (e) {}
+        }, 340);
+    }
+}
+Game.autoFitTable = autoFitTable;
+
+let _autoFitTimers = [];
+function scheduleAutoFit() {
+    _autoFitTimers.forEach(clearTimeout);
+    // iOS 内置浏览器的工具栏/地址栏落稳需要一小会儿，所以在多个时间点各量一次
+    _autoFitTimers = [60, 250, 700, 1500].map(ms => setTimeout(() => { try { autoFitTable(false); } catch (e) {} }, ms));
+}
+Game.scheduleAutoFit = scheduleAutoFit;
+window.addEventListener('resize', scheduleAutoFit, { passive: true });
+window.addEventListener('orientationchange', scheduleAutoFit, { passive: true });
+window.addEventListener('pageshow', scheduleAutoFit, { passive: true });
+if (window.visualViewport) window.visualViewport.addEventListener('resize', scheduleAutoFit, { passive: true });
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') scheduleAutoFit(); });
+// 首次：脚本全部加载完（含 13 里把 --view-scale 复位为 1）之后再量
+setTimeout(scheduleAutoFit, 0);
+if (document.readyState !== 'complete') window.addEventListener('load', scheduleAutoFit, { once: true });
+
 function applyViewScale() {
     Game.viewScale = Math.round(Game.viewScale * 1000) / 1000;
-    document.documentElement.style.setProperty('--view-scale', String(Game.viewScale));
+    try { autoFitTable(true); } catch (e) { document.documentElement.style.setProperty('--view-scale', String(Game.viewScale)); }
     // 兜底：部分安卓 WebView 缩放瞬间边框与内容重绘不同步，强制重排+重绘一次
     const frameEl = document.getElementById('table-frame');
     const wrapEl = document.getElementById('table-wrap');
@@ -130,8 +237,8 @@ function endOrientTransition() {
     const html = document.documentElement;
     try {
         if (typeof Game.checkPortraitGuard === 'function') Game.checkPortraitGuard();
-        if (document.body.classList.contains('portrait-layout')) { try { Game.fitBottomHand(); } catch (e) {} }
-        else { try { autoUiScale('full'); } catch (e) {} try { Game.fitBottomHand(); } catch (e) {} try { fitViewPanX(); } catch (e) {} }
+        if (document.body.classList.contains('portrait-layout')) { try { autoFitTable(false); } catch (e) {} try { Game.fitBottomHand(); } catch (e) {} }
+        else { try { autoFitTable(false); } catch (e) {} try { autoUiScale('full'); } catch (e) {} try { Game.fitBottomHand(); } catch (e) {} try { fitViewPanX(); } catch (e) {} }
         if (typeof Game.hardenResultModalInteract === 'function') Game.hardenResultModalInteract();
     } catch (e) { /* 出任何问题都要继续去显示 */ }
     requestAnimationFrame(() => requestAnimationFrame(() => {
