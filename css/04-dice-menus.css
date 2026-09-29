@@ -1,10 +1,12 @@
     /* ========== 金骰（34px 立体骰子，物理抛掷） ========== */
+    /* 舞台铺满牌桌：双骰落点在四家头像围成的桌心（不再 bottom:22% 偏上） */
     #dice-stage {
-        position: absolute; left: 0; right: 0; top: 0; bottom: 22%;
+        position: absolute; inset: 0;
+        left: 0; right: 0; top: 0; bottom: 0;
         z-index: 25;
         display: none;
         pointer-events: none;
-        background: radial-gradient(ellipse at center, rgba(8,14,24,0.4) 0%, transparent 62%);
+        background: radial-gradient(ellipse at center, rgba(8,14,24,0.35) 0%, transparent 55%);
         contain: layout style;
     }
     #dice-stage.show { display: block; }
