@@ -25,6 +25,19 @@
         z-index: 40;
     }
 
+    /* 辅助行：危险原因 / 教练推荐（一行小字，手牌下方，不打扰） */
+    #assist-line {
+        text-align: center;
+        font-size: 11px;
+        line-height: 1.4;
+        padding: 1px 8px;
+        min-height: 0;
+        color: #b9a98a;
+    }
+    #assist-line .as-danger { color: #ff9d8f; }
+    #assist-line .as-coach { color: #a8d8a8; }
+    #assist-line .tile-img-inline { height: 1.3em; vertical-align: -0.25em; }
+
     .top .hand, .left .hand, .right .hand { display: none; }
     /* AI 副露：头像正下方、与手牌同向不旋转；尺寸=原侧牌 ×1.18（0.69→0.814）
        自动换行：横向空间够就同一行紧凑排列，放不下则换行，最多叠三行 */
@@ -268,7 +281,7 @@
         display: flex;
         flex-direction: column;
         align-items: center;
-        transform: translateY(var(--view-pan-y, 0px)) scale(var(--view-scale, 1));
+        transform: translate(var(--view-pan-x, 0px), var(--view-pan-y, 0px)) scale(var(--view-scale, 1));
         transform-origin: center center;
         transition: transform 0.18s ease;
         touch-action: none; /* 桌面拖动由脚本处理上下平移 */
