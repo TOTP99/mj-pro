@@ -51,6 +51,11 @@
                 <span class="mode-text"><b>高阶模式</b><i>自定义规则</i></span>
             </button>
         </div>
+        <div class="assist-options">
+            <div class="rule-row" data-assist="dangerHint"><span class="rule-name">危险提示<i>标出可能点炮的牌</i></span><span class="yn-seg"><button type="button" data-yn="1" onclick="Game.setAssistYN('dangerHint',true)">是</button><button type="button" data-yn="0" onclick="Game.setAssistYN('dangerHint',false)">否</button></span></div>
+            <div class="rule-row" data-assist="coachMode"><span class="rule-name">教练模式<i>AI 推荐出牌并解释</i></span><span class="yn-seg"><button type="button" data-yn="1" onclick="Game.setAssistYN('coachMode',true)">是</button><button type="button" data-yn="0" onclick="Game.setAssistYN('coachMode',false)">否</button></span></div>
+            <div class="rule-row" data-assist="dragonsFirst"><span class="rule-name">中发白第一张亮<i>首巡凑齐直接亮出</i></span><span class="yn-seg"><button type="button" data-yn="1" onclick="Game.setAssistYN('dragonsFirst',true)">是</button><button type="button" data-yn="0" onclick="Game.setAssistYN('dragonsFirst',false)">否</button></span></div>
+        </div>
     </div>
 </div>
 
@@ -109,10 +114,10 @@
 
 <div id="round-modal">
     <div class="hu-box">
-        <div class="hu-title">场次提醒</div>
+        <div class="hu-title">调庄提醒</div>
         <div class="result-label center" id="round-message"></div>
         <div class="hu-actions">
-            <button onclick="Game.confirmRoundReselect()">重新调庄</button>
+            <button onclick="Game.confirmRoundReselect()">4圈结束调庄</button>
         </div>
     </div>
 </div>
@@ -174,14 +179,27 @@
 <div id="game-table">
     <div id="dice-stage">
         <div id="dice-scene">
-            <div id="dice-shadow"></div>
-            <div id="dice-cube">
-                <div class="face f1"><div class="pips" data-n="1"></div></div>
-                <div class="face f2"><div class="pips" data-n="2"></div></div>
-                <div class="face f3"><div class="pips" data-n="3"></div></div>
-                <div class="face f4"><div class="pips" data-n="4"></div></div>
-                <div class="face f5"><div class="pips" data-n="5"></div></div>
-                <div class="face f6"><div class="pips" data-n="6"></div></div>
+            <div class="dice-throw" id="dice-throw-1">
+                <div class="dice-shadow"></div>
+                <div class="dice-cube">
+                    <div class="face f1"><div class="pips" data-n="1"></div></div>
+                    <div class="face f2"><div class="pips" data-n="2"></div></div>
+                    <div class="face f3"><div class="pips" data-n="3"></div></div>
+                    <div class="face f4"><div class="pips" data-n="4"></div></div>
+                    <div class="face f5"><div class="pips" data-n="5"></div></div>
+                    <div class="face f6"><div class="pips" data-n="6"></div></div>
+                </div>
+            </div>
+            <div class="dice-throw" id="dice-throw-2">
+                <div class="dice-shadow"></div>
+                <div class="dice-cube">
+                    <div class="face f1"><div class="pips" data-n="1"></div></div>
+                    <div class="face f2"><div class="pips" data-n="2"></div></div>
+                    <div class="face f3"><div class="pips" data-n="3"></div></div>
+                    <div class="face f4"><div class="pips" data-n="4"></div></div>
+                    <div class="face f5"><div class="pips" data-n="5"></div></div>
+                    <div class="face f6"><div class="pips" data-n="6"></div></div>
+                </div>
             </div>
         </div>
     </div>
@@ -219,6 +237,7 @@
             </span>
         </div>
         <div id="hand-bottom" class="hand" onclick="Game.handleDiscard(event)"></div>
+        <div id="assist-line" aria-live="polite"></div>
         <div id="flow-log"></div>
     </div>
     <button type="button" id="discard-query-btn" title="点击查询牌池" onclick="event.stopPropagation();Game.openPoolModal()">点击查询牌池</button>
@@ -230,10 +249,9 @@
                 <div class="wc-row"><span id="img-display-badge" title="TP制作">TP制作</span></div>
                 <div class="wc-row"><span id="wall-count-text"></span></div>
                 <div class="wc-row"><button type="button" class="credit-btn-ls" onclick="event.stopPropagation();Game.openModeSelect()">模式选择</button>
-                <button type="button" class="credit-btn-ls" onclick="event.stopPropagation();Game.openAmountSelect()">初始筹码</button>
-                <button type="button" class="credit-btn-ls" id="sfx-toggle-ls" onclick="event.stopPropagation();Game.toggleSfx()">音效开</button></div>
-                <div class="wc-row"><span id="field-count-ls" class="field-rounds">局 0/16</span></div>
-                <div class="wc-row wc-slider-row"><input type="range" id="size-slider" min="80" max="110" step="1" value="100" title="横屏牌桌大小：相对默认 80%~110%，刷新恢复默认" oninput="event.stopPropagation();Game.setViewSize(this.value)"></div>
+                <button type="button" class="credit-btn-ls" onclick="event.stopPropagation();Game.openAmountSelect()">初始筹码</button></div>
+                <div class="wc-row"><button type="button" class="credit-btn-ls" id="sfx-toggle-ls" onclick="event.stopPropagation();Game.toggleSfx()">音效开</button><span id="field-count-ls" class="field-rounds">1/东/1</span></div>
+                <div class="wc-row wc-slider-row"><input type="range" id="size-slider" min="70" max="110" step="1" value="100" title="横屏牌桌大小：左放大110% / 右缩小70%，默认100%，刷新恢复默认" oninput="event.stopPropagation();Game.setViewSizeSlider(this.value)"></div>
             </div>
         </div>
         <div id="wall-count-gap"></div>
@@ -277,5 +295,7 @@
 <script src="js/16-rules-config.js"></script>
 <script src="js/17-field-manager.js"></script>
 <script src="js/18-game-feel.js"></script>
+<script src="js/19-ai-efficiency.js"></script>
+<script src="js/20-ai-danger-ev.js"></script>
 </body>
 </html>
