@@ -13,6 +13,10 @@
 <link rel="stylesheet" href="css/01-base.css">
 <link rel="stylesheet" href="css/02-players-hands.css">
 <link rel="stylesheet" href="css/03-controls-popups.css">
+<link rel="stylesheet" href="css/12-result-modal.css">
+<link rel="stylesheet" href="css/13-info-overlays.css">
+<link rel="stylesheet" href="css/14-compact-menus.css">
+<link rel="stylesheet" href="css/15-game-feel.css">
 <link rel="stylesheet" href="css/04-dice-menus.css">
 <link rel="stylesheet" href="css/06-media-landscape.css">
 <link rel="stylesheet" href="css/07-portrait-layout.css">
@@ -51,20 +55,22 @@
 </div>
 
 <div id="rules-modal">
-    <div class="hu-box" style="max-height:85vh; overflow-y:auto;">
+    <div class="hu-box">
         <div class="hu-title">高阶规则</div>
-        <div class="rules-hint">每项「是」= 相对日常的放宽，「否」= 与日常相同；全选「否」即日常玩法</div>
+        <div class="rules-hint">默认配置即日常玩法，逐项调整即自定义；置灰项为互斥/从属，不可选</div>
         <div class="rules-group">
             <div class="rules-group-title">胡牌要求</div>
-            <div class="rule-row" data-rule="kaimen"><span class="rule-name">闭手可胡</span><span class="yn-seg"><button type="button" data-yn="1" onclick="Game.setRuleYN('kaimen',true)">是</button><button type="button" data-yn="0" onclick="Game.setRuleYN('kaimen',false)">否</button></span></div>
-            <div class="rule-row" data-rule="pinghu"><span class="rule-name">平胡/中发白作将</span><span class="yn-seg"><button type="button" data-yn="1" onclick="Game.setRuleYN('pinghu',true)">是</button><button type="button" data-yn="0" onclick="Game.setRuleYN('pinghu',false)">否</button></span></div>
-            <div class="rule-row" data-rule="yaojiu"><span class="rule-name">无幺九可胡</span><span class="yn-seg"><button type="button" data-yn="1" onclick="Game.setRuleYN('yaojiu',true)">是</button><button type="button" data-yn="0" onclick="Game.setRuleYN('yaojiu',false)">否</button></span></div>
-            <div class="rule-row" data-rule="sanmenqi"><span class="rule-name">缺门可胡</span><span class="yn-seg"><button type="button" data-yn="1" onclick="Game.setRuleYN('sanmenqi',true)">是</button><button type="button" data-yn="0" onclick="Game.setRuleYN('sanmenqi',false)">否</button></span></div>
+            <div class="rule-row" data-rule="mustKaimen"><span class="rule-name">必须开门</span><span class="yn-seg"><button type="button" data-yn="1" onclick="Game.setRuleYN('mustKaimen',true)">是</button><button type="button" data-yn="0" onclick="Game.setRuleYN('mustKaimen',false)">否</button></span></div>
+            <div class="rule-row" data-rule="mustPeng"><span class="rule-name">必须有碰牌</span><span class="yn-seg"><button type="button" data-yn="1" onclick="Game.setRuleYN('mustPeng',true)">是</button><button type="button" data-yn="0" onclick="Game.setRuleYN('mustPeng',false)">否</button></span></div>
+            <div class="rule-row" data-rule="dragonsAsPeng"><span class="rule-name">中发白作将相当于碰牌</span><span class="yn-seg"><button type="button" data-yn="1" onclick="Game.setRuleYN('dragonsAsPeng',true)">是</button><button type="button" data-yn="0" onclick="Game.setRuleYN('dragonsAsPeng',false)">否</button></span></div>
+            <div class="rule-row" data-rule="mustYaojiu"><span class="rule-name">必须有幺九</span><span class="yn-seg"><button type="button" data-yn="1" onclick="Game.setRuleYN('mustYaojiu',true)">是</button><button type="button" data-yn="0" onclick="Game.setRuleYN('mustYaojiu',false)">否</button></span></div>
+            <div class="rule-row" data-rule="mustSanmenqi"><span class="rule-name">必须三门齐</span><span class="yn-seg"><button type="button" data-yn="1" onclick="Game.setRuleYN('mustSanmenqi',true)">是</button><button type="button" data-yn="0" onclick="Game.setRuleYN('mustSanmenqi',false)">否</button></span></div>
         </div>
         <div class="rules-group">
             <div class="rules-group-title">亮牌</div>
-            <div class="rule-row" data-rule="revealDragons"><span class="rule-name">中发白随时亮牌</span><span class="yn-seg"><button type="button" data-yn="1" onclick="Game.setRuleYN('revealDragons',true)">是</button><button type="button" data-yn="0" onclick="Game.setRuleYN('revealDragons',false)">否</button></span></div>
-            <div class="rule-row" data-rule="revealWinds"><span class="rule-name">东南西北随时亮牌</span><span class="yn-seg"><button type="button" data-yn="1" onclick="Game.setRuleYN('revealWinds',true)">是</button><button type="button" data-yn="0" onclick="Game.setRuleYN('revealWinds',false)">否</button></span></div>
+            <div class="rule-row" data-rule="revealAllowed"><span class="rule-name">中发白东西南北可以亮牌</span><span class="yn-seg"><button type="button" data-yn="1" onclick="Game.setRuleYN('revealAllowed',true)">是</button><button type="button" data-yn="0" onclick="Game.setRuleYN('revealAllowed',false)">否</button></span></div>
+            <div class="rule-row" data-rule="revealFirstTurn"><span class="rule-name">打第一张牌前亮</span><span class="yn-seg"><button type="button" data-yn="1" onclick="Game.setRuleYN('revealFirstTurn',true)">是</button><button type="button" data-yn="0" onclick="Game.setRuleYN('revealFirstTurn',false)">否</button></span></div>
+            <div class="rule-row" data-rule="revealAnytime"><span class="rule-name">随时亮牌</span><span class="yn-seg"><button type="button" data-yn="1" onclick="Game.setRuleYN('revealAnytime',true)">是</button><button type="button" data-yn="0" onclick="Game.setRuleYN('revealAnytime',false)">否</button></span></div>
         </div>
         <div class="rules-group">
             <div class="rules-group-title">特殊牌型</div>
@@ -80,12 +86,12 @@
 <div id="amount-modal">
     <div class="hu-box">
         <div class="hu-title">初始筹码</div>
-        <div class="result-label" style="margin-top:0; text-align:center;">四家以此金额开场</div>
-        <div class="hu-actions" style="flex-direction:column; gap:10px;">
-            <button onclick="Game.chooseAmount(50)" style="width:100%;">50</button>
-            <button onclick="Game.chooseAmount(100)" style="width:100%;">100</button>
-            <button onclick="Game.chooseAmount('custom')" style="width:100%;">自定义</button>
-            <button onclick="Game.closeAmountModal()" style="width:100%;">取消</button>
+        <div class="result-label center">四家以此金额开场</div>
+        <div class="hu-actions stack">
+            <button onclick="Game.chooseAmount(50)">50</button>
+            <button onclick="Game.chooseAmount(100)">100</button>
+            <button onclick="Game.chooseAmount('custom')">自定义</button>
+            <button onclick="Game.closeAmountModal()">取消</button>
         </div>
     </div>
 </div>
@@ -93,7 +99,7 @@
 <div id="bust-modal">
     <div class="hu-box">
         <div class="hu-title">输光了</div>
-        <div class="result-label" style="margin-top:0; text-align:center;" id="bust-message"></div>
+        <div class="result-label center" id="bust-message"></div>
         <div class="hu-actions">
             <button onclick="Game.confirmBustRestart()">重新开场</button>
             <button onclick="Game.cancelBustRestart()">继续</button>
@@ -104,7 +110,7 @@
 <div id="round-modal">
     <div class="hu-box">
         <div class="hu-title">场次提醒</div>
-        <div class="result-label" style="margin-top:0; text-align:center;" id="round-message"></div>
+        <div class="result-label center" id="round-message"></div>
         <div class="hu-actions">
             <button onclick="Game.confirmRoundReselect()">重新调庄</button>
         </div>
@@ -114,7 +120,7 @@
 <div id="chi-choice-modal">
     <div class="hu-box">
         <div class="hu-title">选择吃法</div>
-        <div class="result-label" style="margin-top:0; text-align:center;">点选一组顺子</div>
+        <div class="result-label center">点选一组顺子</div>
         <div class="hu-options" id="chi-choice-options"></div>
         <div class="hu-actions">
             <button type="button" onclick="Game.closeChiChoice()">取消</button>
@@ -221,10 +227,13 @@
 <div id="wall-count">
         <div id="wall-count-header">
             <div id="wall-count-row">
-                <span id="img-display-badge" title="TP制作">TP制作</span>
-                <span id="mode-size-row"><button type="button" class="credit-btn-ls" onclick="event.stopPropagation();Game.openModeSelect()">模式选择</button>
-                <button type="button" class="credit-btn-ls" onclick="event.stopPropagation();Game.openAmountSelect()">初始筹码</button><input type="range" id="size-slider" min="80" max="110" step="1" value="100" title="横屏牌桌大小：相对默认 80%~110%，刷新恢复默认" oninput="event.stopPropagation();Game.setViewSize(this.value)"></span><span id="field-count-ls" class="field-rounds">局 0/16</span>
-                <span id="wall-count-text"></span>
+                <div class="wc-row"><span id="img-display-badge" title="TP制作">TP制作</span></div>
+                <div class="wc-row"><span id="wall-count-text"></span></div>
+                <div class="wc-row"><button type="button" class="credit-btn-ls" onclick="event.stopPropagation();Game.openModeSelect()">模式选择</button>
+                <button type="button" class="credit-btn-ls" onclick="event.stopPropagation();Game.openAmountSelect()">初始筹码</button>
+                <button type="button" class="credit-btn-ls" id="sfx-toggle-ls" onclick="event.stopPropagation();Game.toggleSfx()">音效开</button></div>
+                <div class="wc-row"><span id="field-count-ls" class="field-rounds">局 0/16</span></div>
+                <div class="wc-row wc-slider-row"><input type="range" id="size-slider" min="80" max="110" step="1" value="100" title="横屏牌桌大小：相对默认 80%~110%，刷新恢复默认" oninput="event.stopPropagation();Game.setViewSize(this.value)"></div>
             </div>
         </div>
         <div id="wall-count-gap"></div>
@@ -267,5 +276,6 @@
 <script src="js/15-stat-avatar-longpress.js"></script>
 <script src="js/16-rules-config.js"></script>
 <script src="js/17-field-manager.js"></script>
+<script src="js/18-game-feel.js"></script>
 </body>
 </html>
