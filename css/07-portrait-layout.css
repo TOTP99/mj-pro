@@ -398,4 +398,10 @@
     body.portrait-layout .feel-banner {
         top: 50%;
         font-size: calc(var(--fs-d1, 28px) * 1.5);
+        /* 底板：深色半透明圆角 + 金边，废牌再密字也跳得出来 */
+        background: rgba(6, 10, 16, 0.72);
+        border: 1px solid rgba(212, 169, 78, 0.85);
+        border-radius: 14px;
+        padding: 10px 24px;
+        box-shadow: 0 6px 24px rgba(0, 0, 0, 0.55), 0 0 18px rgba(212, 169, 78, 0.25);
     }
