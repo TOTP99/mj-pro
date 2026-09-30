@@ -54,7 +54,6 @@
         <div class="assist-options">
             <div class="rule-row" data-assist="dangerHint"><span class="rule-name">危险提示<i>标出真会点炮的牌</i></span><span class="yn-seg"><button type="button" data-yn="1" onclick="Game.setAssistYN('dangerHint',true)">是</button><button type="button" data-yn="0" onclick="Game.setAssistYN('dangerHint',false)">否</button></span></div>
             <div class="rule-row" data-assist="coachMode"><span class="rule-name">教练模式<i>AI 推荐出牌并解释</i></span><span class="yn-seg"><button type="button" data-yn="1" onclick="Game.setAssistYN('coachMode',true)">是</button><button type="button" data-yn="0" onclick="Game.setAssistYN('coachMode',false)">否</button></span></div>
-            <div class="rule-row" data-assist="dragonsFirst"><span class="rule-name">中发白第一张亮<i>首巡凑齐直接亮出</i></span><span class="yn-seg"><button type="button" data-yn="1" onclick="Game.setAssistYN('dragonsFirst',true)">是</button><button type="button" data-yn="0" onclick="Game.setAssistYN('dragonsFirst',false)">否</button></span></div>
         </div>
     </div>
 </div>
@@ -102,12 +101,12 @@
 </div>
 
 <div id="bust-modal">
-    <div class="hu-box">
-        <div class="hu-title">输光了</div>
-        <div class="result-label center" id="bust-message"></div>
-        <div class="hu-actions">
-            <button onclick="Game.confirmBustRestart()">重新开场</button>
-            <button onclick="Game.cancelBustRestart()">继续</button>
+    <div class="bust-box">
+        <div class="bust-title">筹码不足</div>
+        <div class="bust-msg" id="bust-message"></div>
+        <div class="bust-actions">
+            <button type="button" class="bust-primary" onclick="Game.confirmBustRestart()">重新开场</button>
+            <button type="button" onclick="Game.cancelBustRestart()">继续本场</button>
         </div>
     </div>
 </div>
