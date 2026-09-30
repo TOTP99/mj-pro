@@ -157,29 +157,46 @@ function pWin(hand, exposed, player) {
     return Math.min(0.9, Math.max(0.01, p));
 }
 
-// ---------- 和牌价值（粗估） ----------
-// 基于手牌结构：幺九/三门/碰牌等规则要求的达成度
+// ---------- 和牌价值（AI 4.0 提强3：分值意识） ----------
+// 估计这手牌"如果胡了"能值多少。AI 用它权衡"快胡便宜的" vs "慢做贵的"。
+// 只看自己的手牌+副露，不读对手。
 function winValue(hand, exposed, player) {
-    let v = 1000; // 基础
-    // 副露多：可能有高番（简化）
-    v += exposed.length * 200;
-    // 中发白刻子：稳×2番，硬价值（吃/碰决策时能直接看到这笔账）
+    let mult = 1;
+    const cnt = {};
+    try {
+        for (const t of hand) cnt[t] = (cnt[t] || 0) + 1;
+        for (const m of (exposed || [])) for (const t of m.tiles) cnt[t] = (cnt[t] || 0) + 1;
+    } catch (e) {}
+    // 中发白：刻子 ×2；对子有潜力 ×1.4
     try {
         if (Game.dragonTilesArr) {
-            const cnt = {};
-            for (const t of hand) cnt[t] = (cnt[t] || 0) + 1;
-            for (const m of exposed) for (const t of m.tiles) cnt[t] = (cnt[t] || 0) + 1;
-            if (Game.dragonTilesArr.some(d => (cnt[d] || 0) >= 3)) v += 800;
+            const hasTrip = Game.dragonTilesArr.some(d => (cnt[d] || 0) >= 3);
+            const hasPair = Game.dragonTilesArr.some(d => (cnt[d] || 0) === 2);
+            if (hasTrip) mult *= 2;
+            else if (hasPair) mult *= 1.4;
         }
     } catch (e) {}
-    // 七小对（如果规则允许且在做）：高价值
-    if (Game.ruleAllowsSevenPairs && Game.ruleAllowsSevenPairs()) {
-        const cnt = {};
-        for (const t of hand) cnt[t] = (cnt[t] || 0) + 1;
-        const pairs = Object.values(cnt).filter(n => n >= 2).length;
-        if (pairs >= 5) v += 1500;
-    }
-    return v;
+    // 碰碰胡潜力：刻子/对子结构
+    const vals = Object.values(cnt);
+    const triplets = vals.filter(n => n >= 3).length;
+    const pairs = vals.filter(n => n >= 2).length;
+    if (triplets >= 3) mult *= 5;       // 很像碰碰胡（×8 的潜力）
+    else if (triplets >= 2 && pairs >= 4) mult *= 2.5;
+    else if (pairs >= 5) mult *= 1.6;   // 七小对/多对子潜力
+    // 门清：没副露，对手难读，有隐藏价值
+    if (!exposed || exposed.length === 0) mult *= 1.25;
+    // 杠：每个杠都是实打实的番
+    try {
+        const gangs = (exposed || []).filter(m => m.type === 'gang').length;
+        if (gangs) mult *= Math.pow(1.8, gangs);
+    } catch (e) {}
+    // 七小对进行中（规则允许时）
+    try {
+        if (Game.ruleAllowsSevenPairs && Game.ruleAllowsSevenPairs() && pairs >= 5 && hand.length >= 10) {
+            mult = Math.max(mult, 4); // 七小对 ×8，至少给 4
+        }
+    } catch (e) {}
+    return 1000 * mult;
 }
 
 // ---------- 放铳损失（粗估） ----------
@@ -197,13 +214,24 @@ function dealLoss(player, tile) {
 
 // ---------- 弃牌 EV ----------
 // EV(discard) = pWin×winValue − pDealIn×dealLoss
-// pWin 用打出后的手牌算；pDealIn 用打出的牌算
+// pWin 用打出后的手牌算；pDealIn 用打出的牌算。
+// AI 4.0：pDealIn 要乘以"对手真在听牌"的概率——没听牌时打危险牌也不点炮。
 function discardEV(hand, exposed, player, discard) {
     const rest = hand.slice();
     rest.splice(rest.indexOf(discard), 1);
     const pw = pWin(rest, exposed, player);
     const wv = winValue(rest, exposed, player);
-    const pd = pDealIn(player, discard);
+    let pd = pDealIn(player, discard);
+    // 对手听牌概率调整：取最大听牌概率作为点炮的前提概率
+    try {
+        let maxTenpai = 0;
+        for (const opp of Game.turnOrder) {
+            if (opp === player) continue;
+            maxTenpai = Math.max(maxTenpai, Game.estimateOppTenpai(opp));
+        }
+        // 点炮 = 对手在听 × 打出被抓。用平方根缓和（别太悲观）
+        pd = pd * Math.sqrt(Math.max(0.1, maxTenpai));
+    } catch (e) {}
     const dl = dealLoss(player, discard);
     return {
         ev: pw * wv - pd * dl,
@@ -211,6 +239,36 @@ function discardEV(hand, exposed, player, discard) {
         pDeal: pd, dealLoss: dl,
     };
 }
+
+// ---------- 对手听牌概率（AI 4.0 提强2：读人系统化） ----------
+// 综合公开信号估计某对手已听牌的概率 0~1：
+//   副露数（最强信号）+ 舍牌趋势（连续切边张/字牌=牌型收紧）+ 巡数（越晚越可能听）
+// 只用公开信息，不读暗牌。
+function estimateOppTenpai(opp) {
+    let p = 0.05; // 基础先验
+    try {
+        const melds = (Game.exposedMelds[opp] || []).length;
+        // 副露：1组 +0.15，2组 +0.35，3组 +0.6（穷胡最多3组，到顶基本在等）
+        p += [0, 0.15, 0.35, 0.6][Math.min(3, melds)] || 0;
+        // 舍牌趋势：最近 4 张若全是边张/字牌，+0.2（该扔的早扔完了）
+        const recent = Game.discardPile.filter(d => d.player === opp).slice(-4);
+        if (recent.length >= 3) {
+            const edgeCount = recent.filter(d => {
+                const s = Game.tileSuit(d.tile), r = Game.tileRank(d.tile);
+                return s === '字' || r === 1 || r === 9;
+            }).length;
+            if (edgeCount === recent.length) p += 0.2;
+            else if (edgeCount >= recent.length - 1) p += 0.1;
+        }
+        // 巡数：每 10 巡 +0.08，上限 +0.3（别人也在往听牌走）
+        const turns = Game.handTurnCount || 0;
+        p += Math.min(0.3, turns / 10 * 0.08);
+        // 危险牌试探：如果他最近打过高危险牌且没人胡，说明他可能还没听（敢打生张）→ -0.1
+        // （这个信号较弱，只做微调）
+    } catch (e) {}
+    return Math.min(0.95, Math.max(0.02, p));
+}
+Game.estimateOppTenpai = estimateOppTenpai;
 
 // ---------- 攻守决策 ----------
 // 返回 'attack' | 'fold'。基于整手牌的 EV 比较：全力攻 vs 全力守
@@ -220,12 +278,27 @@ function pushFold(hand, exposed, player) {
     // 攻击 EV：按当前向听/进张估算
     const pw = pWin(hand, exposed, player);
     const wv = winValue(hand, exposed, player);
-    const attackEV = pw * wv;
+    let attackEV = pw * wv;
+    // AI 4.0：竞速折扣——对手很可能已听牌时，我们"先胡"的概率要打折。
+    // 有人听牌，我们后胡/被截胡的概率大增。
+    let oppTenpaiMax = 0;
+    try {
+        for (const opp of Game.turnOrder) {
+            if (opp === player) continue;
+            oppTenpaiMax = Math.max(oppTenpaiMax, Game.estimateOppTenpai(opp));
+        }
+    } catch (e) {}
+    // 竞速：如果对手已听，我们先胡的概率 ×(1 - T×0.6)
+    attackEV = attackEV * (1 - oppTenpaiMax * 0.6);
     // 守：弃最安全的牌，放铳概率取最小
     let minDanger = 1;
     for (const t of new Set(hand)) {
         minDanger = Math.min(minDanger, pDealIn(player, t));
     }
+    // AI 4.0：守的放铳概率也要乘听牌概率（对手没听时，守的牌也不危险）
+    // （oppTenpaiMax 上面已算过，直接复用）
+    const tenpaiF = Math.sqrt(Math.max(0.1, oppTenpaiMax));
+    minDanger = minDanger * tenpaiF;
     // 守的 EV ≈ −minDanger×dealLoss + 流局听牌价值（简化）
     const dl = dealLoss(player, hand[0]);
     const foldEV = -minDanger * dl * 0.5 + 300; // 流局听牌安慰分
@@ -239,7 +312,15 @@ function pushFold(hand, exposed, player) {
     try {
         bias = Game.positionBias ? Game.positionBias(player) : 0;
     } catch (e) {}
-    const stance = (attackEV * atkScale + bias) >= foldEV ? 'attack' : 'fold';
+    // AI 4.0 提强2：对手听牌概率 → 攻守修正。
+    // 有人很可能已听牌时，攻击的期望收益要打折（点炮风险↑）。
+    // 性格差异：riskDefenseAt 越低（保守）对听牌信号越敏感，折扣越狠。
+    // （oppTenpaiMax 上面已算过，直接复用）
+    const riskAt = (trait && trait.riskDefenseAt) || 1;
+    // 敏感度：保守 (0.75) → 0.5，精明 (0.95) → 0.3，激进 (1.15) → 0.15
+    const tenpaiSens = Math.max(0.1, Math.min(0.6, (1.3 - riskAt) * 0.5));
+    const tenpaiDiscount = 1 - oppTenpaiMax * tenpaiSens;
+    const stance = (attackEV * atkScale * tenpaiDiscount + bias) >= foldEV ? 'attack' : 'fold';
     // 归因：防守轴 / 名次轴真正参与了这次攻守选择才记
     try { if (Game.markAxisUsed) {
         if (learned.defense) Game.markAxisUsed(player, 'defense');
@@ -383,9 +464,44 @@ function meldCallEV(player, tile, kind, combo) {
         gangDrawBonus = 150 * Math.min(1, uk / 30);
     }
     const evCall = evCallState.ev - infoPenalty - flexPenalty + tempoBonus + gangDrawBonus;
+    // AI 4.0 提强4：吃碰纪律——知道什么时候不该叫
+    let disciplinePenalty = 0;
+    try {
+        // 纪律1：已听牌时，非明显改善不叫。叫了要换听口，风险大于收益。
+        const wasTenpai = shanBefore === 0;
+        if (wasTenpai && kind !== 'gang') {
+            // 听牌时叫牌：只有向听不变（还是听）且进张/价值明显提升才考虑
+            // 这里简化：听牌叫牌一律 +150 惩罚（约等于半个 infoPenalty），除非是杠
+            disciplinePenalty += 150;
+        }
+        // 纪律2：门清贵重手不破。手里没副露且价值高（winValue>2000）时，
+        // 吃/碰要额外付出代价——破了门清的隐藏价值。
+        const isMenzen = !exposed || exposed.length === 0;
+        if (isMenzen && kind !== 'gang') {
+            const hv = winValue(hand, exposed, player);
+            if (hv > 2500) disciplinePenalty += (hv - 2500) * 0.15;
+        }
+        // 纪律3：别把龙刻子拆了。碰/吃如果拆掉了手里的龙对子（未来×2的潜力），重罚。
+        if ((kind === 'peng' || kind === 'chi') && Game.dragonTilesArr) {
+            const cntBefore = {};
+            for (const t of hand) cntBefore[t] = (cntBefore[t] || 0) + 1;
+            const cntAfter = {};
+            for (const t of handAfter) cntAfter[t] = (cntAfter[t] || 0) + 1;
+            for (const d of Game.dragonTilesArr) {
+                // 如果叫牌前有龙对子/刻子，叫牌后没了 → 价值破坏
+                if ((cntBefore[d] || 0) >= 2 && (cntAfter[d] || 0) < 2) {
+                    // 但如果叫的就是这个龙本身（碰龙），不算破坏
+                    if (!(kind === 'peng' && tile === d)) {
+                        disciplinePenalty += 400;
+                    }
+                }
+            }
+        }
+    } catch (e) {}
+    const evCallFinal = evCall - disciplinePenalty;
     return {
-        take: evCall > evPass.ev,
-        evCall: evCall, evPass: evPass.ev,
+        take: evCallFinal > evPass.ev,
+        evCall: evCallFinal, evPass: evPass.ev,
         shanBefore: shanBefore, shanAfter: shanAfter,
         ukBefore: ukBefore, ukAfter: ukAfter,
         callDetail: evCallState.detail, passDetail: evPass.detail,
@@ -398,9 +514,52 @@ Game.classifyWait = classifyWait;
 Game.qhDiscount = qhDiscount;
 Game.pDealIn = pDealIn;
 Game.pWin = pWin;
+Game.winValue = winValue;
 Game.discardEV = discardEV;
 Game.pushFold = pushFold;
 Game.chooseDiscard = chooseDiscard;
+
+// ---------- 2步期望搜索（AI 4.0 提强1） ----------
+// 打出 D 后，摸到各种进张 T 后的向听期望。比只看 immediate ukeire 更准：
+// 有些牌进张多但都是"死胡同"（摸到后还是难受），2步能看出来。
+// 只对 lexicographic 前 5 名算，~20ms 内。只用公开信息+自己手牌。
+function twoStepExp(hand, exposed, discard) {
+    const hand1 = hand.slice();
+    const di = hand1.indexOf(discard);
+    if (di < 0) return { exp: 8, totalRem: 0 };
+    hand1.splice(di, 1);
+    let s1;
+    try { s1 = Game.estimateShanten(hand1, exposed); }
+    catch (e) { return { exp: 8, totalRem: 0 }; }
+    // hand1 的进张（带剩余张数）
+    const ukeire = [];
+    try {
+        for (let i = 0; i < 34; i++) {
+            const t = Game.indexToTile(i);
+            const rem = Game.remainingCount(t, hand1);
+            if (!rem) continue;
+            if (Game.estimateShanten(hand1.concat([t]), exposed) < s1) {
+                ukeire.push({ tile: t, rem: rem });
+            }
+        }
+    } catch (e) { return { exp: s1, totalRem: 0 }; }
+    if (!ukeire.length) return { exp: s1, totalRem: 0 };
+    ukeire.sort((a, b) => b.rem - a.rem);
+    const top = ukeire.slice(0, 8); // 只看最可能摸到的 8 种
+    let wSum = 0, wTot = 0, totalRem = 0;
+    for (const u of ukeire) totalRem += u.rem;
+    try {
+        for (const u of top) {
+            const s2 = Game.estimateShanten(hand1.concat([u.tile]), exposed);
+            // 上听 (s2==0) 给 -0.5 奖励：能上听的打法优先
+            const score = s2 === 0 ? -0.5 : s2;
+            wSum += u.rem * score;
+            wTot += u.rem;
+        }
+    } catch (e) { return { exp: s1, totalRem: totalRem }; }
+    return { exp: wTot ? wSum / wTot : s1, totalRem: totalRem };
+}
+Game.twoStepExp = twoStepExp;
 
 // ---------- AI 3.0 弃牌决策核心（chooseDiscard3 与教练模式共用） ----------
 // 返回 { tile, stance, decider, winner, runnerUp, scored }。
@@ -464,13 +623,24 @@ function chooseDiscardCore(hand, exposed, player, style) {
         if (a.qhPenalty !== b.qhPenalty) return a.qhPenalty - b.qhPenalty;
         return b.uk1 - a.uk1;
     });
+    // AI 4.0 提强1：对前 5 名补算 2 步期望（打出→摸进张→向听期望），比单看 ukeire 更准
+    const twoStepN = Math.min(5, pruned.length);
+    for (let i = 0; i < twoStepN; i++) {
+        try {
+            const r = twoStepExp(hand, exposed, pruned[i].tile);
+            pruned[i].twoStep = r.exp;
+        } catch (e) { pruned[i].twoStep = pruned[i].shanten; }
+    }
+    for (let i = twoStepN; i < pruned.length; i++) pruned[i].twoStep = pruned[i].shanten;
     // 并列组补 uk2（注：ukeire2Raw 单次 ~100ms 太贵，热路径已禁用；保留函数供离线分析）
     // 实际用 uk1 的"进张种类数"作后劲代理（ukeire1Raw 内已算出，不额外花钱）
     // 细排：保留价值 → 危险度（uk2 已从热路径移除）
+    // AI 4.0：2步期望排在 uk1 之后——uk1 看"现在有多少进张"，2步看"摸到后有多舒服"
     pruned.sort((a, b) => {
         if (a.shanten !== b.shanten) return a.shanten - b.shanten;
         if (a.qhPenalty !== b.qhPenalty) return a.qhPenalty - b.qhPenalty;
         if (a.uk1 !== b.uk1) return b.uk1 - a.uk1;
+        if (Math.abs(a.twoStep - b.twoStep) > 0.15) return a.twoStep - b.twoStep;
         if (a.keepAdj !== b.keepAdj) return a.keepAdj - b.keepAdj;
         return a.dangerAdj - b.dangerAdj;
     });
@@ -487,6 +657,21 @@ function chooseDiscardCore(hand, exposed, player, style) {
     // EV 攻守调制
     const stance = pushFold(hand, exposed, player);
     let tile = winner.tile;
+    if (stance === 'attack') {
+        // AI 4.0 提强2：攻击时也不往枪口撞。若头名危险度极高 (>0.7)，
+        // 且前 3 里有向听不差太多 (≤+1) 但安全得多 (<0.4) 的，换打安全的。
+        // 性格差异：保守更早换（阈值 0.6），激进更头铁（阈值 0.85）。
+        const dangerThresh = 0.6 + ((trait && trait.riskDefenseAt) || 1) * 0.15;
+        if (winner.dangerAdj > dangerThresh) {
+            for (const c of pruned.slice(1, 3)) {
+                if (c.shanten <= winner.shanten + 1 && c.dangerAdj < 0.4) {
+                    tile = c.tile;
+                    decider = 'danger-avoid';
+                    break;
+                }
+            }
+        }
+    }
     if (stance === 'fold') {
         // 守：前 3 名里选 EV 最高
         const cands = pruned.slice(0, 3);
