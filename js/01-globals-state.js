@@ -596,7 +596,6 @@ window.addEventListener('pagehide', () => {
     }
     flushSaveProgress();
 });
-/* resize / orientationchange → bindOrientationListeners → handleOrientationEvent（内含 fitBottomHand） */
 document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'hidden') flushSaveProgress();
 });
@@ -633,11 +632,12 @@ function loadGameProgress() {
         Game.hands = saved.hands;
         Game.exposedMelds = saved.exposedMelds || { top: [], left: [], right: [], bottom: [] };
         Game.discardPile = saved.discardPile || [];
-        Game.currentIndex = typeof saved.currentIndex === 'number' ? saved.currentIndex : turnOrder.indexOf(Game.dealer);
+        Game.currentIndex = (typeof saved.currentIndex === 'number' && saved.currentIndex >= 0 && saved.currentIndex < turnOrder.length)
+            ? saved.currentIndex : turnOrder.indexOf(Game.dealer);
         Game.gameOver = !!saved.gameOver;
         Game.winner = saved.winner || null;
         Game.windDragonBonus = saved.windDragonBonus || { top: false, left: false, right: false, bottom: false };
-        Game.firstTurnPending = saved.firstTurnPending || { top: false, left: false, right: false, bottom: false };
+        Game.firstTurnPending = saved.firstTurnPending || { top: true, left: true, right: true, bottom: true };
         Game.lastDrawnTile = saved.lastDrawnTile || { top: null, left: null, right: null, bottom: null };
         Game.lastDrawWasFinal = saved.lastDrawWasFinal || { top: false, left: false, right: false, bottom: false };
         Game.aiWaitTiles = saved.aiWaitTiles || { top: [], left: [], right: [] };

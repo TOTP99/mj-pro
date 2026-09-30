@@ -5,14 +5,14 @@
  * 长按大猫头 → 同一颗黄金骰子 → 按点数从东起顺时针调庄并保留积分开新局
  * 注：竖屏头像包在 <span class="stat-cell" data-player>，横屏包在 <div class="stat-line" data-player>
  * （见 js/01-globals-state.js 的 renderStatRow / markDealer），两种容器都需要一起认，保护才横竖屏都生效
- * 须在 03-dice-ritual.js、13-game-actions.js 之后加载
+ * 本文件只碰 DOM、不引用 Game.*，加载顺序无关
  */
 (function () {
     'use strict';
 
     var LONG_MS = 520;
     var MOVE_CANCEL_PX = 12;
-    var press = null; // { player, x, y, timer, el }
+    var press = null; // { x, y, timer, el }
 
     function clearPress() {
         if (!press) return;

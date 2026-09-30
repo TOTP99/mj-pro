@@ -174,7 +174,6 @@ function checkPortraitGuard() {
     try { hardenResultModalInteract(); } catch (e) {}
 }
 
-/** 旋转/尺寸变化后多次复核（iOS 地址栏收起与旋转动画期间尺寸会变） */
 /** 旋转处理状态（Android Chrome 会连续触发 orientation + resize） */
 Game._orientationHandling = false;
 Game._lastOrientationKey = '';
@@ -201,6 +200,7 @@ function getOrientationKey() {
  * 统一响应屏幕旋转 / 视口变化
  * Android：orientationchange 时宽高常未更新，需等 resize / visualViewport；
  * 并做防抖，避免一次旋转触发十几次重排。
+ * 旋转/尺寸变化后多次复核（iOS 地址栏收起与旋转动画期间尺寸会变）。
  */
 function handleOrientationEvent(source) {
     try { Game.orientTransitionCheck(); } catch (e) { /* 04 未加载时忽略 */ } // 第一时间发现方向翻转，抢在浏览器绘制「半成品」布局之前隐藏

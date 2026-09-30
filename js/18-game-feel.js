@@ -199,11 +199,7 @@ Game.feel = {
     }
 };
 
-/* ---- 本文件对外接口（IIFE 收敛，唯一出口） ---- */
-Game.sfx = Game.sfx;
-Game.toggleSfx = Game.toggleSfx;
-Game.isSfxEnabled = Game.isSfxEnabled;
-Game.aiThinkMs = Game.aiThinkMs;
-Game.feel = Game.feel;
+/* ---- 本文件对外接口（IIFE 收敛，唯一出口） ----
+   （Game.sfx / toggleSfx / isSfxEnabled / aiThinkMs / feel 已在上方直接挂载） */
 
 })();

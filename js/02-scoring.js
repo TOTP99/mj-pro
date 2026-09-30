@@ -83,7 +83,7 @@ function scoreWinningHand(concealedBeforeWin, winTile, exposed, isLastTile) {
             const tags = [];
             if (isAllTriplets) { mult *= 8; tags.push('碰碰胡×8'); }
             if (hasDragonTriplet) { mult *= 2; tags.push('中发白×2'); }
-            // 风刻明组：×1，不再加倍（保留判断但不影响总分）
+            // 风刻明组 ×1：不加倍（无对应加倍项）
             if (waitType === 'tanki') { mult *= 2; tags.push('单吊×2'); }
             if (waitType === 'bianzhang') { mult *= 2; tags.push('边张×2'); }
             if (waitType === 'kanchan') { mult *= 2; tags.push('夹张×2'); }

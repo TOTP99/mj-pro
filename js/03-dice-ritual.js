@@ -128,7 +128,8 @@ function playDiceSettle() {
 // ---------- 三击判定（原先放在 05-device-orientation.js，现与骰子常量放在一起） ----------
 function onTableTap(e) {
     if (Game.diceBusy) return;
-    if (Game.$('result-modal').classList.contains('show')) return;
+    const rm = Game.$('result-modal');
+    if (rm && rm.classList.contains('show')) return;
     if (Game.$('reveal-modal').classList.contains('show')) return;
     if (Game.$('chi-choice-modal').classList.contains('show')) return;
     if (e.target.closest('.tile, .tileback, .discardTile, .pool-tile, .player-label, button, .meld-group, #claim-indicator, #wall-count, #discard-query-btn, #discardWall, #pool-modal, img, .claim-btn, .reset-btn')) return;
@@ -163,7 +164,7 @@ function resetDiceDom() {
     });
 }
 
-/** 长按猫头调庄：掷一颗骰，点数 1~4 从东起顺时针定庄 */
+/** 长按猫头调庄：掷两颗骰（第1颗 1~4 点从东起顺时针定庄，第2颗仅展示） */
 function startDiceDealerRitual() {
     startDiceRitualWithMode('dealer');
 }
@@ -171,6 +172,8 @@ function startDiceDealerRitual() {
 function startDiceRitualWithMode(mode) {
     if (Game.diceBusy) return;
     if (Game.$('result-modal') && Game.$('result-modal').classList.contains('show')) return;
+    const { stage, scene, dice } = diceEls();
+    if (!stage || !scene) return;
     Game.diceBusy = true;
     Game.pushPhase(Game.PHASE.DICE_RITUAL, 'startDiceRitualWithMode');
     Game.diceRitualMode = mode === 'dealer' ? 'dealer' : 'reset';
@@ -179,8 +182,6 @@ function startDiceRitualWithMode(mode) {
     Game.hideIndicator();
     resetDiceDom();
 
-    const { stage, scene, dice } = diceEls();
-    if (!stage || !scene) { Game.diceBusy = false; return; }
     stage.classList.add('show');
 
     // 双骰：清零仪式各掷 1~6；调庄仍用第 1 颗的 1~4（四家等概率），第 2 颗仅作展示
@@ -198,8 +199,7 @@ function startDiceRitualWithMode(mode) {
     const pairGap = S + 10; // 两骰落点水平间距
 
     Game.diceThrows = dice.map((d, i) => {
-        const side = (i === 0) ? -1 : 1; // 0 左、1 右
-        const dir = side; // 从外侧抛入，落向中心
+        const side = (i === 0) ? -1 : 1; // 0 左、1 右；从外侧抛入，落向中心
         const floorX = cx + side * (pairGap / 2) + (Math.random() * 8 - 4);
         const floorY = cy + (Math.random() * 10 - 5);
         return {
@@ -409,9 +409,10 @@ function applyDealerFromDice(d1) {
 function confirmFullReset() {
     resetDiceDom();
     Game.hideIndicator();
-    Game.$('result-modal').classList.remove('show');
-    Game.$('reveal-modal').classList.remove('show');
-    Game.$('chi-choice-modal').classList.remove('show');
+    for (const id of ['result-modal', 'reveal-modal', 'chi-choice-modal']) {
+        const el = Game.$(id);
+        if (el) el.classList.remove('show');
+    }
     Game.diceBusy = false;
     Game.phaseStack.length = 0; // 清零另起一局，丢弃仪式前的压栈
     Game.setPhase(Game.PHASE.DEALING, 'confirmFullReset');

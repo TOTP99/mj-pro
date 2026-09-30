@@ -93,14 +93,16 @@ function showBustModal(player) {
 }
 
 function confirmBustRestart() {
-    Game.$('bust-modal').classList.remove('show');
+    const m = Game.$('bust-modal');
+    if (m) m.classList.remove('show');
     Game.bustAwaitingChoice = false;
     Game.phaseStack.length = 0; // 确认重开：丢弃破产压栈，走选金额线性流程
     resetFieldAfterBust();
 }
 
 function cancelBustRestart() {
-    Game.$('bust-modal').classList.remove('show');
+    const m = Game.$('bust-modal');
+    if (m) m.classList.remove('show');
     Game.bustAwaitingChoice = false;
     Game.popPhase('cancelBustRestart'); // 弹出 BUST，回到之前
     // 用户选继续本场：开之前被拦住的下一局（金额为负也继续，由用户决定）

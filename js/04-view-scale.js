@@ -25,9 +25,9 @@ function fitViewPanX() {
     const vw = window.innerWidth || document.documentElement.clientWidth || 0;
     let dx = 0;
     if (sr.left < VIEW_BREATH_PX) dx = VIEW_BREATH_PX - sr.left; // 左边被切 → 向右移
-    // 右边也别出屏（左侧优先，右边不够时回退）
+    // 右边也别出屏（左侧优先，右边不够时回退：取 max 保住左边的修正量）
     if (vw > 0 && wr.right + dx > vw - VIEW_BREATH_PX) {
-        dx = Math.min(dx, vw - VIEW_BREATH_PX - wr.right);
+        dx = Math.max(dx, vw - VIEW_BREATH_PX - wr.right);
     }
     dx = Math.round(dx * 10) / 10;
     wrapEl.style.setProperty('--view-pan-x', dx + 'px');

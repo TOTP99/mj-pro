@@ -114,12 +114,6 @@ function fillUkeire(scored, hand, exposed) {
         if (s.uk1 === null) s.uk1 = ukeire1Raw(s.rest, exposed);
     }
 }
-function fillUkeire2(scored, hand, exposed) {
-    for (const s of scored) {
-        if (s.uk2 === null) s.uk2 = ukeire2Raw(hand, exposed, s.tile);
-    }
-}
-
 // 字典序比较：返回负数选 a。decider 输出哪一轴定的胜负（给教练理由用）
 function cmpDiscard(a, b, wantDecider) {
     let by = '';

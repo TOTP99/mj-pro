@@ -38,14 +38,6 @@ const AI_TRAITS = {
     }
 };
 
-function prevPlayerOf(p) {
-    const idx = Game.turnOrder.indexOf(p);
-    return Game.turnOrder[(idx + Game.turnOrder.length - 1) % Game.turnOrder.length];
-}
-function acrossPlayerOf(p) {
-    const idx = Game.turnOrder.indexOf(p);
-    return Game.turnOrder[(idx + 2) % Game.turnOrder.length];
-}
 // ---------- 公开信息危险牌模型（替代偷看对手暗牌） ----------
 // 成熟麻将 AI 的做法：只用看得见的信息——
 //   現物（对手打过的牌对他 100% 安全）、筋（suji：他打过 4，则 1/7 的两面听被堵住一侧）、
@@ -110,35 +102,6 @@ function publicDangerVs(player, tile, opp) {
     return base * Math.min(1, 0.2 + threat * 0.8); // 对手越像听牌，危险越实在
     // 调参 2026-09-29：0.3+threat 在 threat=0.7 时直接拉满 1.0，太悲观 → 0.2+0.8*threat 缓和
 }
-// 轴6兜底用：这张牌有几家按公开信息看是危险的（而不只是"有没有"），候选全是炮牌时挑数字最小的那张
-function dangerCount(player, tile) {
-    return Game.turnOrder.filter(p => p !== player && publicDangerVs(player, tile, p) >= 0.5).length;
-}
-// 轴7a：这张牌会不会让下家吃/碰（公开信息版：不再读下家暗牌）
-// 下家是"你"时不受此轴约束——喂不喂你不算AI的"位置感"问题（沿用原规则）
-function feedsXiajia(player, tile) {
-    const next = nextPlayerOf(player);
-    if (next === 'bottom') return false;
-    if (estimateTenpaiRisk(next) >= 1.0) return false; // 下家已听牌相，危险度已由危险牌模型覆盖，这里不重复算
-    if (Game.exposedMelds[next].length >= 3) return false;
-    const seen = Game.tileSeenCount(tile) + (Game.hands[player] || []).filter(t => t === tile).length;
-    if (seen >= 3) return false; // 场上快没了，喂不出来
-    const sameDiscarded = countDiscardsOf(next, tile);
-    if (sameDiscarded >= 2) return false; // 他扔过2张，碰不成了
-    const suit = Game.tileSuit(tile);
-    if (suit === '字') return sameDiscarded === 0; // 字牌：没扔过就可能在握对子等碰
-    // 数牌：他在做这个花色吗（副露带该花色，或已有副露且该花色一张没扔=在憋）
-    let buildingSuit = false;
-    for (const m of Game.exposedMelds[next]) {
-        if (m.tiles.some(t => Game.tileSuit(t) === suit)) { buildingSuit = true; break; }
-    }
-    if (!buildingSuit && Game.exposedMelds[next].length > 0) {
-        const suitDisc = Game.discardPile.filter(d => d.player === next && Game.tileSuit(d.tile) === suit).length;
-        buildingSuit = suitDisc === 0;
-    }
-    return buildingSuit;
-}
-
 // 检查某玩家打出这张牌，是否会点炮给别的玩家（公开信息版：不再读对手暗牌，
 // 改用危险度模型；给"这一刻打出去是否危险"一个诚实估计）
 function isTileDangerousFor(player, tile) {
@@ -162,35 +125,6 @@ function estimateTenpaiRisk(opponent) {
         if (midCount === recent.length) risk += 0.3; // 连续切中张：该扔的边张/字牌早扔完了，牌型收紧
     }
     return Math.min(risk, 1.2);
-}
-
-// 轴：速度 vs 牌值——粗略估一下这手牌大概能算多大，不追求精确，只用来在"求快"和"求大"间做取舍
-function estimateHandValue(hand, exposed) {
-    let mult = 1;
-    const allTiles = [...hand, ...exposed.flatMap(m => m.tiles)];
-    const suits = new Set(allTiles.map(Game.tileSuit));
-    if (isGoingForTriplets(hand)) mult += 1; // 碰碰胡苗头
-    const numSuits = [...suits].filter(s => s !== '字');
-    if (numSuits.length === 1 && !suits.has('字')) mult += 2; // 清一色苗头
-    else if (numSuits.length === 1) mult += 1; // 混一色苗头
-    mult += exposed.filter(m => m.type === 'gang').length; // 已经杠过的，牌越来越大
-    const yaojiuCount = allTiles.filter(t => { const r = Game.tileRank(t), s = Game.tileSuit(t); return s === '字' || r === 1 || r === 9; }).length;
-    if (allTiles.length && yaojiuCount / allTiles.length >= 0.5) mult += 0.5; // 幺九多，字牌/幺九加成有戏
-    return mult;
-}
-
-// 在保留等级最低（最优先舍弃）的档位里，优先选不会点炮的牌；避炮的松紧度按性格调整：
-// 保守=不惜多跳档也要找安全牌；激进=只在最该舍弃那档找，找不到就照打求效率；精明=折中，最多跳3档
-// 牌墙剩余量的紧迫感：越接近荒牌墙，大家都更求稳（多跳几档也要找安全牌）
-function wallUrgencyBonus(style, wcConfOverride) {
-    const remaining = Game.deck.length - Game.DEAD_WALL;
-    const learn = Game.aiLearn.confidence[style] || {};
-    const wcConf = wcConfOverride !== undefined ? wcConfOverride : (learn.wallCaution || 0);
-    const wcDelta = wcConf >= 1.5 ? 2 : (wcConf <= -1.5 ? -2 : 0); // 学习部分：在静态阈值上再多/少2张
-    const at = Math.max(2, (AI_TRAITS[style] || AI_TRAITS.shrewd).wallCautionAt + wcDelta);
-    if (remaining <= Math.round(at / 2)) return 3;
-    if (remaining <= at) return 1;
-    return 0;
 }
 
 // 给定手牌+副露，若已是听牌形态，返回可胡的牌列表，否则 []

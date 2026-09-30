@@ -126,14 +126,15 @@ function setAssistYN(key, val) {
     syncAssistYN(key);
     if (key === 'dangerHint') Game.requestRender('setAssistYN/dangerHint'); // 标记开关变化即时生效
 }
-function syncAssistYN(key) {
-    const row = document.querySelector('.rule-row[data-assist="' + key + '"]');
+function syncYnRow(attr, key, on) {
+    const row = document.querySelector('.rule-row[' + attr + '="' + key + '"]');
     if (!row) return;
-    const on = !!Game.assist[key];
+    on = !!on;
     row.querySelectorAll('.yn-seg button').forEach(function (b) {
         b.classList.toggle('sel', (b.getAttribute('data-yn') === '1') === on);
     });
 }
+function syncAssistYN(key) { syncYnRow('data-assist', key, Game.assist[key]); }
 function syncAssistUI() { Object.keys(DEFAULT_ASSIST).forEach(syncAssistYN); }
 Game.setAssistYN = setAssistYN;
 Game.syncAssistUI = syncAssistUI;
@@ -233,14 +234,7 @@ function setRuleYN(key, val) {
     refreshRuleExclusions();
 }
 
-function syncRuleYN(key) {
-    const row = document.querySelector('.rule-row[data-rule="' + key + '"]');
-    if (!row) return;
-    const on = !!Game.rulesConfig[key];
-    row.querySelectorAll('.yn-seg button').forEach(function (b) {
-        b.classList.toggle('sel', (b.getAttribute('data-yn') === '1') === on);
-    });
-}
+function syncRuleYN(key) { syncYnRow('data-rule', key, Game.rulesConfig[key]); }
 
 function syncRulesUI() {
     Object.keys(DEFAULT_RULES).forEach(syncRuleYN);

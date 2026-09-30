@@ -15,9 +15,11 @@ function isDangerousTile(tile) {
 
 // 危险原因（一句话，给提示用）：说出是哪几家会胡这张牌
 function dangerReason(tile) {
-    if (!isDangerousTile(tile)) return '';
+    if (Game.assist && Game.assist.dangerHint === false) return ''; // 开关=否：不再标炮牌
+    const winners = winnersOf(tile);
+    if (!winners.length) return '';
     const oppName = { top: '对家', left: '上家', right: '下家' };
-    return winnersOf(tile).map(p => oppName[p]).join('、') + '听这张牌，打出去会点炮';
+    return winners.map(p => oppName[p]).join('、') + '听这张牌，打出去会点炮';
 }
 
 function buildDeck() {

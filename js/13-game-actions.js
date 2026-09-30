@@ -106,7 +106,9 @@ function callChi() {
 }
 
 function chooseChiCombo(i) {
-    const combo = Game.pendingClaim.chiCombos[i];
+    const combos = Game.pendingClaim && Game.pendingClaim.chiCombos;
+    const combo = combos && combos[i];
+    if (!combo) return;
     Game.$('chi-choice-modal').classList.remove('show');
     executeChi(combo);
     Game.setPhase(Game.PHASE.WAIT_DISCARD, 'chooseChiCombo');
@@ -374,7 +376,7 @@ Game.initDicePips();
 // （viewScale/viewPanY 的归零已在 04 加载与 initTablePan 里做过，这里只显式复位 CSS 变量）
 document.documentElement.style.setProperty('--view-scale', '1');
 document.documentElement.style.setProperty('--view-pan-y', '0px');
-// 启动：等 DOMContentLoaded（此时全部 17 个脚本已执行完）再决定恢复存档还是显示模式选择。
+// 启动：等 DOMContentLoaded（此时全部 20 个脚本已执行完）再决定恢复存档还是显示模式选择。
 // 4.1 修：resumeFromSave 会走渲染链路，依赖 16/17 的规则函数；之前在 13 加载时同步执行，
 // Game.ruleAllowsSevenPairs 等尚不存在，渲染抛出的 TypeError 会中断本文件尾部的导出，
 // 导致刷新后 Game.handleDiscard 等全部缺失、点牌无反应（一期 IIFE 化引入的回归）。
