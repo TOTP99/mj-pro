@@ -479,3 +479,49 @@
     }
 }
 
+
+/* ===== 破产确认：商业软件风格，紧凑简洁 ===== */
+#bust-modal .bust-box {
+    width: min(86vw, 300px);
+    background: #161d2b;
+    border: 1px solid rgba(212, 175, 55, 0.45);
+    border-radius: 12px;
+    padding: 16px 18px 14px;
+    text-align: center;
+    box-shadow: 0 10px 36px rgba(0, 0, 0, 0.55);
+    transform: none;
+}
+#bust-modal .bust-title {
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--gold, #d4af37);
+    letter-spacing: 0.08em;
+    margin-bottom: 8px;
+}
+#bust-modal .bust-msg {
+    font-size: 13.5px;
+    color: #c9d2e3;
+    line-height: 1.65;
+    margin-bottom: 14px;
+}
+#bust-modal .bust-actions {
+    display: flex;
+    gap: 10px;
+}
+#bust-modal .bust-actions button {
+    flex: 1 1 0;
+    padding: 9px 0;
+    font-size: 14px;
+    border-radius: 8px;
+    border: 1px solid rgba(212, 175, 55, 0.5);
+    background: transparent;
+    color: #e8d9ae;
+    cursor: pointer;
+}
+#bust-modal .bust-actions button:active { transform: scale(0.97); }
+#bust-modal .bust-actions .bust-primary {
+    background: #b8912f;
+    border-color: #b8912f;
+    color: #191307;
+    font-weight: 700;
+}

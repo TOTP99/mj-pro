@@ -393,3 +393,9 @@
     }
     /* 横屏不使用 tile-tooltip */
     body:not(.portrait-layout) #tile-tooltip { display: none !important; }
+    /* 竖屏：AI 吃/碰/杠/胡中央大字（.feel-banner）下移到废牌池内，字体放大 50%；
+       横屏保持原样（top:36%、原字号）。 */
+    body.portrait-layout .feel-banner {
+        top: 50%;
+        font-size: calc(var(--fs-d1, 28px) * 1.5);
+    }

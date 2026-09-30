@@ -5,7 +5,7 @@
     #mode-select-modal .hu-box,
     #rules-modal .hu-box,
     #amount-modal .hu-box,
-    #bust-modal .hu-box,
+    #bust-modal .bust-box,
     #round-modal .hu-box {
         transform: none;
         transform-origin: center center;
