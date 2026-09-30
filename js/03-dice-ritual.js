@@ -284,7 +284,8 @@ function stepDie(t, dt, now) {
                 t.vry += (Math.random() * 240 - 120);
                 playDiceBounce(Math.min(1, impact / 950));
             } else {
-                // 落定：ease 转到目标面
+                // 落定：位置咬住桌心目标点（消除弹跳带来的水平漂移），再 ease 转到目标面
+                t.x = t.floorX; t.y = t.floorY;
                 t.state = 'settle';
                 t.settleT0 = now;
                 const end = DICE.FACE_ROT[t.face];
