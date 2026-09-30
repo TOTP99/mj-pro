@@ -169,16 +169,29 @@ function decayAiLearn() {
 // 因为这张牌很可能是被那次吃碰打乱了手牌节奏才被迫打出的，不是这些轴自己选错了
 // 样本稳定：|score|<0.25 视为噪声不记；更新幅度随样本数递减（早期学得快、后期稳）；
 // 单局单轴变化封顶 ±0.6，防止一局极端结果把某条轴打穿
+// 性格学习率（AI 3.0）：激进反应快、保守求稳、精明居中——发展性格，不磨平性格
+const LEARN_RATE = { conservative: 0.8, aggressive: 1.2, shrewd: 1.0 };
+// 单轴记分（position 名次轴等需要单独归因时用）
+function applySingleAxisScore(player, style, axis, score) {
+    if (Math.abs(score) < 0.25) return; // 噪声过滤
+    const n = Game.aiLearn.samples[style][axis] || 0;
+    const stability = Math.min(1, 12 / (12 + n)); // 样本越多学得越慢
+    let delta = score * stability * (LEARN_RATE[style] || 1);
+    delta = Math.max(-0.6, Math.min(0.6, delta)); // 单局封顶
+    Game.aiLearn.confidence[style][axis] = clampConfidence(Game.aiLearn.confidence[style][axis] + delta);
+    Game.aiLearn.samples[style][axis] = n + 1;
+}
 function applyAxisScore(player, style, score, justCalled) {
     const used = Game.aiAxisUsed[player];
     if (!used || used.size === 0) return;
     if (Math.abs(score) < 0.25) return; // 噪声过滤：不痛不痒的局不调整
     const CALL_AXES = new Set(['callAggr', 'chaseSpecial']);
     for (const axis of used) {
+        if (axis === 'position') continue; // 名次轴单独归因（看名次变化），不走通用分
         const weight = justCalled ? (CALL_AXES.has(axis) ? 1.4 : 0.4) : 1;
         const n = Game.aiLearn.samples[style][axis] || 0;
         const stability = Math.min(1, 12 / (12 + n)); // 样本越多学得越慢
-        let delta = score * weight * stability;
+        let delta = score * weight * stability * (LEARN_RATE[style] || 1);
         delta = Math.max(-0.6, Math.min(0.6, delta)); // 单局封顶
         Game.aiLearn.confidence[style][axis] = clampConfidence(Game.aiLearn.confidence[style][axis] + delta);
         Game.aiLearn.samples[style][axis] = n + 1;
@@ -195,6 +208,59 @@ function resetAiLearn() {
     resetAiDefenseMode();
 }
 
+// ---------- AI 3.0 名次感（position 轴） ----------
+// 每局开局记四家名次快照，结算时看名次变化：名次上升=名次感用对了，下降=用错了
+Game.rankAtDeal = null;
+Game.snapshotRankAtDeal = function() {
+    const scores = Game.turnOrder.map(p => ({ p: p, s: (Game.scores && Game.scores[p]) || 0 }));
+    scores.sort((a, b) => b.s - a.s);
+    const out = {};
+    scores.forEach((x, i) => { out[x.p] = i; }); // 0=第1名
+    Game.rankAtDeal = out;
+};
+Game.rankNow = function(player) {
+    const scores = Game.turnOrder.map(p => ({ p: p, s: (Game.scores && Game.scores[p]) || 0 }));
+    scores.sort((a, b) => b.s - a.s);
+    return scores.findIndex(x => x.p === player);
+};
+
+// ---------- AI 3.0 性格分化度追踪 ----------
+// 每局按性格记关键行为（吃碰/点炮/胡牌/轮数/番数），算三性格标准差，
+// 看学习有没有把三家磨成一个模子（只追踪不落盘，验证用）
+function freshStyleStats() {
+    const o = {};
+    for (const s of ['conservative', 'aggressive', 'shrewd'])
+        o[s] = { games: 0, calls: 0, dealIns: 0, wins: 0, winTurns: 0, winFan: 0 };
+    return o;
+}
+Game.aiStyleStats = freshStyleStats();
+// 吃/碰/杠一次（分化度用）
+Game.trackAiCall = function(player) {
+    const style = Game.aiPersonality ? Game.aiPersonality[player] : null;
+    if (style && Game.aiStyleStats[style]) Game.aiStyleStats[style].calls += 1;
+};
+// 性格分化度：三性格在 吃碰率/点炮率/胜率/平均胡牌轮数/平均番数 上的标准差
+Game.aiDivergence = function() {
+    const styles = ['conservative', 'aggressive', 'shrewd'];
+    const out = {};
+    const metrics = ['callRate', 'dealInRate', 'winRate', 'avgWinTurns', 'avgFan'];
+    for (const m of metrics) {
+        const vals = styles.map(s => {
+            const st = Game.aiStyleStats[s];
+            if (!st || !st.games) return 0;
+            if (m === 'callRate') return st.calls / st.games;
+            if (m === 'dealInRate') return st.dealIns / st.games;
+            if (m === 'winRate') return st.wins / st.games;
+            if (m === 'avgWinTurns') return st.wins ? st.winTurns / st.wins : 0;
+            return st.wins ? st.winFan / st.wins : 0; // avgFan
+        });
+        const mean = vals.reduce((a, b) => a + b, 0) / vals.length;
+        const sd = Math.sqrt(vals.reduce((a, b) => a + (b - mean) * (b - mean), 0) / vals.length);
+        out[m] = { conservative: vals[0], aggressive: vals[1], shrewd: vals[2], std: sd };
+    }
+    return out;
+};
+
 // 一局定输赢后调用。meta: { fan, turns }（自摸/点炮都算胡，不再区分对"这局的分"的影响——
 // 三种性格各自在乎的东西已经在 scoreHandForStyle 里体现了）
 function learnFromWin(winnerPlayer, payerPlayer, meta) {
@@ -207,6 +273,22 @@ function learnFromWin(winnerPlayer, payerPlayer, meta) {
         const score = scoreHandForStyle(style, { role, fan: meta.fan, turns: meta.turns });
         const justCalled = role === 'payer' && Game.lastCallTurn[p] === Game.handTurnCount;
         applyAxisScore(p, style, score, justCalled);
+        // 名次轴单独归因：这局名次上升=名次感用对了（只在用过 position 轴时记）
+        if (Game.aiAxisUsed[p] && Game.aiAxisUsed[p].has('position') && Game.rankAtDeal) {
+            const was = Game.rankAtDeal[p];
+            const now = Game.rankNow(p);
+            if (was !== undefined && now >= 0) {
+                const rankDelta = was - now; // 正=名次上升
+                applySingleAxisScore(p, style, 'position', rankDelta * 0.4);
+            }
+        }
+        // 分化度追踪
+        const st = Game.aiStyleStats[style];
+        if (st) {
+            st.games += 1;
+            if (role === 'winner') { st.wins += 1; st.winTurns += (meta.turns || 0); st.winFan += (meta.fan || 0); }
+            if (role === 'payer') st.dealIns += 1;
+        }
     }
     resetAiAxisUsed();
     resetLastCallTurn();
@@ -222,6 +304,8 @@ function learnFromDraw(tenpaiPlayers) {
         if (!style) continue;
         const score = scoreHandForStyle(style, { role: 'draw', tenpai: tenpaiPlayers.includes(p) });
         applyAxisScore(p, style, score);
+        const st = Game.aiStyleStats[style];
+        if (st) st.games += 1;
     }
     resetAiAxisUsed();
     resetLastCallTurn();

@@ -329,9 +329,17 @@ function shouldAiPeng(p, tile, overrides) {
     catch (e) { return false; }
     if (inDefense && r.shanAfter >= r.shanBefore) return false; // 转守：碰完向听没改善就别碰
 
-    // 向听硬轨：碰/杠不能把牌打烂（保守最严）
-    if (style === 'conservative' && r.shanAfter > r.shanBefore) return false;
-    if (style !== 'conservative' && r.shanAfter > r.shanBefore + 1) return false;
+    // 向听硬轨 + 特殊牌型追逐（AI 3.0 性格引擎）：
+    // 静态 chaseSpecialSlack 是"冲碰碰胡时额外容忍的向听损失档数"，学习轴 chaseSpecial 是增量
+    const trait = Game.aiTraitOf(p);
+    const chasing = isGoingForTriplets(hand) ? 1 : 0;
+    const baseSlack = style === 'conservative' ? 0 : 1;
+    const chaseSlack = chasing ? Math.max(0, Math.min(2, (trait.chaseSpecialSlack || 0) + (chaseConf || 0))) : 0;
+    if (r.shanAfter > r.shanBefore + baseSlack + chaseSlack) return false;
+
+    // 进张保留 veto（ukeireKeepAt）：碰/杠后进张掉得太多就别叫（保守：腰斩就 veto）
+    const keepAt = trait.ukeireKeepAt;
+    if (keepAt > 0 && r.ukBefore > 0 && r.ukAfter < r.ukBefore * keepAt) return false;
 
     // 将保护：碰掉唯一的对子等于拆将（中发白对子本身可作将，不在此限）
     const pairCount = h => {
@@ -346,7 +354,6 @@ function shouldAiPeng(p, tile, overrides) {
     if (pairCount(afterSim) === 0 && pairCount(hand) > 0 && !isDragon) return false;
 
     // EV 偏移：轴1 + 轴3（冲碰碰胡时）− 副露数量成本（保守最忌多副露）
-    const chasing = isGoingForTriplets(hand) ? 1 : 0;
     const meldCost = exposed.length * (style === 'conservative' ? 80 : style === 'shrewd' ? 50 : 30);
     const off = conf * 60 + (chasing ? chaseConf * 40 : 0) - meldCost;
     return (r.evCall + off) > r.evPass;
@@ -401,6 +408,10 @@ function shouldAiChi(player, tile, combo) {
     // 向听硬轨：吃不能把牌打烂（保守最严；沿用旧性格线）
     if (style === 'conservative' && r.shanAfter > r.shanBefore) return false;
     if (style !== 'conservative' && r.shanAfter > r.shanBefore + 1) return false;
+    // 进张保留 veto（ukeireKeepAt）：吃后进张掉得太多就别吃（保守：腰斩就 veto）
+    const trait = Game.aiTraitOf(player);
+    const keepAt = trait.ukeireKeepAt;
+    if (keepAt > 0 && r.ukBefore > 0 && r.ukAfter < r.ukBefore * keepAt) return false;
     const open = Game.isKaimen(exposed);
     // EV 偏移：未开门时开门本身值钱（没开门自摸/点炮×2惩罚）→ +120；
     // 已有副露越多，再吃的信息代价越大 → 按性格扣减（保守最忌多副露）
@@ -439,6 +450,7 @@ function findAiChi(discarder, tile) {
 
 function aiPengClaim(p, tile) {
     Game.lastCallTurn[p] = Game.handTurnCount; // 归因细化：记这次碰/杠发生在第几巡
+    if (Game.trackAiCall) Game.trackAiCall(p); // AI 3.0 分化度：记一次吃碰
     const cnt = Game.hands[p].filter(x => x === tile).length;
     // 凑齐3张暗的+这张：EV 比较"明杠（补牌期望+番）"vs"碰（手牌灵活）"，取高者；否则碰
     let useGang = cnt >= 3;
@@ -471,6 +483,7 @@ function aiPengClaim(p, tile) {
 
 function aiChiClaim(p, tile, combo) {
     Game.lastCallTurn[p] = Game.handTurnCount; // 归因细化：记这次吃发生在第几巡
+    if (Game.trackAiCall) Game.trackAiCall(p); // AI 3.0 分化度：记一次吃碰
     Game.TileFlow.claim(p, 'chi', combo, Game.tileCompare);
     Game.currentIndex = Game.turnOrder.indexOf(p);
     Game.logFlow(Game.nameOf(p) + ' 吃了 ' + Game.tileGlyph(tile));
@@ -558,6 +571,12 @@ function advanceTurn() {
 
 /* ---- 本文件对外接口（IIFE 收敛，唯一出口） ---- */
 Game.aiPersonality = aiPersonality;
+Game.aiTraits = AI_TRAITS;
+// 按玩家取静态性格参数（AI 3.0 性格引擎：静态底色 + 学习增量）
+Game.aiTraitOf = function(player) {
+    const style = aiPersonality[player] || 'shrewd';
+    return AI_TRAITS[style] || AI_TRAITS.shrewd;
+};
 Game.publicDangerVs = publicDangerVs;
 Game.getWinningTilesOf = getWinningTilesOf;
 Game.chooseAiDiscardTile = chooseAiDiscardTile;

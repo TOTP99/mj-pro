@@ -28,6 +28,7 @@ function initGame() {
     Game.resetLastCallTurn();
     Game.resetAiDefenseMode();
     Game.handTurnCount = 0;
+    if (Game.snapshotRankAtDeal) Game.snapshotRankAtDeal(); // AI 3.0 名次轴：开局记四家名次
     Game.currentIndex = Game.turnOrder.indexOf(Game.dealer);
     Game.resetFlowLog();
     Game.TileFlow.deal(tileCompare);
@@ -235,6 +236,7 @@ function confirmReveal(reveal) {
     const ctx = Game.pendingRevealContext;
     Game.pendingRevealContext = null;
     if (reveal) {
+        if (!kind) return; // 防御：pendingReveal 为空时不执行亮牌
         if (!applyReveal('bottom', kind)) return; // 补牌时牌墙已尽，流局已处理
         // 杠后补牌时亮出东南西北又补了一张：之后胡牌不再算杠上开花
         if (ctx === 'replacement' && kind === 'winds') Game.clearKongFlags();
@@ -261,7 +263,9 @@ function continueAfterFirstTurnCheck(player) {
             Game.winner = player;
             const winTile = Game.lastDrawnTile[player];
             const before = [...Game.hands[player]];
-            before.splice(before.indexOf(winTile), 1);
+            const wi = before.indexOf(winTile);
+            if (wi < 0) { logFlow('结算异常：手牌中找不到自摸的牌'); return; }
+            before.splice(wi, 1);
             const bonus = Game.scoreWinningHand(before, winTile, Game.exposedMelds[player], Game.lastDrawWasFinal[player]);
             Game.applyKongBonuses(bonus, player, 'selfdraw', null);
             const result = Game.settleScore(player, 'selfdraw', null, bonus);
@@ -327,7 +331,9 @@ function executeSelfGang() {
             Game.gameOver = true;
             Game.winner = robber;
             const before = [...Game.hands[robber]];
-            before.splice(before.indexOf(tile), 1);
+            const ri = before.indexOf(tile);
+            if (ri < 0) { logFlow('结算异常：抢杠牌不在胡牌者手牌中'); return; }
+            before.splice(ri, 1);
             const bonus = Game.scoreWinningHand(before, tile, Game.exposedMelds[robber], false);
             // 抢杠按点炮结算（不加杠后点炮；抢杠本身已是特殊）
             const result = Game.settleScore(robber, 'dianpao', 'bottom', bonus);

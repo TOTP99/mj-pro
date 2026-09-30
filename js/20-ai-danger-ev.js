@@ -214,6 +214,8 @@ function discardEV(hand, exposed, player, discard) {
 
 // ---------- 攻守决策 ----------
 // 返回 'attack' | 'fold'。基于整手牌的 EV 比较：全力攻 vs 全力守
+// 攻守阈值（AI 3.0 性格引擎）：静态 riskDefenseAt 是底色（越低越神经质、越容易转守），
+// 学习轴 defense 是增量（学到的防守倾向）；顺位 bias（名次感）照常参与
 function pushFold(hand, exposed, player) {
     // 攻击 EV：按当前向听/进张估算
     const pw = pWin(hand, exposed, player);
@@ -227,12 +229,23 @@ function pushFold(hand, exposed, player) {
     // 守的 EV ≈ −minDanger×dealLoss + 流局听牌价值（简化）
     const dl = dealLoss(player, hand[0]);
     const foldEV = -minDanger * dl * 0.5 + 300; // 流局听牌安慰分
-    // 顺位修正（P1）：大领先偏守，大落后偏攻
+    const style = Game.aiPersonality ? (Game.aiPersonality[player] || 'shrewd') : 'shrewd';
+    const trait = Game.aiTraitOf ? Game.aiTraitOf(player) : null;
+    const learned = (Game.aiLearn && Game.aiLearn.confidence && Game.aiLearn.confidence[style]) || {};
+    // riskDefenseAt 越低，攻击侧打折越多，越容易转守（保守 0.75 / 精明 0.95 / 激进 1.15）
+    const atkScale = ((trait && trait.riskDefenseAt) || 1) - (learned.defense || 0) * 0.1;
+    // 顺位修正（名次感）：大领先偏守，大落后偏攻
     let bias = 0;
     try {
         bias = Game.positionBias ? Game.positionBias(player) : 0;
     } catch (e) {}
-    return (attackEV + bias) >= foldEV ? 'attack' : 'fold';
+    const stance = (attackEV * atkScale + bias) >= foldEV ? 'attack' : 'fold';
+    // 归因：防守轴 / 名次轴真正参与了这次攻守选择才记
+    try { if (Game.markAxisUsed) {
+        if (learned.defense) Game.markAxisUsed(player, 'defense');
+        if (bias !== 0) Game.markAxisUsed(player, 'position');
+    } } catch (e) {}
+    return stance;
 }
 
 // ---------- 综合弃牌决策（19 字典序 + 20 EV） ----------
@@ -255,16 +268,20 @@ function chooseDiscard(player) {
     return best.tile;
 }
 
-// ---------- 顺位修正 ----------
+// ---------- 顺位修正（名次感） ----------
 // 最后两局：第4名强攻（+EV偏向攻击），首位大领先偏守。平时返回 0。
+// AI 3.0 学习轴 position：调整名次感的响应强度（正=更看重名次，负=更无视名次）
 function positionBias(player) {
     const games = (Game.aiLearn && Game.aiLearn.games) || 0;
     if (games < 14) return 0; // 16 局制，最后两局才看顺位
+    const style = Game.aiPersonality ? (Game.aiPersonality[player] || 'shrewd') : 'shrewd';
+    const posLearn = (Game.aiLearn && Game.aiLearn.confidence && Game.aiLearn.confidence[style] && Game.aiLearn.confidence[style].position) || 0;
+    const strength = Math.max(0.2, 1 + posLearn * 0.3); // 学到的名次感强度，保底 0.2 不归零
     const scores = Game.turnOrder.map(p => ({ p: p, s: (Game.scores && Game.scores[p]) || 0 }));
     scores.sort((a, b) => b.s - a.s);
     const rank = scores.findIndex(x => x.p === player);
-    if (rank === 3) return 800; // 第4名：强攻
-    if (rank === 0 && scores[0].s - scores[1].s >= 3000) return -800; // 首位大领先：偏守
+    if (rank === 3) return 800 * strength; // 第4名：强攻
+    if (rank === 0 && scores[0].s - scores[1].s >= 3000) return -800 * strength; // 首位大领先：偏守
     return 0;
 }
 Game.positionBias = positionBias;
@@ -349,6 +366,12 @@ function meldCallEV(player, tile, kind, combo) {
     const exposedAfter = exposed.concat([{ type: meldType, tiles: meldTiles }]);
     const shanAfter = Game.estimateShanten(handAfter, exposedAfter);
     const evCallState = bestStateEV(handAfter, exposedAfter, player);
+    // 进张保留（AI 3.0 性格轴 ukeireKeepAt 用）：叫前后的一阶进张
+    let ukBefore = 0, ukAfter = 0;
+    try {
+        ukBefore = Game.ukeire1Raw(hand, exposed);
+        ukAfter = Game.ukeire1Raw(handAfter, exposedAfter);
+    } catch (e) {}
     const deckLen = Game.deck ? Game.deck.length : 70;
     const deckF = Math.min(1, deckLen / 70); // 牌墙开局 84 张
     const infoPenalty = 60 * deckF * (kind === 'chi' ? 1.2 : 1.0);
@@ -364,6 +387,7 @@ function meldCallEV(player, tile, kind, combo) {
         take: evCall > evPass.ev,
         evCall: evCall, evPass: evPass.ev,
         shanBefore: shanBefore, shanAfter: shanAfter,
+        ukBefore: ukBefore, ukAfter: ukAfter,
         callDetail: evCallState.detail, passDetail: evPass.detail,
     };
 }
@@ -384,8 +408,13 @@ Game.chooseDiscard = chooseDiscard;
 // 若转守后 EV 推翻了字典序头名则为 'ev'。教练模式用它生成"为什么"。
 function chooseDiscardCore(hand, exposed, player, style) {
     const axes = (Game.aiLearn && Game.aiLearn.confidence && Game.aiLearn.confidence[style]) || {};
+    // AI 3.0 性格引擎：静态底色（AI_TRAITS）+ 学习增量（aiLearn.confidence）
+    const trait = Game.aiTraitOf ? Game.aiTraitOf(player) : null;
+    const T = trait || { wallCautionAt: 10, honorHoldBias: 0, cannonHoldTier: 1, blockXiajiaTier: 1 };
     const uniq = [...new Set(hand)];
     const scored = [];
+    // 下家（顺位下一位）：不喂下家轴只盯他
+    const xiajia = Game.nextPlayerOf ? Game.nextPlayerOf(player) : null;
     for (const t of uniq) {
         const s = Game.scoreDiscard(hand, exposed, player, t);
         if (!s) continue;
@@ -394,14 +423,30 @@ function chooseDiscardCore(hand, exposed, player, style) {
         const suit = Game.tileSuit(t);
         let dangerW = 1 + (axes.defense || 0) * 0.4;
         const deckLen = Game.deck ? Game.deck.length : 70;
-        if (deckLen < 20) dangerW *= 1 + (axes.wallCaution || 0) * 0.3;
+        // 残局求稳：静态 wallCautionAt 定"多早开始慌"，学习轴 wallCaution 定"慌多狠"
+        const cautionAt = T.wallCautionAt || 10;
+        if (deckLen < cautionAt) {
+            const urgency = 1 - deckLen / cautionAt; // 0~1，越接近流局越急
+            dangerW *= 1 + urgency * 0.3 + (axes.wallCaution || 0) * 0.3;
+        }
+        // 炮牌截留：静态 cannonHoldTier 是底色，学习轴 cannonHold 是增量
+        const cannonTier = (T.cannonHoldTier || 0) + (axes.cannonHold || 0);
+        if (cannonTier > 0) dangerW *= 1 + cannonTier * 0.15;
         s.dangerAdj = s.danger * dangerW;
-        s.keepAdj = s.keepValue + (suit === '字' ? (axes.honorHold || 0) * 2 : 0);
+        // 不喂下家：这张牌对下家的危险度，性格越谨慎加成越多（激进 0=不care）
+        if (T.blockXiajiaTier > 0 && xiajia) {
+            let xd = 0;
+            try { xd = Game.publicDangerVs(player, t, xiajia) || 0; } catch (e) {}
+            s.dangerAdj += xd * T.blockXiajiaTier * 0.3;
+        }
+        // 字牌保留：静态 honorHoldBias 是底色（保守-1早丢/激进+1爱留），学习轴 honorHold 是增量
+        s.keepAdj = s.keepValue + (suit === '字' ? ((T.honorHoldBias || 0) * 2 + (axes.honorHold || 0) * 2) : 0);
         scored.push(s);
         try { if (Game.markAxisUsed) {
             if (axes.defense) Game.markAxisUsed(player, 'defense');
             if (axes.honorHold && suit === '字') Game.markAxisUsed(player, 'honorHold');
-            if (axes.wallCaution && deckLen < 20) Game.markAxisUsed(player, 'wallCaution');
+            if (axes.wallCaution && deckLen < cautionAt) Game.markAxisUsed(player, 'wallCaution');
+            if (axes.cannonHold) Game.markAxisUsed(player, 'cannonHold');
         } } catch (e) {}
     }
     if (!scored.length) return null;
