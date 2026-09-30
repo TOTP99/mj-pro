@@ -3,7 +3,7 @@
  * 借鉴成熟麻将游戏的共性做法（雀魂/天凤/MJ 系）：
  *   - 摸牌轻响 + 手牌右端滑入；出牌脆响（4 种随机变体防听觉疲劳）+ 飞牌落定
  *   - 吃/碰/杠各有辨识音 + 中央短横幅，不遮挡牌桌
- *   - AI 出牌 900~1600ms 随机“思考”，从不秒出；动画只用 transform/opacity，
+ *   - AI 出牌 500~900ms 随机“思考”，从不秒出；动画只用 transform/opacity，
  *     绝不阻塞逻辑；prefers-reduced-motion 下跳过飞行
  * 纯装饰层：所有函数在无 AudioContext / 无真实 DOM 时静默 no-op，
  * 不得影响规则、牌数、回合逻辑（仿真环境同样成立）。
@@ -125,7 +125,7 @@ syncSfxButtons(); // 14 先于 18 建按钮：启动时按存档同步一次文�
 
 /* ---------------- 节奏：AI 思考时长（毫秒） ---------------- */
 // 固定偏置 + 随机抖动：像人一样“想一下”，从不秒出，也从不拖沓
-Game.aiThinkMs = function () { return 900 + Math.random() * 700; };
+Game.aiThinkMs = function () { return 500 + Math.random() * 400; }; // 原 900~1600ms，调快为 500~900ms
 
 /* ---------------- 动画 helpers（纯视觉，不碰状态） ---------------- */
 function reducedMotion() {
