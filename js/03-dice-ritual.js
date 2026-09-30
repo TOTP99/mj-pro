@@ -417,7 +417,10 @@ function confirmFullReset() {
     Game.diceSavedClaim = null;
     Game.pendingClaim = null;
     Game.lastSettlement = null;
-    Game.scores = { top: 0, left: 0, right: 0, bottom: 0 };
+    // 清零重启：筹码回到本场初始金额；没设过则默认 50（不再归零）
+    const resetAmt = Math.max(1, Math.floor(Number(Game.fieldInitialAmount) || 50));
+    Game.scores = { top: resetAmt, left: resetAmt, right: resetAmt, bottom: resetAmt };
+    if (Game.fieldAmounts) Game.fieldAmounts = { top: resetAmt, left: resetAmt, right: resetAmt, bottom: resetAmt };
     Game.dealer = 'bottom';
     try {
         localStorage.removeItem(Game.MAHJONG_STORAGE_KEY);

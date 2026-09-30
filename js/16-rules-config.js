@@ -90,8 +90,6 @@ function ruleAllowsSevenPairs() { return isDailyMode() ? false : !!Game.rulesCon
 // kind: 'winds' | 'dragons'（新版已合并为总开关，参数仅保留兼容）；firstTurn: 是否该家首巡
 function ruleAllowsReveal(kind, firstTurn) {
     if (isDailyMode()) return true; // 日常：调用方已限定首巡，沿用旧版
-    // 「中发白第一张亮」选否：首巡不亮中发白（仅首巡，其它时机走下面开关）
-    if (kind === 'dragons' && firstTurn && Game.assist && Game.assist.dragonsFirst === false) return false;
     if (!Game.rulesConfig.revealAllowed) return false; // 总开关关：完全不能亮
     if (Game.rulesConfig.revealAnytime) return true;   // 随时可亮
     if (!Game.rulesConfig.revealFirstTurn) return false;
@@ -101,12 +99,11 @@ function ruleAllowsReveal(kind, firstTurn) {
 // 启动时加载
 loadRulesConfig();
 
-// ---------- 辅助开关（模式选择页）：危险提示 / 教练模式 / 中发白第一张亮 ----------
+// ---------- 辅助开关（模式选择页）：危险提示 / 教练模式 ----------
 // dangerHint   默认是：标出可能点炮的牌；选否则完全不标
 // coachMode    默认否：轮到你时 AI 推荐一张弃牌并给一句话理由
-// dragonsFirst 默认是：中发白凑齐时在首巡（打第一张牌前）亮出；选否则首巡不亮中发白
 const ASSIST_STORAGE_KEY = 'qj_mahjong_new_assist';
-const DEFAULT_ASSIST = { dangerHint: true, coachMode: false, dragonsFirst: true };
+const DEFAULT_ASSIST = { dangerHint: true, coachMode: false };
 Game.assist = { ...DEFAULT_ASSIST };
 function loadAssist() {
     try {

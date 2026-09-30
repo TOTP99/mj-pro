@@ -1,5 +1,7 @@
 ;(function(){
 function startGame() {
+    // 破产确认中：等用户在破产弹窗选"重新开场/继续本场"，不抢开新局
+    if (Game.bustAwaitingChoice) return;
     Game.rotateDealer();
     Game.initGame();
     // 结算里手动调过的积分、新一局的庄家/牌面立刻落盘，不等 400ms 防抖

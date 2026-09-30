@@ -380,8 +380,6 @@ function nextTurn() {
         // 日常：旧版首巡亮牌逻辑 + 用户规则：已有 3 组副露不许第 4 组（亮牌也不行）
         if (typeof Game.isDailyMode === 'function' && Game.isDailyMode()) {
             let kind = Game.exposedMelds[player].length >= 3 ? null : checkWindDragonPattern(Game.hands[player]);
-            // 「中发白第一张亮」选否：首巡不亮中发白（东南西北不受影响）
-            if (kind === 'dragons' && Game.assist && Game.assist.dragonsFirst === false) kind = null;
             if (kind) {
                 if (player === 'bottom') {
                     offerReveal(kind);

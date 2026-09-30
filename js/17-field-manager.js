@@ -11,6 +11,7 @@ Game.fieldGameCount = 0;
 Game.fieldActive = false; // 是否已开场（选过金额）
 Game.fieldInitialAmount = 50; // 本场开场时的初始金额（同金额重选不重开场）
 Game.bustRestartPending = false; // 输光重开：选完金额后走骰子调庄（而非直接开局）
+Game.bustAwaitingChoice = false; // 破产确认中：等用户选"重新开场/继续本场"，此期间禁止 startGame 抢开新局
 
 function loadField() {
     try {
@@ -63,7 +64,9 @@ function onFieldGameSettled(payouts) {
     // 输光检查：任何一家金额变负
     const busted = ['top', 'left', 'right', 'bottom'].find(p => Game.fieldAmounts[p] < 0);
     if (busted) {
-        // 弹确认，不直接重开
+        // 弹确认，不直接重开；先立 flag，结算弹窗点"确定"/流局点"下一局"时 startGame 会被拦住，
+        // 等用户在破产弹窗里做出选择后才继续（修：以前 800ms 后弹框时新局已经开打了）
+        Game.bustAwaitingChoice = true;
         setTimeout(() => showBustModal(busted), 800);
         return;
     }
@@ -81,24 +84,27 @@ function onFieldDraw() {
 function showBustModal(player) {
     const name = typeof Game.nameOf === 'function' ? Game.nameOf(player) : player;
     const el = Game.$('bust-modal');
-    if (!el) { resetFieldAfterBust(); return; }
+    if (!el) { Game.bustAwaitingChoice = false; resetFieldAfterBust(); return; }
     // 覆盖式确认：800ms 后弹出时可能已开新局，压栈恢复才准确
     Game.pushPhase(Game.PHASE.BUST, 'showBustModal');
     const msg = Game.$('bust-message');
-    if (msg) msg.innerText = name + ' 金额已输光（' + Game.fieldAmounts[player] + '），是否重新开场？';
+    if (msg) msg.innerText = name + ' 的筹码已输光（' + Game.fieldAmounts[player] + '）';
     el.classList.add('show');
 }
 
 function confirmBustRestart() {
     Game.$('bust-modal').classList.remove('show');
+    Game.bustAwaitingChoice = false;
     Game.phaseStack.length = 0; // 确认重开：丢弃破产压栈，走选金额线性流程
     resetFieldAfterBust();
 }
 
 function cancelBustRestart() {
     Game.$('bust-modal').classList.remove('show');
-    Game.popPhase('cancelBustRestart'); // 回到弹窗下的原 phase（结算页或已开的新局）
-    // 用户取消：继续当前场（金额为负也继续，由用户决定）
+    Game.bustAwaitingChoice = false;
+    Game.popPhase('cancelBustRestart'); // 弹出 BUST，回到之前
+    // 用户选继续本场：开之前被拦住的下一局（金额为负也继续，由用户决定）
+    Game.startGame();
 }
 
 function resetFieldAfterBust() {
