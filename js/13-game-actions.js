@@ -372,7 +372,7 @@ document.addEventListener('contextmenu', (e) => {
     }
 }, true);
 Game.initDicePips();
-// 横屏 default = 一直以来的原始大小；黄线滑杆/按住拖动都不持久化，刷新即默认
+// 横屏 default = 一直以来的原始大小；＋/－/按住拖动都不持久化，刷新即默认
 // （viewScale/viewPanY 的归零已在 04 加载与 initTablePan 里做过，这里只显式复位 CSS 变量）
 document.documentElement.style.setProperty('--view-scale', '1');
 document.documentElement.style.setProperty('--view-pan-y', '0px');

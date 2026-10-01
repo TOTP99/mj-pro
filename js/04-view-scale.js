@@ -1,9 +1,9 @@
 ;(function(){
-// ---------- 横屏牌桌大小（手动滑杆） ----------
-// 现在 default = 自动适配大小（见 autoFitTable，滑杆是相对它的微调）；下面 fitViewPanX 仍负责左侧栏防切边：
+// ---------- 横屏牌桌大小（手动 ＋/－） ----------
+// 现在 default = 自动适配大小（见 autoFitTable，＋/－ 是相对它的微调）；下面 fitViewPanX 仍负责左侧栏防切边：
 // （旧说明）default = 100% 即原始大小（scale=1），位置由 fitViewPanX 智能计算：
-//   左侧栏（TP制作→黄线）左边被切掉时自动向右平移，保证不切掉并留呼吸量。
-// 黄色滑杆反向：向左拉放大（最大110%），向右拉缩小（最小70%）；不存档，刷新恢复 100%。
+//   左侧栏（TP制作→＋/－）左边被切掉时自动向右平移，保证不切掉并留呼吸量。
+// ＋放大（最大110%），－缩小（最小70%），步进 5%；不存档，刷新恢复 100%。
 const VIEW_SIZE_MIN = 70, VIEW_SIZE_MAX = 110; // 相对默认的百分比
 const ORIGINAL_VIEW_SCALE = 1;
 const VIEW_BREATH_PX = 6; // 左/右呼吸量
@@ -36,8 +36,8 @@ Game.fitViewPanX = fitViewPanX;
 
 /* ==================== 牌桌自动适配（横屏） ====================
  * 进入/旋转/窗口变化后，按真实可视区域（visualViewport 减去 body 的安全区内边距）算出「刚好放得下」的缩放，
- * 并把牌桌居中——不再需要手动拉黄线、按住桌面上下拖。
- * 黄线滑杆变成「相对自动大小」的微调（70%~110%，仍不存档）；按住上下拖动继续叠加在自动居中之上。
+ * 并把牌桌居中——不再需要手动按 ＋/－、按住桌面上下拖。
+ * ＋/－ 变成「相对自动大小」的微调（70%~110%，仍不存档）；按住上下拖动继续叠加在自动居中之上。
  * 只在横屏生效；竖屏保持原样（缩放=Game.viewScale，不平移）。
  * 参数：AUTO_FIT=false 关闭，回到原来的固定 100% + 手动调。地址栏加 ?dbg 可在左下角显示测量数据。 */
 const AUTO_FIT = true;
@@ -60,7 +60,7 @@ function _dbgShow(txt) {
     } catch (e) {}
 }
 
-/** 计算并应用自动大小 + 居中。force=true：即使尺寸没变也重算（滑杆调节时用） */
+/** 计算并应用自动大小 + 居中。force=true：即使尺寸没变也重算（＋/－ 调节时用） */
 function autoFitTable(force) {
     const root = document.documentElement;
     const wrap = document.getElementById('table-wrap');
@@ -69,7 +69,7 @@ function autoFitTable(force) {
     if (!AUTO_FIT || !wrap || !frame || portrait) {
         Game.autoBase = 1; Game._autoPan = { x: 0, y: 0 };
         root.style.setProperty('--auto-pan-x', '0px'); root.style.setProperty('--auto-pan-y', '0px');
-        // 竖屏没有滑杆：一律按 100%，避免横屏缩小后带进竖屏、又调不回来（横屏的手动系数 Game.viewScale 保留，转回横屏仍生效）
+        // 竖屏没有 ＋/－：一律按 100%，避免横屏缩小后带进竖屏、又调不回来（横屏的手动系数 Game.viewScale 保留，转回横屏仍生效）
         root.style.setProperty('--view-scale', '1');
         return;
     }
@@ -168,6 +168,12 @@ function setViewSize(pct) {
     try { autoUiScale('full'); } catch (e) {} // 牌桌大小变了，头像/手牌放大系数重算
 }
 
+/** ＋/－ 按钮：相对当前缩放步进（±5%），钳制 70~110%；不存档，刷新恢复 */
+function adjustViewSize(stepPct) {
+    const cur = Math.round((Game.viewScale || 1) * 100);
+    setViewSize(cur + (Number(stepPct) || 0));
+}
+
 /** 滑杆原始值 → 实际百分比（滑杆反向：左端=110%放大，右端=70%缩小，100→100）
     70..100 → 110..100，100..110 → 100..70，两段线性 */
 function setViewSizeSlider(raw) {
@@ -252,7 +258,7 @@ function endOrientTransition() {
  * 放大到「四个玩家区域之间、以及和牌桌边框之间刚好不重叠」为止。
  * 做法：用真实布局测量（getBoundingClientRect），在 [1, UI_K_MAX] 上二分找最大可行的系数，
  *       再乘一个安全系数，并复核一次；量不到或有异常时保持 1（=原尺寸）。
- * 触发：每次黄线滑杆调节之后、旋转过渡结束、每局开局（可放大）；有人吃碰杠、副露变多时（只会缩小，不会中途变大，避免画面忽大忽小）。
+ * 触发：每次 ＋/－ 调节之后、旋转过渡结束、每局开局（可放大）；有人吃碰杠、副露变多时（只会缩小，不会中途变大，避免画面忽大忽小）。
  * 竖屏、AUTO_UI_SCALE=false 时系数恒为 1，界面与原来完全一致。
  * 样式在 css/09-ui-scale.css（下面会在缺少 <link> 时自动补上）。 */
 const AUTO_UI_SCALE = true;   // false：不放大，一切保持原尺寸
@@ -412,6 +418,7 @@ function uiScaleOnRender() {
 Game.ORIGINAL_VIEW_SCALE = ORIGINAL_VIEW_SCALE;
 Game.setViewSize = setViewSize;
 Game.setViewSizeSlider = setViewSizeSlider;
+Game.adjustViewSize = adjustViewSize;
 Game.orientTransitionCheck = orientTransitionCheck;
 Game.uiScaleOnRender = uiScaleOnRender;
 
