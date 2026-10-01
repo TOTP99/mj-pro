@@ -6,8 +6,8 @@
  *           「在线 …」本次已玩时间 为白色粗体
  * 在线时间严格按5分钟一档：0-5 mins、5 mins、10 mins …（向下取整到5的倍数）。
  * 只存内存，不写 localStorage；页面切到后台时暂停计时。
- * 横屏：竖屏那两行被 CSS 隐藏，改为在左侧栏的 #img-display-badge（TP制作）后面加当前时间的 时:分:秒，
- *       竖屏时该标签保持原样只显示"TP制作"。
+ * 横屏：竖屏那两行被 CSS 隐藏；左侧栏的 #img-display-badge（TP制作）只显示「TP制作」，
+ *       不加时间（教练模式开关在同一行）。
  * 加载顺序无要求：只在事件/点击回调里用 Game，加载期只碰 DOM。
  */
 (function () {
@@ -25,7 +25,6 @@
     var badge = document.getElementById('img-display-badge'); // 横屏左侧栏的"TP制作"
     if (!el1 || !el2) return;
     var BADGE_TEXT = 'TP制作';
-    var MS_STYLE = TIME_BOX + 'margin-left:0.4em;'; // 横屏徽标后的时钟：左侧间隙 0.4em
 
     // 两行都不换行，数字等宽，避免每秒跳动时宽度抖动
     [el1, el2].forEach(function (el) {
@@ -84,10 +83,8 @@
         if (html2 !== lastHtml2) { el2.innerHTML = html2; lastHtml2 = html2; }
 
         if (badge) {
-            var portrait = document.body && document.body.classList.contains('portrait-layout');
-            var bh = portrait ? BADGE_TEXT
-                : BADGE_TEXT + '<span style="' + MS_STYLE + '">' + hms + '</span>';
-            if (bh !== lastBadgeHtml) { badge.innerHTML = bh; lastBadgeHtml = bh; }
+            // 横屏左栏第 1 行只显示「TP制作」，不加时间（教练模式开关在同一行）
+            if (BADGE_TEXT !== lastBadgeHtml) { badge.innerHTML = BADGE_TEXT; lastBadgeHtml = BADGE_TEXT; }
         }
     }
 
