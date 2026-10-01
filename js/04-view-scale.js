@@ -174,20 +174,6 @@ function adjustViewSize(stepPct) {
     setViewSize(cur + (Number(stepPct) || 0));
 }
 
-/** 滑杆原始值 → 实际百分比（滑杆反向：左端=110%放大，右端=70%缩小，100→100）
-    70..100 → 110..100，100..110 → 100..70，两段线性 */
-function setViewSizeSlider(raw) {
-    let r = Math.round(Number(raw));
-    if (!isFinite(r)) r = 100;
-    r = Math.min(VIEW_SIZE_MAX, Math.max(VIEW_SIZE_MIN, r));
-    let actual;
-    if (r <= 100) actual = 110 - (r - VIEW_SIZE_MIN) * (10 / 30);
-    else actual = 100 - (r - 100) * (30 / 10);
-    setViewSize(Math.round(actual));
-    const s = document.getElementById('size-slider');
-    if (s && String(s.value) !== String(r)) s.value = String(r); // 手柄保持在用户拉的位置
-}
-
 /* ==================== 横竖屏切换过渡 ====================
  * 旋转时浏览器先按新方向重排，JS 稍后才切换布局类并重新量尺寸，中间会闪几次「半成品」布局，看起来很生硬。
  * 现在：检测到方向翻转的第一时间把牌桌瞬间隐藏（opacity:0，无过渡），等可视区域尺寸稳定（连续两次量到相同）
@@ -417,7 +403,6 @@ function uiScaleOnRender() {
 /* ---- 本文件对外接口（IIFE 收敛，唯一出口） ---- */
 Game.ORIGINAL_VIEW_SCALE = ORIGINAL_VIEW_SCALE;
 Game.setViewSize = setViewSize;
-Game.setViewSizeSlider = setViewSizeSlider;
 Game.adjustViewSize = adjustViewSize;
 Game.orientTransitionCheck = orientTransitionCheck;
 Game.uiScaleOnRender = uiScaleOnRender;

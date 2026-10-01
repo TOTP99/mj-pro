@@ -48,11 +48,6 @@ function discardsOfSet(player) {
     for (const d of Game.discardPile) if (d.player === player) s.add(d.tile);
     return s;
 }
-function countDiscardsOf(player, tile) {
-    let n = 0;
-    for (const d of Game.discardPile) if (d.player === player && d.tile === tile) n++;
-    return n;
-}
 // 筋源头：rank1~3 → [rank+3]；rank7~9 → [rank-3]；rank4~6 → 双侧 [rank-3, rank+3]
 function sujiSources(suit, rank) {
     if (rank <= 3) return [(rank + 3) + suit];
