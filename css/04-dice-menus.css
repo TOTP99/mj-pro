@@ -1,5 +1,5 @@
-    /* ========== 金骰（34px 立体骰子，物理抛掷） ========== */
-    /* 舞台铺满牌桌：双骰落点在四家头像围成的桌心（不再 bottom:22% 偏上） */
+    /* ========== 八面 d8（单颗黄金镶钻骰子，canvas 绘制） ========== */
+    /* 舞台铺满牌桌：单骰落点在四家头像围成的桌心（不再 bottom:22% 偏上） */
     #dice-stage {
         position: absolute; inset: 0;
         left: 0; right: 0; top: 0; bottom: 0;
@@ -20,79 +20,10 @@
         transform: scale(0.12) !important;
         opacity: 0;
     }
-    .dice-throw {
-        position: absolute; left: 0; top: 0;
-        width: 34px; height: 34px;
-        perspective: 480px;
-        will-change: transform;
-    }
-    .dice-cube {
-        width: 34px; height: 34px; position: relative;
-        transform-style: preserve-3d; will-change: transform;
-    }
-    .dice-cube .face {
-        position: absolute; width: 34px; height: 34px;
-        left: 0; top: 0;
-        border-radius: 6px; border: none; outline: none;
-        display: grid; place-items: center;
-        backface-visibility: hidden;
-        -webkit-backface-visibility: hidden;
-        /* 倒角高光 + 底部暗部 → 金属厚度感 */
-        box-shadow:
-            inset 0 2px 3px rgba(255, 246, 214, 0.65),
-            inset 0 -3px 5px rgba(96, 64, 12, 0.42),
-            inset 2px 0 4px rgba(255, 246, 214, 0.18),
-            inset -2px 0 4px rgba(96, 64, 12, 0.22);
-    }
-    /* 镜面高光 */
-    .dice-cube .face::before {
-        content: '';
-        position: absolute; inset: 0; border-radius: 6px;
-        background: radial-gradient(circle at 30% 24%, rgba(255,255,255,0.5) 0%, transparent 42%);
+    /* ========== 八面 d8（单颗黄金镶钻，canvas 绘制） ========== */
+    #dice-canvas {
+        position: absolute; inset: 0;
         pointer-events: none;
-    }
-    /* 六面明暗差：旋转时体积感 */
-    .dice-cube .f1 { background: linear-gradient(145deg, #ffedb0 0%, #f3c445 42%, #c08f16 78%, #7d5c0e 100%); }
-    .dice-cube .f2 { background: linear-gradient(145deg, #f7df96 0%, #ddad2e 45%, #a67c14 80%, #6b4e0c 100%); }
-    .dice-cube .f3 { background: linear-gradient(145deg, #ecd07e 0%, #c79a24 50%, #8f6a10 85%, #59400a 100%); }
-    .dice-cube .f4 { background: linear-gradient(145deg, #f9e39e 0%, #e2b434 48%, #b08218 82%, #74550e 100%); }
-    .dice-cube .f5 { background: linear-gradient(160deg, #fff3c0 0%, #f6d258 42%, #d4a824 75%, #96700f 100%); }
-    .dice-cube .f6 { background: linear-gradient(160deg, #d9b838 0%, #a37c18 50%, #755512 85%, #42300a 100%); }
-    .dice-cube.settled {
-        filter: drop-shadow(0 3px 5px rgba(0,0,0,0.5)) drop-shadow(0 0 12px rgba(255, 210, 80, 0.6));
-    }
-    .dice-cube .face .pips {
-        width: 76%; height: 76%;
-        display: grid; grid-template-columns: 1fr 1fr 1fr;
-        grid-template-rows: 1fr 1fr 1fr;
-        place-items: center;
-        position: relative; z-index: 1;
-    }
-    /* 传统骰子：1/4 点为红，其余为深色 */
-    .dice-cube .face .pip {
-        width: 5.6px; height: 5.6px; border-radius: 50%;
-        background: radial-gradient(circle at 35% 30%, #5a4630, #1c130a 72%);
-        box-shadow: inset 0 1px 1px rgba(0,0,0,0.65), 0 0.5px 0 rgba(255,255,255,0.3);
-    }
-    .dice-cube .face .pip.red {
-        background: radial-gradient(circle at 35% 30%, #f05050, #a01212 72%);
-        box-shadow: inset 0 1px 1px rgba(0,0,0,0.5), 0 0.5px 0 rgba(255,255,255,0.3);
-    }
-    /* 半边长 17 */
-    .dice-cube .f1 { transform: rotateY(0deg) translateZ(17px); }
-    .dice-cube .f2 { transform: rotateY(90deg) translateZ(17px); }
-    .dice-cube .f3 { transform: rotateY(180deg) translateZ(17px); }
-    .dice-cube .f4 { transform: rotateY(-90deg) translateZ(17px); }
-    .dice-cube .f5 { transform: rotateX(90deg) translateZ(17px); }
-    .dice-cube .f6 { transform: rotateX(-90deg) translateZ(17px); }
-    .dice-shadow {
-        position: absolute; left: 50%; top: 0;
-        width: 40px; height: 10px;
-        margin-left: -20px;
-        border-radius: 50%;
-        background: radial-gradient(ellipse, rgba(0,0,0,0.55) 0%, transparent 70%);
-        pointer-events: none;
-        will-change: transform, opacity;
     }
     /* 清零菜单：金色长框 + 透明底 */
     #claim-indicator .reset-menu {
