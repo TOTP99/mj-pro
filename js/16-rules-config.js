@@ -124,6 +124,7 @@ function setAssistYN(key, val) {
     Game.assist[key] = !!val;
     saveAssist();
     syncAssistYN(key);
+    syncAssistLsButtons();
     if (key === 'dangerHint') Game.requestRender('setAssistYN/dangerHint'); // 标记开关变化即时生效
 }
 function syncYnRow(attr, key, on) {
@@ -139,6 +140,24 @@ function syncAssistUI() { Object.keys(DEFAULT_ASSIST).forEach(syncAssistYN); }
 Game.setAssistYN = setAssistYN;
 Game.syncAssistUI = syncAssistUI;
 loadAssist();
+
+// ---------- 左栏一键开关：教练模式 / 危险提示 ----------
+// 2026-10-01：模式选择弹窗里的辅助分组已移除，入口只在横屏左栏（第1行教练 / 第4行危险）
+function syncAssistLsButtons() {
+    try {
+        var c = document.getElementById('coach-toggle-ls');
+        if (c) c.textContent = Game.assist.coachMode ? '教练开' : '教练关';
+        var d = document.getElementById('danger-toggle-ls');
+        if (d) d.textContent = Game.assist.dangerHint ? '危险开' : '危险关';
+    } catch (e) {}
+}
+Game.toggleCoachMode = function () {
+    setAssistYN('coachMode', !Game.assist.coachMode);
+};
+Game.toggleDangerHint = function () {
+    setAssistYN('dangerHint', !Game.assist.dangerHint);
+};
+syncAssistLsButtons(); // 启动时按存档同步一次左栏文字
 
 // ---------- 模式选择 UI ----------
 // 显示/隐藏弹窗（复用 .show 类）

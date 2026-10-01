@@ -205,8 +205,9 @@ function renderFieldAmounts() {
     const txt = fieldCircleText();
     const a = Game.$('field-count');
     if (a) a.innerText = txt;
-    const b = Game.$('field-count-ls');
-    if (b) b.innerText = txt;
+    // 2026-10-01：横屏局数已并入第2行牌墙文字（#field-count-ls 已删除），这里同步刷新
+    const wc = Game.$('wall-count-text');
+    if (wc && typeof Game.wallCountLabel === 'function') wc.innerText = Game.wallCountLabel();
 }
 
 /** 骰子调庄后：新开一个 4 圈周期（局数清零） */

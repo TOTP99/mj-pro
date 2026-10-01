@@ -1,5 +1,11 @@
 ;(function(){
 // ---------- 渲染 ----------
+// 左栏第2行：牌墙张数 + 局/风/圈（2026-10-01：局数从第5行并入本行，AI学习局数只留 title 提示）
+function wallCountLabel() {
+    const circle = (typeof Game.fieldCircleText === 'function') ? Game.fieldCircleText() : '';
+    return '牌墙: ' + Game.deck.length + '张' + (circle ? '·' + circle : '');
+}
+Game.wallCountLabel = wallCountLabel;
 function renderTile(t, idx, clickable) {
     let marker = '';
     if (idx === Game.selectedIndex) marker = '<span class="mk-sel">▼</span>';
@@ -79,7 +85,7 @@ function render() {
     const discardView = Game.discardPile.slice(-20);
     wall.innerHTML = discardView.map((d, i, arr) =>
         `<div class="discardTile${i === arr.length - 1 ? ' latest' : ''}">${Game.tileImg(d.tile)}</div>`).join('');
-    Game.$('wall-count-text').innerText = '牌墙: ' + Game.deck.length + '张-' + Game.aiLearn.games + '局';
+    Game.$('wall-count-text').innerText = Game.wallCountLabel();
     // 诊断：牌总数守恒 + 回合状态，有问题直接标红，卡住时一眼可见
     try {
         const tot = Game.totalTilesOf({ deck: Game.deck, discardPile: Game.discardPile, hands: Game.hands, exposedMelds: Game.exposedMelds });
@@ -216,7 +222,8 @@ function humanSeenCount(tile, hypoHand, extraSeen) {
 /** 结构成型（能拆成面子+将）、但穷胡规则还缺条件的「最接近」的一种：{ tile, missing:[…] } 或 null */
 function partialWaitInfo(concealed, exposed) {
     const key = concealed.slice().sort().join(',') + '|'
-        + exposed.map(m => m.type + (m.concealed ? 'c' : '') + m.tiles.join('')).join(';') + '|' + (Game.windDragonBonus.bottom ? '+' : '-');
+        + exposed.map(m => m.type + (m.concealed ? 'c' : '') + m.tiles.join('')).join(';') + '|' + (Game.windDragonBonus.bottom ? '+' : '-')
+        + '|' + (Game.rulesConfig && Game.rulesConfig.dragonsAsPeng ? 'D' : 'd'); // 中发白作将规则影响 kezi 判定，键里带上
     if (_partialCache.has(key)) return _partialCache.get(key);
     let best = null;
     for (const t of Game.allTileTypes()) {
