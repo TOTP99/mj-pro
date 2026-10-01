@@ -63,12 +63,11 @@
         letter-spacing: 0.08em; font-family: inherit; line-height: 1.2;
         padding: 0 2px; cursor: pointer; white-space: nowrap; flex-shrink: 0;
     }
-    .credit-btn-ls:active { opacity: 0.6; }
+    .credit-btn-ls:active { text-shadow: 0 0 8px rgba(212, 175, 55, 0.9); }
     /* 局数显示：跟在"初始筹码"按钮后面；状态信息，比入口按钮高半级 */
     .field-rounds { color: var(--gold); font-size: var(--fs-b2); font-weight: 600; white-space: nowrap; margin-left: 6px; vertical-align: baseline; }
     /* 横屏顶栏里的局数：竖屏隐藏，横屏跟按钮一起显示 */
-    #field-count-ls { display: none; }
-    /* 左侧顶栏：TP制作 + 牌墙 + 横屏调整（模式/筹码按钮、＋/－缩放、局数） */
+    /* 左侧顶栏：TP制作 + 教练 / 牌墙+局数 / ＋－缩放 / 模式+筹码 / 音效+危险 */
     #img-display-badge {
         position: static;
         top: auto; left: auto;
@@ -84,7 +83,7 @@
         line-height: 1.2;
         cursor: default;
         user-select: none;
-        font-family: "STZhongsong", "华文中宋", "FZXiaoBiaoSong-B05S", "方正小标宋", "KaiTi", "楷体", "SimSun", serif;
+        font-family: inherit;
         flex-shrink: 0;
     }
     #wall-count-header {
@@ -103,35 +102,27 @@
         flex-wrap: wrap; max-width: 100%;
     }
     .wc-row .field-rounds { margin-left: 0; }
-    /* ＋/－ 缩放：真 44px 点按目标，横竖屏同一套；点按不变形只发微光 */
+    /* ＋/－：无外框，就是加减两个字，节约空间；点按不变形只发微光；字号并入左栏统一体系 */
     #btn-view-zoom-in,
     #btn-view-zoom-out {
-        position: relative;
-        margin: 0;
-        padding: 6px 10px;
-        min-width: 44px;
-        min-height: 40px;
-        border: 1px solid var(--gold-dim);
-        border-radius: 6px;
-        background: transparent;
-        color: var(--text-muted);
-        font-size: 15px;
-        font-weight: 600;
-        font-family: inherit;
-        line-height: 1.2;
+        background: none; border: none; border-radius: 0;
+        margin: 0; padding: 2px 6px;
+        min-width: 0; min-height: 0;
+        color: var(--gold);
+        font-size: var(--fs-c1); font-weight: 600;
+        font-family: inherit; line-height: 1.2; letter-spacing: 0;
         cursor: pointer;
         user-select: none;
         -webkit-user-select: none;
         box-shadow: none;
         touch-action: manipulation;
         -webkit-tap-highlight-color: transparent;
-        transition: color 0.12s, border-color 0.12s, background 0.12s;
+        transition: text-shadow 0.12s;
     }
     #btn-view-zoom-in:active,
     #btn-view-zoom-out:active {
         color: var(--gold);
-        border-color: var(--gold);
-        background: rgba(212, 175, 55, 0.1);
+        text-shadow: 0 0 8px rgba(212, 175, 55, 0.9);
     }
     #btn-view-zoom-in:disabled,
     #btn-view-zoom-out:disabled {
@@ -140,7 +131,7 @@
     }
     #wall-count-text {
         margin-bottom: 0; color: #c5d4e0; font-weight: normal; letter-spacing: 0; text-align: center;
-        font-size: var(--fs-b2); white-space: nowrap;
+        font-size: var(--fs-c1); white-space: nowrap;
     }
     .tileback {
         width: 17px; height: 24px; border-radius: 3px; flex-shrink: 0;

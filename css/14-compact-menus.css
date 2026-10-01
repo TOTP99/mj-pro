@@ -52,17 +52,6 @@
     #rules-modal .rules-group:first-of-type { margin-top: var(--sp-1); }
     #rules-modal .rule-row { padding: var(--sp-1) var(--sp-1); gap: var(--sp-2); }
 
-    /* ---------- 模式选择：辅助开关（危险提示 / 教练模式） ---------- */
-    #mode-select-modal .assist-options { margin-top: var(--sp-2); border-top: 1px solid rgba(255,255,255,0.10); }
-    #mode-select-modal .assist-options .rule-row { padding: var(--sp-1); gap: var(--sp-2); border-bottom: none; }
-    #mode-select-modal .assist-options .rule-row .rule-name { font-size: var(--fs-c1); }
-    #mode-select-modal .assist-options .rule-row .rule-name i { display: block; font-style: normal; opacity: 0.55; font-size: 0.92em; line-height: 1.3; }
-    #mode-select-modal .assist-options .yn-seg button {
-        font-size: var(--fs-c1);
-        padding: 0.55em 1.2em;
-        min-height: 2.6em;
-    }
-
 /* ---------- 横屏：盒子高度吃满可视区，内容在盒内滚动 ---------- */
 @media (orientation: landscape) {
     #mode-select-modal .hu-box,
