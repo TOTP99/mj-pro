@@ -56,7 +56,7 @@ function showResultModal(winnerPlayer, mode, payer, bonus, result, winTile) {
         Game.exposedMelds[winnerPlayer].map(Game.renderMeldGroup).join('') || '（无）';
 
     const lines = [mode === 'selfdraw' ? '底分 ×1' : '底分 ×2'];
-    result.tags.forEach(t => lines.push(t.replace('×', ' ×')));
+    result.tags.forEach(t => lines.push(t.replace(/×/g, ' ×')));
     Game.$('result-score-lines').innerHTML = lines.map(l => `<div>${l}</div>`).join('');
 
     Game.lastSettlement = {
@@ -73,6 +73,7 @@ function showResultModal(winnerPlayer, mode, payer, bonus, result, winTile) {
     Game.$('result-adjust-panel').style.display = 'none';
     const btn = Game.$('btn-toggle-adjust');
     if (btn) btn.textContent = '特殊情况：手动调分';
+    try { if (typeof Game.syncAppViewportVars === 'function') Game.syncAppViewportVars(); } catch (e) {}
     Game.$('result-modal').classList.add('show');
     Game.flushSaveProgress(); // 结算后立刻落盘，防刷新丢分
 }
