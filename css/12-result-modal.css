@@ -22,12 +22,11 @@
 
     .result-box {
         width: min(94vw, 420px);
-        max-height: min(88vh, 560px);
-        overflow-x: hidden;
-        overflow-y: auto;
-        -webkit-overflow-scrolling: touch;
-        overscroll-behavior: contain;
-        touch-action: pan-y;
+        max-height: min(calc(var(--app-height, 100dvh) - 16px), 560px);
+        /* 商业弹窗通用结构：纵向 flex；内容区独立滚动，底部操作栏固定，不依赖 sticky */
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
         margin: auto;
         padding: var(--modal-pad);
         border-radius: var(--modal-radius);
@@ -45,10 +44,25 @@
         pointer-events: auto;
     }
 
-    /* 底部按钮：横竖屏都 sticky，滚动时仍能点到确定 */
+    /* 结算内容滚动区：弹窗内唯一可滚动的元素 */
+    #result-modal .result-scroll {
+        flex: 1 1 auto;
+        min-height: 0;
+        overflow-x: hidden;
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
+        overscroll-behavior: contain;
+        touch-action: pan-y;
+    }
+    /* 底部操作栏：flex 固定在弹窗底部，内容再长也始终可见可点（替代不可靠的 sticky） */
+    #result-modal .result-box > .result-adjust-btns {
+        flex: 0 0 auto;
+        position: static;
+        border-top: 1px solid rgba(212, 175, 55, 0.25);
+    }
+
+    /* 底部按钮：横竖屏统一走 flex 固定栏（base 规则），不再用 sticky */
     #result-modal .result-adjust-btns {
-        position: sticky;
-        bottom: 0;
         z-index: 2;
         margin-top: 10px;
         padding: 8px 0 2px;
@@ -344,21 +358,12 @@
         width: min(92vw, 400px);
         /* 再矮约 10%，仍锁在可视区内，靠内部滚动；margin:auto 垂直居中 */
         max-height: min(65vh, calc(var(--app-height, 100dvh) - 16px), 306px);
-        overflow-x: hidden;
-        overflow-y: auto;
-        -webkit-overflow-scrolling: touch;
-        overscroll-behavior: contain;
-        touch-action: pan-y;
+        /* 盒子本身不滚动：唯一滚动区是内部 .result-scroll，底部按钮栏永不被卷走（base 规则） */
         margin: auto;
         transform: none !important;
         pointer-events: auto;
     }
-    #result-modal .result-adjust-btns {
-        position: sticky;
-        bottom: 0;
-        z-index: 2;
-        background: linear-gradient(180deg, transparent, rgba(14, 22, 34, 0.95) 28%);
-    }
+    /* 底部操作栏：横竖屏统一走 flex 固定栏（base 规则），这里不再另起 sticky 补丁 */
     #result-modal .result-adjust-btns button,
     #result-modal #btn-toggle-adjust {
         min-height: 40px;
@@ -397,11 +402,11 @@
     #result-modal .result-box {
         width: min(96vw, 420px);
         max-width: 420px;
-        max-height: min(92vh, 640px);
+        /* 用真实可见高度（--app-height = visualViewport），iOS 的 vh 会把浏览器工具栏也算进去导致盒子过高、底栏被遮住 */
+        max-height: min(calc(var(--app-height, 100dvh) - 16px), 640px);
         margin: 8px auto;
         padding: 10px 10px 12px;
-        overflow-x: hidden;
-        overflow-y: auto;
+        /* 盒子本身不滚动：唯一滚动区是内部 .result-scroll，底部按钮栏永不被卷走（和横屏同一逻辑） */
         box-sizing: border-box;
         transform: none !important; /* 竖屏绝不跟横屏 view-scale */
         pointer-events: auto;
@@ -427,8 +432,6 @@
         padding: 8px 0 4px;
         justify-content: center;
         box-sizing: border-box;
-        position: sticky;
-        bottom: 0;
         background: linear-gradient(180deg, transparent, rgba(14, 22, 34, 0.92) 28%);
         z-index: 2;
     }
