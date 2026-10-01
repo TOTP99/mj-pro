@@ -26,7 +26,6 @@ function initGame() {
     Game.clearKongFlags();
     Game.resetAiAxisUsed();
     Game.resetLastCallTurn();
-    Game.resetAiDefenseMode();
     Game.handTurnCount = 0;
     if (Game.snapshotRankAtDeal) Game.snapshotRankAtDeal(); // AI 3.0 名次轴：开局记四家名次
     Game.currentIndex = Game.turnOrder.indexOf(Game.dealer);

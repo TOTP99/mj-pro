@@ -307,7 +307,6 @@ function isGoingForTriplets(hand) {
 function shouldAiPeng(p, tile, overrides) {
     overrides = overrides || {};
     if (Game.isTenpai(p)) return false; // 已上听不碰，避免拆听
-    const inDefense = !!Game.aiDefenseMode[p]; // 转守后不一刀切：只接受向听严格改善的碰
     const style = aiPersonality[p] || 'shrewd';
     const learn = Game.aiLearn.confidence[style] || {};
     // conf=轴1(吃碰激进度)的学习值；chaseConf=轴3(特殊牌型追逐)的学习值；两条轴分开学，互不影响
@@ -322,7 +321,6 @@ function shouldAiPeng(p, tile, overrides) {
     let r;
     try { r = Game.meldCallEV(p, tile, kind, null); }
     catch (e) { return false; }
-    if (inDefense && r.shanAfter >= r.shanBefore) return false; // 转守：碰完向听没改善就别碰
 
     // 向听硬轨 + 特殊牌型追逐（AI 3.0 性格引擎）：
     // 静态 chaseSpecialSlack 是"冲碰碰胡时额外容忍的向听损失档数"，学习轴 chaseSpecial 是增量
@@ -392,7 +390,6 @@ function nextPlayerOf(p) {
  *  偏移改变决策时记归因。 */
 function shouldAiChi(player, tile, combo) {
     if (Game.isTenpai(player)) return false;
-    const inDefense = !!Game.aiDefenseMode[player]; // 转守后不一刀切：只接受明显赚的吃
     const exposed = Game.exposedMelds[player];
     if (exposed.length >= 3) return false;
     const style = aiPersonality[player] || 'shrewd';
@@ -414,7 +411,6 @@ function shouldAiChi(player, tile, combo) {
     const off = conf * 60 + (open ? 0 : 120) - meldCost;
     const evTake = r.evCall + off;
     // 转守：EV 必须明显为正（>120 净胜）才吃
-    if (inDefense && evTake - r.evPass < 120) return false;
     const take = evTake > r.evPass;
     // 轴1归因：跟"没学过(conf=0)"时会不会选得不一样比一比
     if (take !== (r.evCall > r.evPass)) Game.markAxisUsed(player, 'callAggr');

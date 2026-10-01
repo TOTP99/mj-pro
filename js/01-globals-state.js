@@ -57,9 +57,6 @@ Game.aiLearn = {
     // 样本稳定：每条轴累计被归因的次数，用于"越学越稳"（早期学得快、后期学得慢）
     samples: { conservative: freshAxisConfidence(), aggressive: freshAxisConfidence(), shrewd: freshAxisConfidence() }
 };
-// 攻守转换（带迟滞的防守模式）：一旦转守，不会因一巡风险略降就反复横跳；每局开局重置
-Game.aiDefenseMode = { top: false, left: false, right: false };
-function resetAiDefenseMode() { Game.aiDefenseMode = { top: false, left: false, right: false }; }
 // 每局临时记录三个AI各自"这局真的用上了哪几条轴"（牌局结束记完账就清空，不落盘）
 Game.aiAxisUsed = { top: new Set(), left: new Set(), right: new Set() };
 function resetAiAxisUsed() { Game.aiAxisUsed = { top: new Set(), left: new Set(), right: new Set() }; }
@@ -205,7 +202,6 @@ function resetAiLearn() {
         confidence: { conservative: freshAxisConfidence(), aggressive: freshAxisConfidence(), shrewd: freshAxisConfidence() },
         samples: { conservative: freshAxisConfidence(), aggressive: freshAxisConfidence(), shrewd: freshAxisConfidence() }
     };
-    resetAiDefenseMode();
 }
 
 // ---------- AI 3.0 名次感（position 轴） ----------
@@ -292,7 +288,6 @@ function learnFromWin(winnerPlayer, payerPlayer, meta) {
     }
     resetAiAxisUsed();
     resetLastCallTurn();
-    resetAiDefenseMode();
     Game.aiLearn.games += 1;
     scheduleSaveAiLearn();
 }
@@ -309,7 +304,6 @@ function learnFromDraw(tenpaiPlayers) {
     }
     resetAiAxisUsed();
     resetLastCallTurn();
-    resetAiDefenseMode();
     Game.aiLearn.games += 1;
     scheduleSaveAiLearn();
 }
@@ -808,7 +802,6 @@ Game.resetLastCallTurn = resetLastCallTurn;
 Game.learnFromWin = learnFromWin;
 Game.learnFromDraw = learnFromDraw;
 Game.resetAiLearn = resetAiLearn;
-Game.resetAiDefenseMode = resetAiDefenseMode;
 Game.decayAiLearn = decayAiLearn;
 Game.$ = $;
 Game.setPhase = setPhase;
