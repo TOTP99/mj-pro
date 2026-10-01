@@ -68,7 +68,7 @@
     .field-rounds { color: var(--gold); font-size: var(--fs-b2); font-weight: 600; white-space: nowrap; margin-left: 6px; vertical-align: baseline; }
     /* 横屏顶栏里的局数：竖屏隐藏，横屏跟按钮一起显示 */
     #field-count-ls { display: none; }
-    /* 左侧顶栏：TP制作 + 牌墙 + 横屏调整（模式/筹码按钮、黄线滑杆、局数） */
+    /* 左侧顶栏：TP制作 + 牌墙 + 横屏调整（模式/筹码按钮、＋/－缩放、局数） */
     #img-display-badge {
         position: static;
         top: auto; left: auto;
@@ -93,7 +93,7 @@
         margin-bottom: 4px;
         text-align: center;
     }
-    /* 横屏左侧栏顶部 5 行：TP制作+时间 / 牌墙 / 模式选择+初始筹码 / 局0/16 / 黄线滑杆 */
+    /* 横屏左侧栏顶部 5 行：TP制作+时间 / 牌墙 / ＋－缩放 / 模式选择+初始筹码 / 音效+局数 */
     #wall-count-row {
         display: flex; flex-direction: column; align-items: flex-start;
         gap: 2px;
@@ -103,32 +103,44 @@
         flex-wrap: wrap; max-width: 100%;
     }
     .wc-row .field-rounds { margin-left: 0; }
-    /* 滑杆独占第 5 行，拉满整宽 */
-    .wc-slider-row { align-self: stretch; }
-    .wc-slider-row #size-slider { flex: 1; width: auto; }
+    /* ＋/－ 缩放：真 44px 点按目标，横竖屏同一套；点按不变形只发微光 */
+    #btn-view-zoom-in,
+    #btn-view-zoom-out {
+        position: relative;
+        margin: 0;
+        padding: 6px 10px;
+        min-width: 44px;
+        min-height: 40px;
+        border: 1px solid var(--gold-dim);
+        border-radius: 6px;
+        background: transparent;
+        color: var(--text-muted);
+        font-size: 15px;
+        font-weight: 600;
+        font-family: inherit;
+        line-height: 1.2;
+        cursor: pointer;
+        user-select: none;
+        -webkit-user-select: none;
+        box-shadow: none;
+        touch-action: manipulation;
+        -webkit-tap-highlight-color: transparent;
+        transition: color 0.12s, border-color 0.12s, background 0.12s;
+    }
+    #btn-view-zoom-in:active,
+    #btn-view-zoom-out:active {
+        color: var(--gold);
+        border-color: var(--gold);
+        background: rgba(212, 175, 55, 0.1);
+    }
+    #btn-view-zoom-in:disabled,
+    #btn-view-zoom-out:disabled {
+        opacity: 0.35;
+        cursor: not-allowed;
+    }
     #wall-count-text {
         margin-bottom: 0; color: #c5d4e0; font-weight: normal; letter-spacing: 0; text-align: center;
         font-size: var(--fs-b2); white-space: nowrap;
-    }
-    /* 横屏牌桌大小滑杆：金色细杆，80%~110% 相对默认，刷新恢复默认 */
-    #size-slider {
-        -webkit-appearance: none; appearance: none;
-        width: 72px; height: 3px; margin: 0; padding: 0;
-        border-radius: 2px; background: rgba(212, 175, 55, 0.35);
-        outline: none; cursor: pointer; flex-shrink: 0;
-    }
-    #size-slider::-webkit-slider-thumb {
-        -webkit-appearance: none; appearance: none;
-        width: 11px; height: 11px; border-radius: 50%;
-        background: var(--gold, #d4af37);
-        border: 1px solid rgba(0, 0, 0, 0.4);
-        box-shadow: 0 0 4px rgba(212, 175, 55, 0.6);
-    }
-    #size-slider::-moz-range-thumb {
-        width: 11px; height: 11px; border-radius: 50%;
-        background: var(--gold, #d4af37);
-        border: 1px solid rgba(0, 0, 0, 0.4);
-        box-shadow: 0 0 4px rgba(212, 175, 55, 0.6);
     }
     .tileback {
         width: 17px; height: 24px; border-radius: 3px; flex-shrink: 0;
