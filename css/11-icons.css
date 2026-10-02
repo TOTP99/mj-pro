@@ -18,6 +18,14 @@
 /* 手牌上方标记：▼ 你点选的牌（金），● 刚摸到的牌（冰蓝） */
 .tile-marker .mk-sel { color: var(--gold); }
 .tile-marker .mk-new { color: var(--ice); }
+/* A. 主次：刚摸的牌——蓝点放大+发光，牌面加一圈冰蓝光晕（不再是 6px 小点） */
+.bottom .hand .tile-wrap.is-drawn .tile-marker .mk-new {
+    font-size: 1.6em;
+    text-shadow: 0 0 6px rgba(142, 200, 240, 0.95), 0 0 2px rgba(142, 200, 240, 1);
+}
+.bottom .hand .tile-wrap.is-drawn .tile {
+    box-shadow: 0 0 10px rgba(142, 200, 240, 0.65), 0 0 3px rgba(142, 200, 240, 0.9);
+}
 
 /* 吃碰杠提示条：确认（绿对勾）/ 过（红叉）。大小跟随 .claim-btn 的 font-size */
 #claim-indicator .claim-btn svg { display: block; width: 1em; height: 1em; pointer-events: none; }

@@ -54,17 +54,60 @@
     }
     .pool-box-close:active { color: var(--gold); border-color: var(--gold); }
     #pool-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(29px, 1fr));
-        gap: 4px 5px;
-        justify-items: center;
+        display: block;
         overflow-y: auto;
         -webkit-overflow-scrolling: touch;
         overscroll-behavior: contain;
         touch-action: pan-y;
         padding-right: 3px;
         scrollbar-width: thin;
-        scrollbar-color: rgba(212,175,55,0.6) rgba(255,255,255,0.05);
+    }
+    /* C. 牌池：按花色分组（万/条/筒/字），每组显示已见 n/总数，每种牌显示 ×n、已见 n/4、谁打的 */
+    .pool-suit { margin-bottom: 14px; }
+    .pool-suit:last-child { margin-bottom: 2px; }
+    .pool-suit-head {
+        font-size: 14px; font-weight: 700; color: var(--gold, #d4af37);
+        margin-bottom: 6px; padding-bottom: 4px;
+        border-bottom: 1px solid rgba(212, 175, 55, 0.3);
+    }
+    .pool-suit-count {
+        font-size: 11px; font-weight: 400; color: var(--text-muted, #8a94a0);
+        margin-left: 8px;
+    }
+    .pool-suit-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(68px, 1fr));
+        gap: 8px;
+    }
+    .pool-tile-group {
+        background: rgba(255, 255, 255, 0.04);
+        border: 1px solid rgba(255, 255, 255, 0.09);
+        border-radius: 8px;
+        padding: 6px 4px 5px;
+        text-align: center;
+    }
+    .pool-tile-group .pool-tile {
+        width: 29px; height: 39px;
+        margin: 0 auto;
+        display: flex; align-items: center; justify-content: center;
+        background: linear-gradient(160deg, #fbfaf3 0%, #ece7d6 55%, #ddd6bd 100%);
+        border: 1px solid rgba(180, 165, 120, 0.55);
+        border-radius: 4px;
+        overflow: hidden;
+    }
+    .pool-tile-group .pool-tile .tile-img {
+        width: 100%; height: 100%; object-fit: contain; display: block;
+    }
+    .pool-tile-meta { margin-top: 3px; font-size: 10px; line-height: 1.3; }
+    .pool-tile-meta .pool-count { color: var(--text, #e8e8e8); font-weight: 700; }
+    .pool-tile-meta .pool-seen { color: var(--text-muted, #8a94a0); margin-left: 5px; }
+    .pool-players { margin-top: 2px; min-height: 14px; }
+    .pool-wind {
+        display: inline-block;
+        font-size: 9px; line-height: 1.4; color: var(--gold, #d4af37);
+        border: 1px solid rgba(212, 175, 55, 0.45);
+        border-radius: 3px;
+        padding: 0 3px; margin: 1px;
     }
     #pool-grid::-webkit-scrollbar { width: 6px; }
     #pool-grid::-webkit-scrollbar-track {

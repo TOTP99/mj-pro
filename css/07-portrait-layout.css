@@ -15,12 +15,13 @@
     body.portrait-layout #table-frame {
         /* 随视口伸缩，尽量占满可用区域且保持牌桌比例 */
         width: min(92vw, calc(62vh - var(--sat) - var(--sab)));
-        height: min(calc(82vh - var(--sat) - var(--sab)), 132vw);
+        /* B. 归纳：牌桌加高（82vh→88vh，132vw→150vw），上下黑区各收窄约 35px */
+        height: min(calc(88vh - var(--sat) - var(--sab)), 150vw);
         max-width: calc(100vw - var(--sal) - var(--sar) - 8px);
         max-height: calc(100vh - var(--sat) - var(--sab) - 8px);
         border-radius: 22px;
     }
-    /* 署名：竖屏牌桌外侧、左上角。第一行固定在原位；第二行单独定位，离牌桌上沿更近 */
+    /* B. 归纳：署名两行收进牌桌内左上角（状态栏），不再悬浮于牌桌外黑区 */
     #credit-label, #credit-label-2 {
         display: none;
         pointer-events: none;
@@ -30,8 +31,12 @@
     body.portrait-layout #credit-label-2 {
         display: block;
         position: absolute;
-        left: max(6px, var(--sal));
-        color: var(--gold);
+        /* B. 归纳：牌桌内左上角状态栏（#table-frame 的定位子元素） */
+        top: 10px;
+        left: 12px;
+        bottom: auto;
+        /* 颜色体系：状态栏是次要信息，用蓝灰 */
+        color: var(--text-muted);
         font-size: 9px;
         font-weight: 600;
         letter-spacing: 0.04em;
@@ -40,11 +45,8 @@
         opacity: 0.85;
         z-index: 5;
     }
-    body.portrait-layout #credit-label {
-        bottom: calc(100% + var(--hand-tile-h, 39px) / 2 + 6px);
-    }
     body.portrait-layout #credit-label-2 {
-        bottom: calc(100% + var(--hand-tile-h, 39px) / 8 + 3px);
+        top: 34px;
     }
     body.portrait-layout #game-table {
         border-radius: 20px;
@@ -85,8 +87,8 @@
     body.portrait-layout .bottom #flow-log {
         margin-top: 14px;
         min-height: 30px;
-        padding: 3px 10px;
-        font-size: 10px;
+        padding: 5px 16px;
+        font-size: 15px;
     }
     body.portrait-layout .bottom #hand-bottom { margin-bottom: 0; }
     /* 原版竖屏手牌：固定 29×39，横向滑动，不缩放 */
@@ -133,11 +135,8 @@
     /* 牌墙统计：原版左上角 */
     body.portrait-layout #wall-count {
         position: absolute;
-        top: 6px;
-        left: 8px;
-        width: auto;
-        height: auto;
-        max-height: none;
+        /* B. 归纳：竖屏左栏头/名单已隐藏（顶栏+头像角标接管），#wall-count 仅作 #claim-indicator 的定位上下文 */
+        top: 0; left: 0; width: 100%; height: 100%;
         z-index: 6;
         padding: 0;
         font-size: 9px;
@@ -148,10 +147,14 @@
         border: none;
         box-shadow: none;
         opacity: 0.92;
+        pointer-events: none;
+    }
+    body.portrait-layout #wall-count #claim-indicator {
+        pointer-events: auto;
     }
     body.portrait-layout #wall-count-header {
-        display: block;
-        margin-bottom: 0;
+        /* B. 归纳：竖屏顶栏已含“牌墙+局数”状态，左栏头不再重复显示 */
+        display: none;
     }
     body.portrait-layout #wall-count-row {
         display: block;
