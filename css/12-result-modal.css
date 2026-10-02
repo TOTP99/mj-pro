@@ -191,8 +191,7 @@
         grid-template-columns: repeat(4, minmax(0, 1fr));
         gap: 4px 5px;
     }
-    .result-payouts > div,
-    .result-payouts .payout-row {
+    .result-payouts > div {
         padding: 0.6em 0.4em;
         border-radius: 6px;
         background: rgba(0,0,0,0.15);
@@ -221,38 +220,57 @@
         white-space: nowrap;
     }
 
-    /* 调整点数行 */
-    .result-payouts .payout-row {
+    /* 手动调分：两家一行（不再套 result-payouts 四列 grid）；横竖屏同一套 */
+    #result-payouts-edit {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 6px;
+    }
+    #result-payouts-edit .payout-row {
         display: flex;
         align-items: center;
-        justify-content: space-between;
-        gap: 8px;
+        gap: 6px;
         margin: 0;
+        padding: 0.3em 0.3em;
+        border-radius: 6px;
+        background: rgba(0,0,0,0.15);
+        border: 1px solid var(--gold-dim);
+        min-width: 0;
     }
-    .result-payouts .payout-row .pname {
-        flex: 1;
+    #result-payouts-edit .payout-row .pname {
+        flex: 1 1 auto;
+        min-width: 0;
         text-align: left;
         font-size: var(--fs-b1);
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
     }
-    .result-payouts .payout-row .payout-btn {
+    /* ×2 / ÷2：去边框，金色字，44px 真高，不收缩 */
+    #result-payouts-edit .payout-row .payout-btn {
+        flex: 0 0 auto;
         margin: 0;
-        padding: 0.35em 0.7em;
+        padding: 0.4em 0.8em;
+        min-height: 44px;
         font-size: var(--fs-b1);
-        min-width: 28px;
-        border-radius: 5px;
-        border: 1px solid var(--gold);
-        background: transparent;
-        color: var(--text);
-        cursor: pointer;
         font-family: inherit;
         line-height: 1.3;
+        border: none;
+        border-radius: 6px;
+        background: transparent;
+        color: var(--gold);
+        cursor: pointer;
+        touch-action: manipulation;
+        -webkit-tap-highlight-color: transparent;
     }
-    .result-payouts .payout-row .payout-btn:active {
-        background: rgba(212, 175, 55, 0.18);
+    #result-payouts-edit .payout-row .payout-btn:active {
+        background: rgba(212,175,55,0.18);
     }
-    .result-payouts .payout-row input {
-        width: 48px;
-        padding: 0.35em 0.5em;
+    #result-payouts-edit .payout-row input {
+        flex: 0 0 auto;
+        width: 44px;
+        min-height: 44px;
+        padding: 0.35em 0.4em;
         border-radius: 5px;
         border: 1px solid var(--gold-dim);
         background: transparent;
@@ -261,10 +279,20 @@
         text-align: right;
         font-family: inherit;
     }
-    .result-payouts .payout-row input:focus {
+    #result-payouts-edit .payout-row input:focus {
         outline: none;
         border-color: var(--gold);
-        box-shadow: 0 0 0 2px rgba(212, 175, 55, 0.2);
+        box-shadow: 0 0 0 2px rgba(212,175,55,0.2);
+    }
+    /* 没开门小金点（格子窄，字放不下） */
+    #result-payouts-edit .nk-dot {
+        display: inline-block;
+        width: 5px;
+        height: 5px;
+        border-radius: 50%;
+        background: var(--gold);
+        margin-left: 3px;
+        vertical-align: middle;
     }
 
     /* 调整提示 */
