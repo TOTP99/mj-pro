@@ -163,23 +163,6 @@
     -webkit-backdrop-filter: blur(6px);
 }
 #player-intro-modal.show { display: flex; }
-.player-intro-box {
-    width: min(88vw, 320px);
-    max-height: min(60vh, 300px);
-    overflow-y: auto;
-    margin: auto;
-    padding: var(--sp-3) var(--sp-4);
-    border-radius: var(--modal-radius);
-    text-align: left;
-    color: var(--text);
-    background: var(--glass-strong);
-    border: 1px solid var(--gold);
-    box-shadow: var(--shadow-soft), inset 0 1px 0 rgba(255,255,255,0.06);
-    box-sizing: border-box;
-    -webkit-touch-callout: none;
-    -webkit-user-select: none;
-    user-select: none;
-}
 .player-intro-title {
     font-size: var(--fs-b1);
     font-weight: 700;

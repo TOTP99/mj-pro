@@ -353,7 +353,7 @@
         }
     }
 
-    #reveal-modal, #chi-choice-modal, #mode-select-modal, #rules-modal, #amount-modal, #bust-modal, #round-modal {
+    #reveal-modal, #chi-choice-modal, #mode-select-modal, #rules-modal, #amount-modal, #bust-modal, #round-modal, #confirm-modal {
         display: none; position: fixed; inset: 0; z-index: 50;
         justify-content: center; align-items: safe center;
         padding: 10px 0;
@@ -365,10 +365,10 @@
         backdrop-filter: blur(6px);
         -webkit-backdrop-filter: blur(6px);
     }
-    #reveal-modal.show, #chi-choice-modal.show, #mode-select-modal.show, #rules-modal.show, #amount-modal.show, #bust-modal.show, #round-modal.show { display: flex; }
+    #reveal-modal.show, #chi-choice-modal.show, #mode-select-modal.show, #rules-modal.show, #amount-modal.show, #bust-modal.show, #round-modal.show, #confirm-modal.show { display: flex; }
     /* 高阶规则页内容多，盒子允许更高（原内联样式已移入此处） */
     #rules-modal .hu-box { max-height: min(85dvh, 520px); }
-/* ===== 结算弹窗：横屏限制高度，内容滚动，底部确定 sticky ===== */
+/* ===== 结算弹窗：横屏限制高度，内容滚动，底部按钮钉死 ===== */
 @media (orientation: landscape) {
     #result-modal {
         align-items: center;

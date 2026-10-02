@@ -15,7 +15,8 @@
     body.portrait-layout #table-frame {
         /* 随视口伸缩，尽量占满可用区域且保持牌桌比例 */
         width: min(92vw, calc(62vh - var(--sat) - var(--sab)));
-        height: min(calc(82vh - var(--sat) - var(--sab)), 132vw);
+        /* 9. 黑区计算：390x844 黑区161px 太大 → 165vw 使黑区约100px（360x640 不受影响，走82vh） */
+        height: min(calc(82vh - var(--sat) - var(--sab)), 165vw);
         max-width: calc(100vw - var(--sal) - var(--sar) - 8px);
         max-height: calc(100vh - var(--sat) - var(--sab) - 8px);
         border-radius: 22px;
@@ -31,7 +32,8 @@
         display: block;
         position: absolute;
         left: max(6px, var(--sal));
-        color: var(--gold);
+        /* 10. 次要信息蓝灰 */
+        color: var(--text-muted);
         font-size: 9px;
         font-weight: 600;
         letter-spacing: 0.04em;
@@ -86,7 +88,7 @@
         margin-top: 14px;
         min-height: 30px;
         padding: 3px 10px;
-        font-size: 10px;
+        font-size: 15px;
     }
     body.portrait-layout .bottom #hand-bottom { margin-bottom: 0; }
     /* 原版竖屏手牌：固定 29×39，横向滑动，不缩放 */
@@ -338,7 +340,6 @@
         -webkit-backdrop-filter: none;
     }
     body.portrait-layout #tile-tooltip.show { display: block; }
-    /* 注：.tt-title/.tt-empty/.tt-label 在 showExposedInfo() 中从未生成，已整体移除 */
     body.portrait-layout #tile-tooltip .tt-meld {
         display: flex;
         align-items: center;

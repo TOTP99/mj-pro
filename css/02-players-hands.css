@@ -23,7 +23,19 @@
     #flow-log {
         position: relative;
         z-index: 40;
+        /* 1. 主次：轮到你是全场最强提示（金15px粗体，无底） */
+        color: var(--gold, #d4af37);
+        font-size: 15px;
+        font-weight: 700;
+        text-align: center;
+        line-height: 1.35;
+        text-shadow: 0 1px 3px rgba(0, 0, 0, 0.7);
     }
+    #flow-log:empty { display: none; }
+
+    /* 2. 主次：分数涨跌——绿↑=高于初始，红↓=低于初始 */
+    .player-score.pos { color: #4ade80; }
+    .player-score.neg { color: #f87171; }
 
     /* 辅助行：危险原因 / 教练推荐（一行小字，手牌下方，不打扰） */
     #assist-line {
@@ -36,7 +48,6 @@
     }
     #assist-line .as-danger { color: #ff9d8f; }
     #assist-line .as-coach { color: #a8d8a8; }
-    #assist-line .tile-img-inline { height: 1.3em; vertical-align: -0.25em; }
 
     .top .hand, .left .hand, .right .hand { display: none; }
     /* AI 副露：头像正下方、与手牌同向不旋转；尺寸=原侧牌 ×1.18（0.69→0.814）
@@ -259,9 +270,11 @@
     /* 牌墙与统计：现移至左侧空地，纵向排布，无背景无边框，贴近原版轻量显示 */
     #wall-count {
         position: absolute; top: 7%; left: 1.5%; width: 16%; height: 84%; z-index: 6;
-        padding: 0;
+        padding: 8px 6px;
         font-size: 10px; color: #c5d4e0; text-align: left;
-        background: transparent;
+        /* 6. 横屏左栏：淡淡透明背景 */
+        background: rgba(10, 14, 22, 0.35);
+        border-radius: 10px;
         border: none;
         box-shadow: none;
         opacity: 0.92;
