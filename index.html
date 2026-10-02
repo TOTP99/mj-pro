@@ -60,6 +60,7 @@
 <div id="rules-modal">
     <div class="hu-box">
         <div class="hu-title">高阶规则</div>
+        <div class="hu-scroll">
         <div class="rules-hint">默认配置即日常玩法，逐项调整即自定义；置灰项为互斥/从属，不可选</div>
         <div class="rules-group">
             <div class="rules-group-title">胡牌要求</div>
@@ -78,6 +79,7 @@
         <div class="rules-group">
             <div class="rules-group-title">特殊牌型</div>
             <div class="rule-row" data-rule="sevenPairs"><span class="rule-name">七小对可胡</span><span class="yn-seg"><button type="button" data-yn="1" onclick="Game.setRuleYN('sevenPairs',true)">是</button><button type="button" data-yn="0" onclick="Game.setRuleYN('sevenPairs',false)">否</button></span></div>
+        </div>
         </div>
         <div class="hu-actions">
             <button onclick="Game.confirmRules()">开始</button>
