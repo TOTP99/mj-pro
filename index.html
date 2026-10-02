@@ -9,11 +9,7 @@
 <meta name="format-detection" content="telephone=no">
 <meta name="theme-color" content="#05080e">
 <meta name="color-scheme" content="dark">
-<!-- PWA -->
-<link rel="manifest" href="manifest.json">
-<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
-<meta name="apple-mobile-web-app-title" content="TP制作麻将">
-<title>TP制作麻将</title>
+<title>极简麻将 · 横竖自适应</title>
 <link rel="stylesheet" href="css/01-base.css">
 <link rel="stylesheet" href="css/02-players-hands.css">
 <link rel="stylesheet" href="css/03-controls-popups.css">
@@ -300,13 +296,5 @@
 <script src="js/21-bust-auto-restart.js"></script>
 <script src="js/19-ai-efficiency.js"></script>
 <script src="js/20-ai-danger-ev.js"></script>
-<script>
-// PWA：注册 service worker（离线可玩；file:// 下静默跳过）
-if ('serviceWorker' in navigator && /^https?:/.test(location.protocol)) {
-    window.addEventListener('load', function() {
-        navigator.serviceWorker.register('service-worker.js').catch(function(){});
-    });
-}
-</script>
 </body>
 </html>
