@@ -1,0 +1,1 @@
+{"background_color":"#05080e","description":"TP制作麻将单机游戏","display":"fullscreen","icons":[{"sizes":"192x192","src":"icons/icon-192.png","type":"image/png"},{"sizes":"512x512","src":"icons/icon-512.png","type":"image/png"}],"name":"TP制作麻将","orientation":"any","short_name":"TP制作麻将","start_url":"./index.html","theme_color":"#05080e"}

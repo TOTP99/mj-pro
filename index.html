@@ -9,7 +9,11 @@
 <meta name="format-detection" content="telephone=no">
 <meta name="theme-color" content="#05080e">
 <meta name="color-scheme" content="dark">
-<title>极简麻将 · 横竖自适应</title>
+<!-- PWA -->
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-title" content="TP制作麻将">
+<title>TP制作麻将</title>
 <link rel="stylesheet" href="css/01-base.css">
 <link rel="stylesheet" href="css/02-players-hands.css">
 <link rel="stylesheet" href="css/03-controls-popups.css">
@@ -31,9 +35,10 @@
 <div id="reveal-modal">
     <div class="hu-box">
         <div class="hu-title" id="reveal-title">检测到特殊牌型</div>
+        <div class="hu-scroll"></div>
         <div class="hu-actions">
-            <button onclick="Game.confirmReveal(true)">亮牌</button>
-            <button onclick="Game.confirmReveal(false)">不亮</button>
+            <button type="button" class="btn-primary" onclick="Game.confirmReveal(true)">亮牌</button>
+            <button type="button" class="btn-ghost" onclick="Game.confirmReveal(false)">不亮</button>
         </div>
     </div>
 </div>
@@ -41,6 +46,7 @@
 <div id="mode-select-modal">
     <div class="hu-box">
         <div class="hu-title">模式选择</div>
+        <div class="hu-scroll">
         <div class="mode-options">
             <button type="button" class="mode-option" data-mode="daily" onclick="Game.chooseMode('daily')">
                 <span class="mode-check" aria-hidden="true"></span>
@@ -50,6 +56,7 @@
                 <span class="mode-check" aria-hidden="true"></span>
                 <span class="mode-text"><b>高阶模式</b><i>自定义规则</i></span>
             </button>
+        </div>
         </div>
     </div>
 </div>
@@ -86,23 +93,14 @@
 <div id="amount-modal">
     <div class="hu-box">
         <div class="hu-title">初始筹码</div>
-        <div class="result-label center">四家以此金额开场</div>
-        <div class="hu-actions stack">
-            <button onclick="Game.chooseAmount(50)">50</button>
-            <button onclick="Game.chooseAmount(100)">100</button>
-            <button onclick="Game.chooseAmount('custom')">自定义</button>
-            <button onclick="Game.closeAmountModal()">取消</button>
+        <div class="hu-scroll">
+            <div class="result-label center">四家以此金额开场</div>
         </div>
-    </div>
-</div>
-
-<div id="bust-modal">
-    <div class="bust-box">
-        <div class="bust-title">筹码不足</div>
-        <div class="bust-msg" id="bust-message"></div>
-        <div class="bust-actions">
-            <button type="button" class="bust-primary" onclick="Game.confirmBustRestart()">重新开场</button>
-            <button type="button" onclick="Game.cancelBustRestart()">继续本场</button>
+        <div class="hu-actions stack">
+            <button type="button" class="btn-primary" onclick="Game.chooseAmount(50)">50</button>
+            <button type="button" onclick="Game.chooseAmount(100)">100</button>
+            <button type="button" onclick="Game.chooseAmount('custom')">自定义</button>
+            <button type="button" class="btn-ghost" onclick="Game.closeAmountModal()">取消</button>
         </div>
     </div>
 </div>
@@ -110,9 +108,11 @@
 <div id="round-modal">
     <div class="hu-box">
         <div class="hu-title">调庄提醒</div>
-        <div class="result-label center" id="round-message"></div>
+        <div class="hu-scroll">
+            <div class="result-label center" id="round-message"></div>
+        </div>
         <div class="hu-actions">
-            <button onclick="Game.confirmRoundReselect()">4圈结束调庄</button>
+            <button type="button" class="btn-primary" onclick="Game.confirmRoundReselect()">4圈结束调庄</button>
         </div>
     </div>
 </div>
@@ -120,10 +120,12 @@
 <div id="chi-choice-modal">
     <div class="hu-box">
         <div class="hu-title">选择吃法</div>
-        <div class="result-label center">点选一组顺子</div>
-        <div class="hu-options" id="chi-choice-options"></div>
+        <div class="hu-scroll">
+            <div class="result-label center">点选一组顺子</div>
+            <div class="hu-options" id="chi-choice-options"></div>
+        </div>
         <div class="hu-actions">
-            <button type="button" onclick="Game.closeChiChoice()">取消</button>
+            <button type="button" class="btn-ghost" onclick="Game.closeChiChoice()">取消</button>
         </div>
     </div>
 </div>
@@ -135,6 +137,23 @@
             <button type="button" class="pool-box-close" onclick="Game.closePoolModal()">✕</button>
         </div>
         <div id="pool-grid"></div>
+        <div class="hu-actions" style="margin-top: 8px;">
+            <button type="button" class="btn-ghost" onclick="Game.closePoolModal()">关闭</button>
+        </div>
+    </div>
+</div>
+
+<!-- 13. 通用二次确认弹窗 -->
+<div id="confirm-modal">
+    <div class="hu-box">
+        <div class="hu-title" id="confirm-title">请确认</div>
+        <div class="hu-scroll">
+            <div class="result-label center" id="confirm-message"></div>
+        </div>
+        <div class="hu-actions">
+            <button type="button" class="btn-primary" id="confirm-ok">确认</button>
+            <button type="button" class="btn-ghost" onclick="Game.closeConfirm()">取消</button>
+        </div>
     </div>
 </div>
 
@@ -173,6 +192,8 @@
 <div id="credit-label-2"></div>
 <div id="table-frame" onclick="Game.onTableTap(event)">
 <div id="table-center-prompt" aria-hidden="true"></div>
+<!-- 12. AI 思考转圈提示 -->
+<div id="ai-thinking" style="display:none;"><div class="ai-spinner"></div></div>
 <div id="game-table">
     <div id="dice-stage">
         <div id="dice-scene">
@@ -223,10 +244,9 @@
 <div id="wall-count">
         <div id="wall-count-header">
             <div id="wall-count-row">
-                <div class="wc-row"><span id="img-display-badge" title="TP制作">TP制作</span><button type="button" class="credit-btn-ls" id="coach-toggle-ls" onclick="event.stopPropagation();Game.toggleCoachMode()">教练关</button></div>
+                <div class="wc-row"><span id="img-display-badge" title="TP制作">TP制作</span><button type="button" id="btn-view-zoom-in" title="放大" aria-label="放大" onclick="event.stopPropagation();Game.adjustViewSize(5)">＋</button><button type="button" id="btn-view-zoom-out" title="缩小" aria-label="缩小" onclick="event.stopPropagation();Game.adjustViewSize(-5)">－</button></div>
                 <div class="wc-row"><span id="wall-count-text"></span></div>
-                <div class="wc-row"><button type="button" id="btn-view-zoom-in" title="放大" aria-label="放大" onclick="event.stopPropagation();Game.adjustViewSize(5)">＋</button><button type="button" id="btn-view-zoom-out" title="缩小" aria-label="缩小" onclick="event.stopPropagation();Game.adjustViewSize(-5)">－</button></div>
-                <div class="wc-row"><button type="button" class="credit-btn-ls" id="sfx-toggle-ls" onclick="event.stopPropagation();Game.toggleSfx()">音效开</button><button type="button" class="credit-btn-ls" id="danger-toggle-ls" onclick="event.stopPropagation();Game.toggleDangerHint()">危险开</button></div>
+                <div class="wc-row"><button type="button" class="credit-btn-ls" id="sfx-toggle-ls" onclick="event.stopPropagation();Game.toggleSfx()">音效开</button><button type="button" class="credit-btn-ls" id="danger-toggle-ls" onclick="event.stopPropagation();Game.toggleDangerHint()">危险开</button><button type="button" class="credit-btn-ls" id="coach-toggle-ls" onclick="event.stopPropagation();Game.toggleCoachMode()">教练关</button></div>
                 <div class="wc-row"><button type="button" class="credit-btn-ls" onclick="event.stopPropagation();Game.openModeSelect()">模式选择</button>
                 <button type="button" class="credit-btn-ls" onclick="event.stopPropagation();Game.openAmountSelect()">初始筹码</button></div>
             </div>
@@ -247,10 +267,15 @@
 
 
 <div id="player-intro-modal" onclick="if(event.target.id==='player-intro-modal')Game.closePlayerIntro()">
-    <div class="player-intro-box" onclick="event.stopPropagation()">
-        <div class="player-intro-title" id="player-intro-title"></div>
-        <div class="player-intro-sub" id="player-intro-sub"></div>
-        <div class="player-intro-body" id="player-intro-body"></div>
+    <div class="hu-box" onclick="event.stopPropagation()">
+        <div class="hu-title" id="player-intro-title"></div>
+        <div class="hu-scroll">
+            <div class="player-intro-sub" id="player-intro-sub"></div>
+            <div class="player-intro-body" id="player-intro-body"></div>
+        </div>
+        <div class="hu-actions">
+            <button type="button" class="btn-primary" onclick="Game.closePlayerIntro()">知道了</button>
+        </div>
     </div>
 </div>
 
@@ -272,7 +297,16 @@
 <script src="js/16-rules-config.js"></script>
 <script src="js/17-field-manager.js"></script>
 <script src="js/18-game-feel.js"></script>
+<script src="js/21-bust-auto-restart.js"></script>
 <script src="js/19-ai-efficiency.js"></script>
 <script src="js/20-ai-danger-ev.js"></script>
+<script>
+// PWA：注册 service worker（离线可玩；file:// 下静默跳过）
+if ('serviceWorker' in navigator && /^https?:/.test(location.protocol)) {
+    window.addEventListener('load', function() {
+        navigator.serviceWorker.register('service-worker.js').catch(function(){});
+    });
+}
+</script>
 </body>
 </html>
