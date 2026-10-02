@@ -168,12 +168,9 @@ Game.confirmDialog = function(title, message, onConfirm) {
     Game._confirmCallback = (typeof onConfirm === 'function') ? onConfirm : null;
     if (ok) {
         ok.onclick = function() {
+            const cb = Game._confirmCallback; // 先保存：closeConfirm 会清空回调
             Game.closeConfirm();
-            if (Game._confirmCallback) {
-                const cb = Game._confirmCallback;
-                Game._confirmCallback = null;
-                cb();
-            }
+            if (cb) cb();
         };
     }
     showModal('confirm-modal');
