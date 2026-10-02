@@ -6,15 +6,27 @@ function wallCountLabel() {
     return '牌墙: ' + Game.deck.length + '张' + (circle ? '·' + circle : '');
 }
 Game.wallCountLabel = wallCountLabel;
+// B. 归纳：顶栏状态=牌墙+局数，与左栏 wall-count-text 同步（竖屏只看顶栏，横屏只看左栏，不重复）
+function syncTopStatus() {
+    const label = Game.wallCountLabel();
+    const wc = Game.$('wall-count-text');
+    if (wc) wc.innerText = label;
+    const fc = Game.$('field-count');
+    if (fc) fc.innerText = label;
+}
+Game.syncTopStatus = syncTopStatus;
 function renderTile(t, idx, clickable) {
     let marker = '';
     if (idx === Game.selectedIndex) marker = '<span class="mk-sel">▼</span>';
     else if (idx === Game.lastDrawnIndex) marker = '<span class="mk-new">●</span>';
     // 手感：刚摸到的牌滑入一次（_drawnAnimPlayed 置位后不再重播，避免选牌重渲染时反复闪）
-    const drawnCls = (idx === Game.lastDrawnIndex && !Game._drawnAnimPlayed) ? ' feel-drawn' : '';
-    if (idx === Game.lastDrawnIndex) Game._drawnAnimPlayed = true;
+    const isDrawn = (idx === Game.lastDrawnIndex);
+    const drawnCls = (isDrawn && !Game._drawnAnimPlayed) ? ' feel-drawn' : '';
+    if (isDrawn) Game._drawnAnimPlayed = true;
+    // A. 主次：刚摸的牌持久高亮（is-drawn），不再只靠 6px 小蓝点
+    const drawnMark = isDrawn ? ' is-drawn' : '';
     const danger = Game.isDangerousTile(t) ? 'danger' : '';
-    return `<div class="tile-wrap${drawnCls}"><div class="tile-marker">${marker}</div><div class="tile ${clickable ? '' : 'disabled'} ${danger}" data-index="${idx}">${Game.tileImg(t)}</div></div>`;
+    return `<div class="tile-wrap${drawnCls}${drawnMark}"><div class="tile-marker">${marker}</div><div class="tile ${clickable ? '' : 'disabled'} ${danger}" data-index="${idx}">${Game.tileImg(t)}</div></div>`;
 }
 
 function renderExposedFace(t) {
@@ -56,10 +68,49 @@ function renderPoolGrid() {
     if (!grid) return;
     const count = Game.$('pool-box-count');
     if (count) count.textContent = '（' + Game.discardPile.length + ' 张）';
-    const sortedPool = [...Game.discardPile].sort((a, b) => Game.poolTileCompare(a.tile, b.tile));
-    grid.innerHTML = sortedPool.length
-        ? sortedPool.map(d => `<div class="pool-tile">${Game.tileImg(d.tile)}</div>`).join('')
-        : '<div class="pool-empty">暂无弃牌</div>';
+    if (!Game.discardPile.length) {
+        grid.innerHTML = '<div class="pool-empty">暂无弃牌</div>';
+        return;
+    }
+    // C. 牌池：按牌分组（谁打的），再按花色分节（万/条/筒/字），每种显示已见 n/4
+    const byTile = {};
+    for (const d of Game.discardPile) {
+        (byTile[d.tile] = byTile[d.tile] || []).push(d.player);
+    }
+    const tiles = Object.keys(byTile).sort((a, b) => Game.poolTileCompare(a, b));
+    const hand = (Game.hands && Game.hands['bottom']) || [];
+    const seenOf = t => {
+        try { return humanSeenCount(t, hand, null); }
+        catch (e) { return byTile[t].length; }
+    };
+    const nameOf = p => (typeof Game.nameOf === 'function') ? Game.nameOf(p) : p;
+    const suits = [
+        { key: '筒', total: 36 }, { key: '条', total: 36 },
+        { key: '万', total: 36 }, { key: '字', total: 28 },
+    ];
+    let html = '';
+    for (const s of suits) {
+        const suitTiles = tiles.filter(t => t.slice(-1) === s.key);
+        if (!suitTiles.length) continue;
+        let suitSeen = 0;
+        for (const t of suitTiles) suitSeen += seenOf(t);
+        html += '<div class="pool-suit"><div class="pool-suit-head">' + s.key +
+            '<span class="pool-suit-count">已见 ' + suitSeen + '/' + s.total + '</span></div>' +
+            '<div class="pool-suit-grid">';
+        for (const t of suitTiles) {
+            const players = byTile[t];
+            const seen = seenOf(t);
+            html += '<div class="pool-tile-group">' +
+                '<div class="pool-tile">' + Game.tileImg(t) + '</div>' +
+                '<div class="pool-tile-meta"><span class="pool-count">×' + players.length + '</span>' +
+                '<span class="pool-seen">' + seen + '/4</span></div>' +
+                '<div class="pool-players">' + players.map(p =>
+                    '<span class="pool-wind" title="' + p + '">' + nameOf(p) + '</span>').join('') + '</div>' +
+                '</div>';
+        }
+        html += '</div></div>';
+    }
+    grid.innerHTML = html || '<div class="pool-empty">暂无弃牌</div>';
 }
 
 function render() {
@@ -85,7 +136,8 @@ function render() {
     const discardView = Game.discardPile.slice(-20);
     wall.innerHTML = discardView.map((d, i, arr) =>
         `<div class="discardTile${i === arr.length - 1 ? ' latest' : ''}">${Game.tileImg(d.tile)}</div>`).join('');
-    Game.$('wall-count-text').innerText = Game.wallCountLabel();
+    if (typeof Game.syncTopStatus === 'function') Game.syncTopStatus();
+    else Game.$('wall-count-text').innerText = Game.wallCountLabel();
     // 诊断：牌总数守恒 + 回合状态，有问题直接标红，卡住时一眼可见
     try {
         const tot = Game.totalTilesOf({ deck: Game.deck, discardPile: Game.discardPile, hands: Game.hands, exposedMelds: Game.exposedMelds });
@@ -121,22 +173,16 @@ function render() {
     try { Game.validateHandCounts('render'); } catch (e) {}
 }
 
-// ---------- 横屏底牌自适应：无论手牌+吃碰杠亮组有多少张（含最多三次杠），
+// ---------- 底牌自适应：无论手牌+吃碰杠亮组有多少张（含最多三次杠），
 // 都通过等比缩放让它们在同一行内完整显示，不换行、不重叠、不需要滚动 ----------
+// （2026-10-01 修：竖屏原来固定 29px + overflow 硬裁，14 张 419px 塞进 319px 容器，
+// 左右被切、第 14 张看不见；现在竖屏也走等比缩放，全部可见）
 function fitBottomHand() {
     const handEl = Game.$('hand-bottom');
     if (!handEl) return;
-    // 竖屏：完全按原版固定 29×39 + 横向滑动，不做缩放
-    if (document.body && document.body.classList.contains('portrait-layout')) {
-        handEl.style.overflowX = 'auto';
-        handEl.style.justifyContent = 'flex-start';
-        handEl.style.setProperty('--tile-w', '29px');
-        handEl.style.setProperty('--tile-h', '39px');
-        handEl.style.setProperty('--tile-fs', '29px');
-        return;
-    }
-    // 横屏界面放大系数（04-view-scale.js 按牌桌里的可用空间算出，≥1；未启用时为 1）
-    const uiK = (typeof Game.uiScaleK === 'number' && Game.uiScaleK > 0) ? Game.uiScaleK : 1;
+    const isPortrait = document.body && document.body.classList.contains('portrait-layout');
+    // 横屏界面放大系数（04-view-scale.js 按牌桌里的可用空间算出，≥1；未启用时为 1；竖屏不用）
+    const uiK = (!isPortrait && typeof Game.uiScaleK === 'number' && Game.uiScaleK > 0) ? Game.uiScaleK : 1;
     const baseW = 29 * uiK, baseH = 39 * uiK, baseFS = 29 * uiK;
     const MIN_SCALE = 0.42;
     handEl.style.overflowX = 'hidden';

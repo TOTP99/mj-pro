@@ -164,6 +164,7 @@ function validateHandCounts(reason) {
             try { console.warn('[hand-check]', msg, Game.hands[p], Game.exposedMelds[p]); } catch (e2) {}
         }
     }
+    try { if (typeof Game.validateGameState === 'function') Game.validateGameState('hand-counts:' + (reason || 'unknown')); } catch (e) {}
     return ok;
 }
 
