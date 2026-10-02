@@ -7,7 +7,7 @@ function wallCountLabel() {
     if (isPortrait) {
         // 竖屏：顶栏已有 1/东/1，这里不重复；牌墙后跟 AI 记忆局数
         const games = (Game.aiLearn && Game.aiLearn.games) || 0;
-        return wall + '·AI记忆' + games + '局';
+        return wall + '·记' + games + '局';
     }
     const circle = (typeof Game.fieldCircleText === 'function') ? Game.fieldCircleText() : '';
     return wall + (circle ? '·' + circle : '');
