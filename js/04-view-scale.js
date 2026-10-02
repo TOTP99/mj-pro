@@ -61,6 +61,9 @@ function autoFitTable(force) {
     const frame = document.getElementById('table-frame');
     const portrait = document.body && document.body.classList.contains('portrait-layout');
     if (!AUTO_FIT || !wrap || !frame || portrait) {
+        // 竖屏/未启用时把签名清掉：转回横屏时签名必不命中，保证重新算一次最优尺寸并写回 CSS 变量
+        // （否则竖屏→横屏回到同一尺寸会命中旧签名直接 return，--view-scale 会卡在竖屏的 1）
+        Game._autoFitSig = '';
         root.style.setProperty('--auto-pan-x', '0px'); root.style.setProperty('--auto-pan-y', '0px');
         // 竖屏没有 ＋/－：一律按 100%，避免横屏缩小后带进竖屏、又调不回来（横屏的手动系数 Game.viewScale 保留，转回横屏仍生效）
         root.style.setProperty('--view-scale', '1');
@@ -201,6 +204,9 @@ function orientTransitionCheck() {
 
 function beginOrientTransition() {
     document.documentElement.classList.add('orient-changing');
+    // 方向翻转：清掉自动适配签名，保证过渡结束后的 autoFitTable 必定重新计算并应用，
+    // 不会因为签名命中旧值而跳过（竖屏→横屏回到同一尺寸时最容易命中）
+    Game._autoFitSig = '';
     Game._orientStart = Date.now();
     Game._orientSizeKey = _orientSize();
     Game._orientStable = 0;
@@ -221,8 +227,10 @@ function endOrientTransition() {
     const html = document.documentElement;
     try {
         if (typeof Game.checkPortraitGuard === 'function') Game.checkPortraitGuard();
-        if (document.body.classList.contains('portrait-layout')) { try { autoFitTable(false); } catch (e) {} try { Game.fitBottomHand(); } catch (e) {} }
-        else { try { autoFitTable(false); } catch (e) {} try { autoUiScale('full'); } catch (e) {} try { Game.fitBottomHand(); } catch (e) {} try { fitViewPanX(); } catch (e) {} }
+        // 过渡结束：强制重算一次最优尺寸（force=true），不依赖签名比对；
+        // 此时牌桌还被 orient-changing 隐藏着，重算不会引起闪烁
+        if (document.body.classList.contains('portrait-layout')) { try { autoFitTable(true); } catch (e) {} try { Game.fitBottomHand(); } catch (e) {} }
+        else { try { autoFitTable(true); } catch (e) {} try { autoUiScale('full'); } catch (e) {} try { Game.fitBottomHand(); } catch (e) {} try { fitViewPanX(); } catch (e) {} }
         if (typeof Game.hardenResultModalInteract === 'function') Game.hardenResultModalInteract();
     } catch (e) { /* 出任何问题都要继续去显示 */ }
     requestAnimationFrame(() => requestAnimationFrame(() => {
