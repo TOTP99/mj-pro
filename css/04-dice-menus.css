@@ -56,10 +56,10 @@
     .hu-box {
         width: var(--modal-w);
         max-height: min(72vh, 300px);
-        overflow-x: auto; overflow-y: auto;
-        -webkit-overflow-scrolling: touch;
-        overscroll-behavior: contain;
-        touch-action: pan-x pan-y;
+        /* 5. 弹窗统一：外盒 flex 纵向、自身不滚动（内容走 .hu-scroll，底栏钉死） */
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
         margin: auto;
         padding: var(--modal-pad);
         border-radius: var(--modal-radius);
@@ -70,7 +70,21 @@
         box-shadow: var(--shadow-soft), inset 0 1px 0 rgba(255,255,255,0.06);
         backdrop-filter: blur(12px);
         -webkit-backdrop-filter: blur(12px);
+        box-sizing: border-box;
     }
+    /* 5. 弹窗统一：内容区（唯一滚动区） */
+    .hu-box .hu-scroll {
+        flex: 1 1 auto;
+        min-height: 0;
+        overflow-y: auto;
+        overflow-x: hidden;
+        -webkit-overflow-scrolling: touch;
+        overscroll-behavior: contain;
+        touch-action: pan-y;
+    }
+    /* 5. 弹窗统一：标题和底栏钉死 */
+    .hu-box .hu-title { flex: 0 0 auto; }
+    .hu-box .hu-actions { flex: 0 0 auto; }
     .hu-title {
         font-size: var(--fs-t1); font-weight: 700; letter-spacing: 0.1em;
         color: var(--ice); margin: 0 0 var(--sp-2);
@@ -123,3 +137,24 @@
         box-shadow: 0 0 10px rgba(212, 175, 55, 0.25);
     }
     .hu-actions button:disabled { opacity: 0.4; cursor: not-allowed; }
+    /* 3. 主次：按钮三级——主操作（实心金）/ 次要（金描边默认）/ 取消（无框淡字） */
+    .hu-actions button.btn-primary {
+        background: #b8912f;
+        border-color: #b8912f;
+        color: #191307;
+        font-weight: 700;
+    }
+    .hu-actions button.btn-primary:active {
+        background: #d4af37;
+        box-shadow: 0 0 12px rgba(212, 175, 55, 0.45);
+    }
+    .hu-actions button.btn-ghost {
+        background: none;
+        border-color: transparent;
+        color: var(--text-muted);
+        font-weight: 400;
+    }
+    .hu-actions button.btn-ghost:active {
+        background: rgba(255, 255, 255, 0.06);
+        box-shadow: none;
+    }

@@ -96,7 +96,6 @@
     #mode-select-modal,
     #rules-modal,
     #amount-modal,
-    #bust-modal,
     #round-modal,
     #pool-modal {
         padding-top: max(10px, var(--sat));

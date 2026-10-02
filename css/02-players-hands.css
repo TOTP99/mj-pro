@@ -272,9 +272,7 @@
         position: absolute; top: 7%; left: 1.5%; width: 16%; height: 84%; z-index: 6;
         padding: 8px 6px;
         font-size: 10px; color: #c5d4e0; text-align: left;
-        /* 6. 横屏左栏：淡淡透明背景 */
-        background: rgba(10, 14, 22, 0.35);
-        border-radius: 10px;
+        background: none;
         border: none;
         box-shadow: none;
         opacity: 0.92;

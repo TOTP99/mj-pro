@@ -5,7 +5,6 @@
     #mode-select-modal .hu-box,
     #rules-modal .hu-box,
     #amount-modal .hu-box,
-    #bust-modal .bust-box,
     #round-modal .hu-box {
         transform: none;
         transform-origin: center center;
@@ -49,7 +48,8 @@
     #credit-label .credit-btn {
         pointer-events: auto;
         background: transparent; border: none; border-radius: 0;
-        color: var(--gold); font-size: var(--fs-c1); font-weight: 600;
+        /* 10. 次要按钮蓝灰，金色只留给主操作 */
+        color: var(--text-muted); font-size: var(--fs-c1); font-weight: 600;
         letter-spacing: 0.04em; font-family: inherit;
         margin: 0 0 0 12px; padding: 2px;
         cursor: pointer; white-space: nowrap; vertical-align: baseline;
@@ -59,15 +59,16 @@
     .credit-btn-ls {
         display: none;
         background: transparent; border: none; border-radius: 0;
-        color: var(--gold); font-size: var(--fs-c1); font-weight: 600;
+        /* 10. 次要按钮蓝灰 */
+        color: var(--text-muted); font-size: var(--fs-c1); font-weight: 600;
         letter-spacing: 0.08em; font-family: inherit; line-height: 1.2;
         padding: 0 2px; cursor: pointer; white-space: nowrap; flex-shrink: 0;
     }
     .credit-btn-ls:active { text-shadow: 0 0 8px rgba(212, 175, 55, 0.9); }
     /* 局数显示：跟在"初始筹码"按钮后面；状态信息，比入口按钮高半级 */
-    .field-rounds { color: var(--gold); font-size: var(--fs-b2); font-weight: 600; white-space: nowrap; margin-left: 6px; vertical-align: baseline; }
+    .field-rounds { color: var(--text-muted); font-size: var(--fs-b2); font-weight: 600; white-space: nowrap; margin-left: 6px; vertical-align: baseline; }
     /* 横屏顶栏里的局数：竖屏隐藏，横屏跟按钮一起显示 */
-    /* 左侧顶栏：TP制作 + 教练 / 牌墙+局数 / ＋－缩放 / 模式+筹码 / 音效+危险 */
+    /* 左侧栏：TP制作+＋－ / 牌墙+局数 / 音效+危险+教练 / 模式+筹码 */
     #img-display-badge {
         position: static;
         top: auto; left: auto;
@@ -76,7 +77,7 @@
         border: none;
         color: var(--gold);
         background: transparent;
-        font-size: var(--fs-c1);
+        font-size: var(--fs-b2);
         font-weight: 500;
         letter-spacing: 0.04em;
         white-space: nowrap;
@@ -109,7 +110,7 @@
         margin: 0; padding: 2px 6px;
         min-width: 0; min-height: 0;
         color: var(--gold);
-        font-size: var(--fs-c1); font-weight: 600;
+        font-size: var(--fs-b2); font-weight: 600;
         font-family: inherit; line-height: 1.2; letter-spacing: 0;
         cursor: pointer;
         user-select: none;
