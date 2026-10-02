@@ -10,7 +10,7 @@ function wallCountLabel() {
         return wall + '·记' + games + '局';
     }
     const circle = (typeof Game.fieldCircleText === 'function') ? Game.fieldCircleText() : '';
-    return wall + (circle ? '·' + circle : '');
+    return wall + (circle ? '-' + circle : '');
 }
 Game.wallCountLabel = wallCountLabel;
 function renderTile(t, idx, clickable) {

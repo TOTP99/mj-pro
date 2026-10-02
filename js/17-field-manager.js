@@ -2,7 +2,7 @@
 // ---------- 场次与金额管理（2.0 二期） ----------
 // 场：从选定初始金额开始，到输光重开或手动重开为止
 // 每 16 局提醒一次，走骰子仪式重新调庄
-// 输光流程：输光确认 → 重新选初始金额 → 骰子仪式重新调庄 → 开始新场
+// 输光流程（自动）：筹码重置为本场初始金额 → 骰子仪式重新调庄 → 开始新场
 const FIELD_STORAGE_KEY = 'mahjong_new_field_v1';
 const FIELD_ROUNDS = 16;
 
@@ -10,8 +10,7 @@ Game.fieldAmounts = { top: 0, left: 0, right: 0, bottom: 0 };
 Game.fieldGameCount = 0;
 Game.fieldActive = false; // 是否已开场（选过金额）
 Game.fieldInitialAmount = 50; // 本场开场时的初始金额（同金额重选不重开场）
-Game.bustRestartPending = false; // 输光重开：选完金额后走骰子调庄（而非直接开局）
-Game.bustAwaitingChoice = false; // 破产确认中：等用户选"重新开场/继续本场"，此期间禁止 startGame 抢开新局
+Game.bustAutoRestart = null; // 输光自动重开：存输光的玩家位置，startGame 时拦截走自动流程
 
 function loadField() {
     try {
@@ -61,13 +60,10 @@ function onFieldGameSettled(payouts) {
     saveField();
     if (typeof renderFieldAmounts === 'function') renderFieldAmounts();
 
-    // 输光检查：任何一家金额变负
+    // 输光检查：任何一家金额变负 → 自动重开（筹码重置+骰子调庄），startGame 时执行
     const busted = ['top', 'left', 'right', 'bottom'].find(p => Game.fieldAmounts[p] < 0);
     if (busted) {
-        // 弹确认，不直接重开；先立 flag，结算弹窗点"确定"/流局点"下一局"时 startGame 会被拦住，
-        // 等用户在破产弹窗里做出选择后才继续（修：以前 800ms 后弹框时新局已经开打了）
-        Game.bustAwaitingChoice = true;
-        setTimeout(() => showBustModal(busted), 800);
+        Game.bustAutoRestart = busted;
         return;
     }
     // 16 局提醒
@@ -81,43 +77,7 @@ function onFieldDraw() {
     onFieldGameSettled(null);
 }
 
-function showBustModal(player) {
-    const name = typeof Game.nameOf === 'function' ? Game.nameOf(player) : player;
-    const el = Game.$('bust-modal');
-    if (!el) { Game.bustAwaitingChoice = false; resetFieldAfterBust(); return; }
-    // 覆盖式确认：800ms 后弹出时可能已开新局，压栈恢复才准确
-    Game.pushPhase(Game.PHASE.BUST, 'showBustModal');
-    const msg = Game.$('bust-message');
-    if (msg) msg.innerText = name + ' 的筹码已输光（' + Game.fieldAmounts[player] + '）';
-    el.classList.add('show');
-}
-
-function confirmBustRestart() {
-    const m = Game.$('bust-modal');
-    if (m) m.classList.remove('show');
-    Game.bustAwaitingChoice = false;
-    Game.phaseStack.length = 0; // 确认重开：丢弃破产压栈，走选金额线性流程
-    resetFieldAfterBust();
-}
-
-function cancelBustRestart() {
-    const m = Game.$('bust-modal');
-    if (m) m.classList.remove('show');
-    Game.bustAwaitingChoice = false;
-    Game.popPhase('cancelBustRestart'); // 弹出 BUST，回到之前
-    // 用户选继续本场：开之前被拦住的下一局（金额为负也继续，由用户决定）
-    Game.startGame();
-}
-
-function resetFieldAfterBust() {
-    Game.fieldActive = false;
-    saveField();
-    // 输光重开：选完金额后走骰子仪式重新调庄
-    Game.bustRestartPending = true;
-    // 重新选金额开场
-    showAmountModal();
-}
-
+/** 16 局提醒 */
 function showRoundReminder() {
     const el = Game.$('round-modal');
     if (!el) return;
@@ -148,7 +108,10 @@ function showAmountModal() {
 function openAmountSelect() {
     // 对局进行中需先确认（重选会重新开场）
     if (typeof Game.gameOver !== 'undefined' && !Game.gameOver) {
-        if (!confirm('重新选择初始筹码将重新开场，继续吗？')) return;
+        Game.confirmDialog('重新开场', '重新选择初始筹码将重新开场，继续吗？', function() {
+            showAmountModal();
+        });
+        return;
     }
     showAmountModal();
 }
@@ -175,16 +138,6 @@ function chooseAmount(amt) {
     // 同金额也不再静默跳过（否则确认框说了重开却没动，头像数字原地不动）。
     // chooseAmount 只被三个按钮调用，每次都是用户明确意图，无需防误触。
     startNewField(n);
-    // 输光重开：选完金额先走骰子仪式重新调庄，再开始新场
-    if (Game.bustRestartPending) {
-        Game.bustRestartPending = false;
-        const rm = Game.$('result-modal');
-        if (rm) rm.classList.remove('show'); // 骰子仪式要求结算弹窗已关闭
-        if (typeof Game.startDiceRitualWithMode === 'function') {
-            Game.startDiceRitualWithMode('dealer');
-            return;
-        }
-    }
     // 开新场后开新局
     if (typeof Game.startGame === 'function') Game.startGame();
     else if (typeof Game.initGame === 'function') Game.initGame();
@@ -225,9 +178,6 @@ Game.startNewField = startNewField;
 Game.resetFieldCycle = resetFieldCycle;
 Game.onFieldGameSettled = onFieldGameSettled;
 Game.onFieldDraw = onFieldDraw;
-Game.showBustModal = showBustModal;
-Game.confirmBustRestart = confirmBustRestart;
-Game.cancelBustRestart = cancelBustRestart;
 Game.showRoundReminder = showRoundReminder;
 Game.confirmRoundReselect = confirmRoundReselect;
 Game.showAmountModal = showAmountModal;

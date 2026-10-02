@@ -1,7 +1,10 @@
 ;(function(){
 function startGame() {
-    // 破产确认中：等用户在破产弹窗选"重新开场/继续本场"，不抢开新局
-    if (Game.bustAwaitingChoice) return;
+    // 输光自动重开：筹码重置为本场初始金额 + 骰子仪式重新调庄
+    if (Game.bustAutoRestart) {
+        if (typeof Game.autoRestartAfterBust === 'function') Game.autoRestartAfterBust();
+        return;
+    }
     Game.rotateDealer();
     Game.initGame();
     // 结算里手动调过的积分、新一局的庄家/牌面立刻落盘，不等 400ms 防抖
@@ -273,7 +276,7 @@ function handleDiscard(event) {
 // 弹窗打开时锁定页面滚动，避免底层与弹层抢惯性
 function syncBodyScrollLock() {
     const ids = ['result-modal', 'reveal-modal', 'chi-choice-modal', 'pool-modal', 'player-intro-modal',
-                 'mode-select-modal', 'rules-modal', 'amount-modal', 'bust-modal', 'round-modal'];
+                 'mode-select-modal', 'rules-modal', 'amount-modal', 'round-modal'];
     const open = ids.some(id => {
         const el = Game.$(id);
         return el && el.classList.contains('show');
@@ -295,7 +298,7 @@ function syncBodyScrollLock() {
 }
 (function watchModalsForScrollLock() {
     const ids = ['result-modal', 'reveal-modal', 'chi-choice-modal', 'pool-modal', 'player-intro-modal',
-                 'mode-select-modal', 'rules-modal', 'amount-modal', 'bust-modal', 'round-modal'];
+                 'mode-select-modal', 'rules-modal', 'amount-modal', 'round-modal'];
     const obs = new MutationObserver(syncBodyScrollLock);
     ids.forEach(id => {
         const el = Game.$(id);
