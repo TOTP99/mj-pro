@@ -417,8 +417,6 @@ function setPhase(next, why) {
         try { console.warn('[phase] 非法转移 ' + cur + ' → ' + next + (why ? '（' + why + '）' : '')); } catch (e) {}
     }
     Game.phase = next;
-    // 状态检查只做观测，不阻断原有流程。
-    try { if (typeof Game.validateGameState === 'function') Game.validateGameState('phase:' + next + (why ? ':' + why : '')); } catch (e) {}
     return next;
 }
 // 覆盖态进入/退出：diceRitual 可压在任意 phase 之上
@@ -457,17 +455,13 @@ Game._lastTileWarnKey = '';
 function checkTileConservation(reason) {
     if (Game.gameOver) return true;
     const n = totalTilesOf({ deck: Game.deck, discardPile: Game.discardPile, hands: Game.hands, exposedMelds: Game.exposedMelds });
-    if (n === FULL_DECK_SIZE) {
-        try { if (typeof Game.validateGameState === 'function') Game.validateGameState('conservation:' + reason); } catch (e) {}
-        return true;
-    }
+    if (n === FULL_DECK_SIZE) return true;
     const key = reason + ':' + n;
     if (key !== Game._lastTileWarnKey) {
         Game._lastTileWarnKey = key;
         try { console.warn('[tile-check] 牌总数异常', n, '/', FULL_DECK_SIZE, '@' + reason, { deck: Game.deck.length, discard: Game.discardPile.length, hands: cloneState(Game.hands), melds: cloneState(Game.exposedMelds) }); } catch (e) {}
         try { Game.logFlow('【异常】牌总数异常 ' + n + '/' + FULL_DECK_SIZE + (reason ? ' @' + reason : '')); } catch (e) {}
     }
-    try { if (typeof Game.validateGameState === 'function') Game.validateGameState('conservation:' + reason); } catch (e) {}
     return false;
 }
 
