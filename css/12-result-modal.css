@@ -391,12 +391,6 @@
         transform: none !important;
         pointer-events: auto;
     }
-    /* 横屏可视区太矮（约 171px）：收起牌面展示两行 + 标签（约 100px），
-       总分和四家输赢直接可见，不用滚动；竖屏保留牌面 */
-    #result-modal .result-row,
-    #result-modal .result-label {
-        display: none;
-    }
     /* 底部操作栏：横竖屏统一走 flex 固定栏（base 规则），这里不再另起 sticky 补丁 */
     #result-modal .result-adjust-btns button,
     #result-modal #btn-toggle-adjust {
