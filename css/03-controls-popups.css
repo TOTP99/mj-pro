@@ -102,6 +102,7 @@
         display: flex; align-items: center; gap: 5px;
         flex-wrap: wrap; max-width: 100%;
     }
+    .wc-row.nowrap { flex-wrap: nowrap; }
     .wc-row .field-rounds { margin-left: 0; }
     /* ＋/－：无外框，就是加减两个字，节约空间；点按不变形只发微光；字号并入左栏统一体系 */
     #btn-view-zoom-in,
