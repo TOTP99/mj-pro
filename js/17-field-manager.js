@@ -202,15 +202,12 @@ function fieldCircleText() {
     return game + '/' + wind + '/' + circle;
 }
 function renderFieldAmounts() {
-    // B. 归纳：顶栏(#field-count，竖屏)+左栏(#wall-count-text，横屏)同步为“牌墙: N张·局/风/圈”，两处不重复显示
-    if (typeof Game.syncTopStatus === 'function') Game.syncTopStatus();
-    else {
-        const txt = fieldCircleText();
-        const a = Game.$('field-count');
-        if (a) a.innerText = txt;
-        const wc = Game.$('wall-count-text');
-        if (wc && typeof Game.wallCountLabel === 'function') wc.innerText = Game.wallCountLabel();
-    }
+    const txt = fieldCircleText();
+    const a = Game.$('field-count');
+    if (a) a.innerText = txt;
+    // 2026-10-01：横屏局数已并入第2行牌墙文字（#field-count-ls 已删除），这里同步刷新
+    const wc = Game.$('wall-count-text');
+    if (wc && typeof Game.wallCountLabel === 'function') wc.innerText = Game.wallCountLabel();
 }
 
 /** 骰子调庄后：新开一个 4 圈周期（局数清零） */

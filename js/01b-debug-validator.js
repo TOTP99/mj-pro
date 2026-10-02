@@ -65,7 +65,9 @@
         if (Game.debug || !Game.gameOver) {
             try { console.warn('[state-check] ' + reason, details || ''); } catch (_) {}
         }
-        // 状态检查只进控制台：不再写牌桌 logFlow，避免污染「轮到你」这类关键提示。
+        try {
+            if (typeof Game.logFlow === 'function') Game.logFlow('【状态检查】' + reason);
+        } catch (_) {}
     }
 
     function validateGameState(reason) {
@@ -78,14 +80,9 @@
         const zones = collectState();
         let ok = true;
 
-        // 开局前各阶段（boot / 模式选择 / 规则配置 / 筹码选择 / 发牌中）牌墙还没建好，
-        // 牌区为空是正常过渡态，不算异常。
-        const preDealPhases = Game.PHASE ? [
-            Game.PHASE.BOOT, Game.PHASE.MODE_SELECT, Game.PHASE.RULES_EDIT,
-            Game.PHASE.AMOUNT_SELECT, Game.PHASE.DEALING
-        ] : [];
-        const emptyOk = zones.length === 0 && preDealPhases.includes(Game.phase);
-        if (zones.length !== VALID_TILE_COUNT && !emptyOk) {
+        // 开局瞬间（initGame 刚进入 dealing、牌墙尚未建好）牌区为空是正常过渡态，不算异常。
+        const dealingBoot = zones.length === 0 && Game.PHASE && Game.phase === Game.PHASE.DEALING;
+        if (zones.length !== VALID_TILE_COUNT && !dealingBoot) {
             ok = false;
             fail('牌区总数不是136张：' + zones.length + (reason ? ' @' + reason : ''), snapshotSummary(zones));
         }

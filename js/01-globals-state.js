@@ -598,37 +598,10 @@ function markDealer() {
     for (const p of PLAYERS) {
         const s = Game.scores[p];
         const el = $('score-' + p);
-        if (!el) continue;
-        // A. 主次：初始筹码就是数字本身，不带 +；红绿只给涨跌（相对初始筹码，未开场不上色）
-        el.innerText = String(s);
-        const knownBase = (Game.fieldActive && typeof Game.fieldInitialAmount === 'number');
-        el.classList.toggle('pos', knownBase && s > scoreBase);
-        el.classList.toggle('neg', knownBase && s < scoreBase);
-        // B. 归纳：庄/听角标直接挂头像（取代左栏名单）
-        const av = document.querySelector('#p-' + p + ' .avatar');
-        if (av) {
-            let bd = av.querySelector('.avatar-badge.dealer');
-            if (!bd) { bd = document.createElement('span'); bd.className = 'avatar-badge dealer'; bd.textContent = '庄'; av.appendChild(bd); }
-            bd.style.display = (p === Game.dealer) ? '' : 'none';
-            let bt = av.querySelector('.avatar-badge.tenpai');
-            if (!bt) { bt = document.createElement('span'); bt.className = 'avatar-badge tenpai'; bt.textContent = '听'; av.appendChild(bt); }
-            let isT = false;
-            try { isT = (typeof Game.isTenpai === 'function') && Game.isTenpai(p); } catch (e) { isT = false; }
-            bt.style.display = isT ? '' : 'none';
-            // B. 归纳：领先★也挂头像（原来在左栏名单里）
-            let bs = av.querySelector('.avatar-badge.leader');
-            if (!bs) { bs = document.createElement('span'); bs.className = 'avatar-badge leader'; bs.textContent = '★'; av.appendChild(bs); }
-            bs.style.display = isLeader(p) ? '' : 'none';
-        }
+        if (el) el.innerText = (s >= 0 ? '+' : '') + s;
     }
     scheduleSaveProgress();
 }
-
-// B. 归纳：左栏设置卡片收起/展开
-Game.toggleWallCard = function() {
-    const wc = document.getElementById('wall-count');
-    if (wc) wc.classList.toggle('collapsed');
-};
 
 // 完整对局记忆（积分/庄家/牌面/轮次）→ localStorage，刷新后原样恢复
 const MAHJONG_STORAGE_KEY = 'qionghu_mahjong_new_progress_v2';
