@@ -2,8 +2,15 @@
 // ---------- 渲染 ----------
 // 左栏第2行：牌墙张数 + 局/风/圈（2026-10-01：局数从第5行并入本行，AI学习局数只留 title 提示）
 function wallCountLabel() {
+    const wall = '牌墙: ' + Game.deck.length + '张';
+    const isPortrait = document.body && document.body.classList.contains('portrait-layout');
+    if (isPortrait) {
+        // 竖屏：顶栏已有 1/东/1，这里不重复；牌墙后跟 AI 记忆局数
+        const games = (Game.aiLearn && Game.aiLearn.games) || 0;
+        return wall + '·AI记忆' + games + '局';
+    }
     const circle = (typeof Game.fieldCircleText === 'function') ? Game.fieldCircleText() : '';
-    return '牌墙: ' + Game.deck.length + '张' + (circle ? '·' + circle : '');
+    return wall + (circle ? '·' + circle : '');
 }
 Game.wallCountLabel = wallCountLabel;
 function renderTile(t, idx, clickable) {
