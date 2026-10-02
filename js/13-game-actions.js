@@ -221,7 +221,6 @@ function handleDiscard(event) {
         Game.pendingClaim = null;
         Game.hideIndicator();
     }
-    if (Game.turnOrder[Game.currentIndex] !== 'bottom') return; // 不是你的回合
     const target = event.target.closest('.tile');
     if (!target || target.dataset.index === undefined) return;
     const idx = parseInt(target.dataset.index, 10);

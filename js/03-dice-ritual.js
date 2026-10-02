@@ -39,7 +39,6 @@ Game.tableTapTimes = Game.tableTapTimes || [];
 Game.diceBusy = false;
 Game.diceRitualMode = 'reset'; // 'reset' | 'dealer'
 Game.diceLastFaces = [1];
-Game.diceThrows = []; // 单颗骰子的物理状态（数组只为兼容旧引用）
 
 function diceEls() {
     return {
@@ -143,7 +142,6 @@ function resetDiceDom() {
     if (Game.diceRafId) { cancelAnimationFrame(Game.diceRafId); Game.diceRafId = 0; }
     if (Game.diceVanishTimer) { clearTimeout(Game.diceVanishTimer); Game.diceVanishTimer = 0; }
     if (Game.diceRestTimer) { clearTimeout(Game.diceRestTimer); Game.diceRestTimer = 0; }
-    Game.diceThrows = [];
     if (canvas) {
         const ctx = canvas.getContext('2d');
         if (ctx) ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -234,7 +232,6 @@ function startDiceRitualWithMode(mode) {
         face: face, state: 'fly',
         fade: 1, dpr: dpr
     };
-    Game.diceThrows = [die];
 
     const ctx = canvas.getContext('2d');
     let last = performance.now();
@@ -341,7 +338,6 @@ function drawDie(ctx, t) {
     });
     items.sort(function (a, b) { return a.z - b.z; }); // 远的先画
     items.forEach(function (it) {
-        if (it.n.z <= 0.02) return; // 背面不画
         const b = 0.42 + 0.58 * Math.max(0, it.n.x * LIGHT.x + it.n.y * LIGHT.y + it.n.z * LIGHT.z);
         const pts = it.v.map(function (p) {
             const s = F / (D - p.z);
@@ -520,6 +516,5 @@ Game.showDiceResetMenu = showDiceResetMenu;
 Game.applyDealerFromDice = applyDealerFromDice;
 Game.cancelDiceRitual = cancelDiceRitual;
 Game.confirmFullReset = confirmFullReset;
-Game._dicePhysics = { stepDie: stepDie, drawDie: drawDie, faceAngles: faceAngles, seatIndexOfFace: seatIndexOfFace, DICE: DICE }; // 测试钩子
 
 ;})();

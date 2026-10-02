@@ -2,14 +2,6 @@
 // ---------- 保牌AI：给每张牌算一个“保留等级”，数值越小越优先被打出 ----------
 // 0=孤立字牌 1=孤立中张(2,3,7,8) 2=孤立中张(4,5,6) 3=孤立幺九/嵌张
 // 4=刻子(三者中最先舍) 5=连张/搭子/三门齐保护 6=对子(最优先保留)
-function protectsThreeSuits(hand, tile) {
-    const suit = Game.tileSuit(tile);
-    if (suit === '字') return false; // 字牌不影响三门齐
-    const suitsPresent = new Set(hand.filter(t => Game.tileSuit(t) !== '字').map(Game.tileSuit));
-    if (suitsPresent.size < 3) return false; // 已经不是三门齐了，没必要为了保它牺牲效率
-    return hand.filter(t => Game.tileSuit(t) === suit).length === 1; // 这门僅剩的一张，打了就断这门了
-}
-
 // ---------- 记牌：统计场面上能看到的牌，判断某个搭子还有没有指望 ----------
 // 只数看得见的：弃牌堆 + 各家已经亮出的碰/吃/明杠/亮牌（暗杠盖着，不算"看得见"）
 function tileSeenCount(tile) {
@@ -325,7 +317,6 @@ function benchmarkMahjongAI(opt) {
 try { window.benchmarkMahjongAI = benchmarkMahjongAI; } catch (e) { /* non-browser */ }
 
 /* ---- 本文件对外接口（IIFE 收敛，唯一出口） ---- */
-Game.protectsThreeSuits = protectsThreeSuits;
 Game.isTileDead = isTileDead;
 Game.tileSeenCount = tileSeenCount;
 Game.estimateShanten = estimateShanten;

@@ -33,22 +33,7 @@ function ukeire1Raw(hand, exposed) {
 }
 
 // 二阶有效进张：摸到一张一阶进张后，手牌进张数的剩余加权平均（衡量"下下手"的厚度）
-function ukeire2Raw(hand, exposed, discard) {
-    const rest = hand.slice();
-    rest.splice(rest.indexOf(discard), 1);
-    const s0 = Game.estimateShanten(rest, exposed);
-    let wSum = 0, wTot = 0;
-    for (let i = 0; i < 34; i++) {
-        const t = indexToTile(i);
-        const rem = remainingCount(t, rest);
-        if (!rem) continue;
-        const after = rest.concat([t]);
-        if (Game.estimateShanten(after, exposed) >= s0) continue;
-        wSum += rem * ukeire1Raw(after, exposed);
-        wTot += rem;
-    }
-    return wTot ? wSum / wTot : 0;
-}
+
 
 // 保留价值：这张牌"值得留下"的程度（高=不该打）。只是并列时的微调，主力是进张。
 function tileKeepValue(tile, rest, exposed) {
@@ -158,7 +143,6 @@ function chooseDiscardLex(hand, exposed, player) {
 Game.indexToTile = indexToTile;
 Game.remainingCount = remainingCount;
 Game.ukeire1Raw = ukeire1Raw;
-Game.ukeire2Raw = ukeire2Raw;
 Game.scoreDiscard = scoreDiscard;
 Game.chooseDiscardLex = chooseDiscardLex;
 Game.combinedDanger = combinedDanger;

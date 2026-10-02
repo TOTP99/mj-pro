@@ -562,7 +562,6 @@ function advanceTurn() {
 
 /* ---- 本文件对外接口（IIFE 收敛，唯一出口） ---- */
 Game.aiPersonality = aiPersonality;
-Game.aiTraits = AI_TRAITS;
 // 按玩家取静态性格参数（AI 3.0 性格引擎：静态底色 + 学习增量）
 Game.aiTraitOf = function(player) {
     const style = aiPersonality[player] || 'shrewd';

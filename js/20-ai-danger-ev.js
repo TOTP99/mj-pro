@@ -331,23 +331,6 @@ function pushFold(hand, exposed, player) {
 
 // ---------- 综合弃牌决策（19 字典序 + 20 EV） ----------
 // 先用字典序排出效率最优的几张，再用 EV 在其中选攻守平衡点
-function chooseDiscard(player) {
-    const hand = Game.hands[player];
-    const exposed = Game.exposedMelds[player] || [];
-    if (!hand || !hand.length) return null;
-    const stance = pushFold(hand, exposed, player);
-    const lex = Game.chooseDiscardLex(hand, exposed, player);
-    if (!lex) return null;
-    if (stance === 'attack') return lex.tile;
-    // 守：从字典序前 3 中选 EV 最高（最安全且不太损进张）的
-    const cands = lex.all.slice(0, 3);
-    let best = cands[0], bestEV = -1e18;
-    for (const c of cands) {
-        const ev = discardEV(hand, exposed, player, c.tile).ev;
-        if (ev > bestEV) { bestEV = ev; best = c; }
-    }
-    return best.tile;
-}
 
 // ---------- 顺位修正（名次感） ----------
 // 最后两局：第4名强攻（+EV偏向攻击），首位大领先偏守。平时返回 0。
@@ -517,7 +500,6 @@ Game.pWin = pWin;
 Game.winValue = winValue;
 Game.discardEV = discardEV;
 Game.pushFold = pushFold;
-Game.chooseDiscard = chooseDiscard;
 
 // ---------- 2步期望搜索（AI 4.0 提强1） ----------
 // 打出 D 后，摸到各种进张 T 后的向听期望。比只看 immediate ukeire 更准：
@@ -632,7 +614,7 @@ function chooseDiscardCore(hand, exposed, player, style) {
         } catch (e) { pruned[i].twoStep = pruned[i].shanten; }
     }
     for (let i = twoStepN; i < pruned.length; i++) pruned[i].twoStep = pruned[i].shanten;
-    // 并列组补 uk2（注：ukeire2Raw 单次 ~100ms 太贵，热路径已禁用；保留函数供离线分析）
+    // 并列组补 uk2（注：uk2 单次 ~100ms 太贵，热路径已禁用）
     // 实际用 uk1 的"进张种类数"作后劲代理（ukeire1Raw 内已算出，不额外花钱）
     // 细排：保留价值 → 危险度（uk2 已从热路径移除）
     // AI 4.0：2步期望排在 uk1 之后——uk1 看"现在有多少进张"，2步看"摸到后有多舒服"

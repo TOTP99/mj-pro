@@ -196,14 +196,6 @@ function applyAxisScore(player, style, score, justCalled) {
 }
 
 // A/B 对比与测试用：把学习状态清零重来（不删盘，调用方决定要不要 save）
-function resetAiLearn() {
-    Game.aiLearn = {
-        games: 0,
-        confidence: { conservative: freshAxisConfidence(), aggressive: freshAxisConfidence(), shrewd: freshAxisConfidence() },
-        samples: { conservative: freshAxisConfidence(), aggressive: freshAxisConfidence(), shrewd: freshAxisConfidence() }
-    };
-}
-
 // ---------- AI 3.0 名次感（position 轴） ----------
 // 每局开局记四家名次快照，结算时看名次变化：名次上升=名次感用对了，下降=用错了
 Game.rankAtDeal = null;
@@ -235,28 +227,6 @@ Game.trackAiCall = function(player) {
     const style = Game.aiPersonality ? Game.aiPersonality[player] : null;
     if (style && Game.aiStyleStats[style]) Game.aiStyleStats[style].calls += 1;
 };
-// 性格分化度：三性格在 吃碰率/点炮率/胜率/平均胡牌轮数/平均番数 上的标准差
-Game.aiDivergence = function() {
-    const styles = ['conservative', 'aggressive', 'shrewd'];
-    const out = {};
-    const metrics = ['callRate', 'dealInRate', 'winRate', 'avgWinTurns', 'avgFan'];
-    for (const m of metrics) {
-        const vals = styles.map(s => {
-            const st = Game.aiStyleStats[s];
-            if (!st || !st.games) return 0;
-            if (m === 'callRate') return st.calls / st.games;
-            if (m === 'dealInRate') return st.dealIns / st.games;
-            if (m === 'winRate') return st.wins / st.games;
-            if (m === 'avgWinTurns') return st.wins ? st.winTurns / st.wins : 0;
-            return st.wins ? st.winFan / st.wins : 0; // avgFan
-        });
-        const mean = vals.reduce((a, b) => a + b, 0) / vals.length;
-        const sd = Math.sqrt(vals.reduce((a, b) => a + (b - mean) * (b - mean), 0) / vals.length);
-        out[m] = { conservative: vals[0], aggressive: vals[1], shrewd: vals[2], std: sd };
-    }
-    return out;
-};
-
 // 一局定输赢后调用。meta: { fan, turns }（自摸/点炮都算胡，不再区分对"这局的分"的影响——
 // 三种性格各自在乎的东西已经在 scoreHandForStyle 里体现了）
 function learnFromWin(winnerPlayer, payerPlayer, meta) {
@@ -319,7 +289,6 @@ Game.gameEpoch = 0;
 function gameTimeout(fn, ms) {
     const epoch = Game.gameEpoch;
     const run = () => {
-        if (epoch !== Game.gameEpoch) return; // 已经不是这一局了
         if (typeof Game.diceBusy !== 'undefined' && Game.diceBusy) { setTimeout(run, 200); return; } // 骰子仪式期间暂停
         fn();
     };
@@ -434,11 +403,6 @@ function popPhase(why) {
     recordPhaseTransition(cur, prev === undefined ? cur : prev, (why || '') + ' [pop]', true);
     return Game.phase;
 }
-function resetPhaseStats() {
-    Game.phaseViolations = 0;
-    Game.phaseHistory = [];
-}
-
 // ---------- 牌总数守恒检查 ----------
 // 一副牌固定 136 张：牌墙 + 四家暗牌 + 四家副露 + 弃牌堆，任何时刻都应等于这个数
 // （局已结束时不检查：抢杠等结算路径会把牌挪来挪去）
@@ -592,7 +556,14 @@ function markDealer() {
     for (const p of PLAYERS) {
         const s = Game.scores[p];
         const el = $('score-' + p);
-        if (el) el.innerText = (s >= 0 ? '+' : '') + s;
+        if (!el) continue;
+        // 2. 主次：初始筹码就是数字，不带+；涨跌用颜色+↑↓（色弱可辨）
+        const knownBase = (Game.fieldActive && typeof Game.fieldInitialAmount === 'number');
+        const up = knownBase && s > scoreBase;
+        const down = knownBase && s < scoreBase;
+        el.innerText = (up ? '↑' : down ? '↓' : '') + s;
+        el.classList.toggle('pos', up);
+        el.classList.toggle('neg', down);
     }
     scheduleSaveProgress();
 }
@@ -801,13 +772,11 @@ Game.markAxisUsed = markAxisUsed;
 Game.resetLastCallTurn = resetLastCallTurn;
 Game.learnFromWin = learnFromWin;
 Game.learnFromDraw = learnFromDraw;
-Game.resetAiLearn = resetAiLearn;
 Game.decayAiLearn = decayAiLearn;
 Game.$ = $;
 Game.setPhase = setPhase;
 Game.pushPhase = pushPhase;
 Game.popPhase = popPhase;
-Game.resetPhaseStats = resetPhaseStats;
 Game.totalTilesOf = totalTilesOf;
 Game.FULL_DECK_SIZE = FULL_DECK_SIZE;
 Game.markDealer = markDealer;

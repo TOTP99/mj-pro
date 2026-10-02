@@ -18,10 +18,13 @@ function renderTile(t, idx, clickable) {
     if (idx === Game.selectedIndex) marker = '<span class="mk-sel">▼</span>';
     else if (idx === Game.lastDrawnIndex) marker = '<span class="mk-new">●</span>';
     // 手感：刚摸到的牌滑入一次（_drawnAnimPlayed 置位后不再重播，避免选牌重渲染时反复闪）
-    const drawnCls = (idx === Game.lastDrawnIndex && !Game._drawnAnimPlayed) ? ' feel-drawn' : '';
-    if (idx === Game.lastDrawnIndex) Game._drawnAnimPlayed = true;
+    const isDrawn = (idx === Game.lastDrawnIndex);
+    const drawnCls = (isDrawn && !Game._drawnAnimPlayed) ? ' feel-drawn' : '';
+    if (isDrawn) Game._drawnAnimPlayed = true;
+    // 4. 主次：刚摸的牌持久高亮（is-drawn）
+    const drawnMark = isDrawn ? ' is-drawn' : '';
     const danger = Game.isDangerousTile(t) ? 'danger' : '';
-    return `<div class="tile-wrap${drawnCls}"><div class="tile-marker">${marker}</div><div class="tile ${clickable ? '' : 'disabled'} ${danger}" data-index="${idx}">${Game.tileImg(t)}</div></div>`;
+    return `<div class="tile-wrap${drawnCls}${drawnMark}"><div class="tile-marker">${marker}</div><div class="tile ${clickable ? '' : 'disabled'} ${danger}" data-index="${idx}">${Game.tileImg(t)}</div></div>`;
 }
 
 function renderExposedFace(t) {
@@ -317,7 +320,6 @@ function updateTenpaiHint() {
         host.appendChild(el);
     }
     const html = computeTenpaiHint();
-    if (html === Game._tenpaiHintHtml) return;   // 没变化就不动 DOM
     Game._tenpaiHintHtml = html;
     el.innerHTML = html;
     if (html) el.classList.add('show'); else el.classList.remove('show');

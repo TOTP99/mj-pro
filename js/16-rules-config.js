@@ -66,19 +66,12 @@ function setGameMode(mode) {
     Game.gameMode = mode === 'advanced' ? 'advanced' : 'daily';
     saveRulesConfig();
 }
-function getRules() { return { ...Game.rulesConfig }; }
 function setRule(key, val) {
     if (key in DEFAULT_RULES) {
         Game.rulesConfig[key] = !!val;
         saveRulesConfig();
     }
 }
-/** 恢复默认配置（默认 ≡ 日常玩法） */
-function resetRules() {
-    Game.rulesConfig = { ...DEFAULT_RULES };
-    saveRulesConfig();
-}
-
 // 高阶模式下 checkHu / 亮牌用的判定开关；日常模式不走这里（直接用旧逻辑）
 // 默认配置下：须开门/须刻子/中发白作将算刻子/须幺九/须三门齐/不许七小对/仅首巡可亮 ≡ 旧版
 function ruleRequiresKaimen() { return isDailyMode() ? true : !!Game.rulesConfig.mustKaimen; }
@@ -164,6 +157,32 @@ syncAssistLsButtons(); // 启动时按存档同步一次左栏文字
 function showModal(id) { const el = Game.$(id); if (el) el.classList.add('show'); }
 function hideModal(id) { const el = Game.$(id); if (el) el.classList.remove('show'); }
 
+// 13. 通用二次确认弹窗（替代原生 confirm，样式统一）
+Game._confirmCallback = null;
+Game.confirmDialog = function(title, message, onConfirm) {
+    const t = Game.$('confirm-title');
+    const m = Game.$('confirm-message');
+    const ok = Game.$('confirm-ok');
+    if (t) t.innerText = title || '请确认';
+    if (m) m.innerText = message || '';
+    Game._confirmCallback = (typeof onConfirm === 'function') ? onConfirm : null;
+    if (ok) {
+        ok.onclick = function() {
+            Game.closeConfirm();
+            if (Game._confirmCallback) {
+                const cb = Game._confirmCallback;
+                Game._confirmCallback = null;
+                cb();
+            }
+        };
+    }
+    showModal('confirm-modal');
+};
+Game.closeConfirm = function() {
+    Game._confirmCallback = null;
+    hideModal('confirm-modal');
+};
+
 /** 牌桌中央提示条：模式/筹码选择时先亮提示、弹窗稍后跟上
     位置取四头像中心连成的菱形正中心（实时计算，替代固定的 50%/50%） */
 function placePromptAtDiamondCenter() {
@@ -241,7 +260,11 @@ function chooseMode(mode) {
     if (gameLive && Game.gameMode === 'daily') return;
     // 如果已有对局在进行，换模式开新局需先确认
     if (!Game.gameOver) { // gameOver 在 01 加载时恒为 false，无需 typeof 守卫
-        if (!confirm('切换到日常模式将重新开局，继续吗？')) return;
+        Game.confirmDialog('切换模式', '切换到日常模式将重新开局，继续吗？', function() {
+            setGameMode('daily');
+            startGameWithMode();
+        });
+        return;
     }
     setGameMode('daily');
     startGameWithMode();
@@ -292,7 +315,12 @@ function confirmRules() {
     }
     rulesSnapshotBeforeEdit = null;
     if (!Game.gameOver) { // gameOver 在 01 加载时恒为 false，无需 typeof 守卫
-        if (!confirm('应用高阶规则将重新开局，继续吗？')) return;
+        Game.confirmDialog('应用规则', '应用高阶规则将重新开局，继续吗？', function() {
+            hideModal('rules-modal');
+            setGameMode('advanced');
+            startGameWithMode();
+        });
+        return;
     }
     hideModal('rules-modal');
     setGameMode('advanced');
@@ -324,9 +352,7 @@ function startGameWithMode() {
 /* ---- 本文件对外接口（IIFE 收敛，唯一出口） ---- */
 Game.isDailyMode = isDailyMode;
 Game.setGameMode = setGameMode;
-Game.getRules = getRules;
 Game.setRule = setRule;
-Game.resetRules = resetRules;
 Game.ruleRequiresKaimen = ruleRequiresKaimen;
 Game.ruleRequiresPeng = ruleRequiresPeng;
 Game.ruleDragonsPairAsPeng = ruleDragonsPairAsPeng;

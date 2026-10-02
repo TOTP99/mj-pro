@@ -1,5 +1,4 @@
 ;(function(){
-const windTilesArr = ['1字', '2字', '3字', '4字'];
 const dragonTilesArr = ['5字', '6字', '7字'];
 
 // 四归一：某张牌凑齐4张，3张做刻子(或杠)、剩下1张落在一个顺子里
@@ -253,7 +252,6 @@ function getWinningTiles(player) {
 }
 
 /* ---- 本文件对外接口（IIFE 收敛，唯一出口） ---- */
-Game.windTilesArr = windTilesArr;
 Game.dragonTilesArr = dragonTilesArr;
 Game.scoreWinningHand = scoreWinningHand;
 Game.applyKongBonuses = applyKongBonuses;

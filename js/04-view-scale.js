@@ -1,9 +1,6 @@
 ;(function(){
 // ---------- 横屏牌桌大小（手动 ＋/－） ----------
 // 现在 default = 自动适配大小（见 autoFitTable，＋/－ 是相对它的微调）；下面 fitViewPanX 仍负责左侧栏防切边：
-// （旧说明）default = 100% 即原始大小（scale=1），位置由 fitViewPanX 智能计算：
-//   左侧栏（TP制作→＋/－）左边被切掉时自动向右平移，保证不切掉并留呼吸量。
-// ＋放大（最大110%），－缩小（最小70%），步进 5%；不存档，刷新恢复 100%。
 const VIEW_SIZE_MIN = 70, VIEW_SIZE_MAX = 110; // 相对默认的百分比
 const ORIGINAL_VIEW_SCALE = 1;
 const VIEW_BREATH_PX = 6; // 左/右呼吸量
@@ -24,7 +21,6 @@ function fitViewPanX() {
     const wr = wrapEl.getBoundingClientRect();
     const vw = window.innerWidth || document.documentElement.clientWidth || 0;
     let dx = 0;
-    if (sr.left < VIEW_BREATH_PX) dx = VIEW_BREATH_PX - sr.left; // 左边被切 → 向右移
     // 右边也别出屏（左侧优先，右边不够时回退：取 max 保住左边的修正量）
     if (vw > 0 && wr.right + dx > vw - VIEW_BREATH_PX) {
         dx = Math.max(dx, vw - VIEW_BREATH_PX - wr.right);
@@ -43,8 +39,6 @@ Game.fitViewPanX = fitViewPanX;
 const AUTO_FIT = true;
 const AUTO_FIT_FILL = 0.96;   // 占可用区域的比例（四周留 ~2% 呼吸量）
 const AUTO_FIT_MIN = 0.5, AUTO_FIT_MAX = 1.8;
-Game.autoBase = 1;            // 自动适配算出的基准缩放
-Game._autoPan = { x: 0, y: 0 };
 Game._autoFitSig = '';
 
 function _dbgShow(txt) {
@@ -67,7 +61,6 @@ function autoFitTable(force) {
     const frame = document.getElementById('table-frame');
     const portrait = document.body && document.body.classList.contains('portrait-layout');
     if (!AUTO_FIT || !wrap || !frame || portrait) {
-        Game.autoBase = 1; Game._autoPan = { x: 0, y: 0 };
         root.style.setProperty('--auto-pan-x', '0px'); root.style.setProperty('--auto-pan-y', '0px');
         // 竖屏没有 ＋/－：一律按 100%，避免横屏缩小后带进竖屏、又调不回来（横屏的手动系数 Game.viewScale 保留，转回横屏仍生效）
         root.style.setProperty('--view-scale', '1');
@@ -109,7 +102,6 @@ function autoFitTable(force) {
         '\npad ' + [pt, pr, pb, pl].join('/') + ' frame ' + fw + 'x' + fh + '\nbase ' + base + ' S ' + S + ' pan ' + tx + ',' + ty);
     if (!force && sig === Game._autoFitSig) return;
     Game._autoFitSig = sig;
-    Game.autoBase = base; Game._autoPan = { x: tx, y: ty };
     root.style.setProperty('--auto-pan-x', tx + 'px');
     root.style.setProperty('--auto-pan-y', ty + 'px');
     root.style.setProperty('--view-scale', String(S));
