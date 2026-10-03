@@ -3,6 +3,15 @@
 // AI 3.0 P0-4。EV = P和×和牌价值 − P放铳×损失 − P被自摸×损失 + P流局听牌×价值
 // 只用公开信息 + 自己的手牌，不读对手暗牌。
 
+// ---------- P0 规则感知：必须开门时的开门刚需 ----------
+// meldCallEV 内使用。取值经校准（b-p0/NOTES.md），只定一次，不按胜率反复调。
+// 校准（2026-10-03，50局实战gap分布，bonus=0）:
+//   menzen peng gap: n=44, p25=-45.2, med=-23.3, p75=3.1, p90=78.5
+//   menzen chi  gap: n=88, med=-29.3, p75=-3.4, p90=127.1
+// 取 50 ≈ 覆盖 ~85% 的 gap；剩下的不叫由正当 veto 拦截（已听牌/进张腰斩/拆唯一将），
+// 这些 veto 与旧版A的纪律对应，不应被 bonus 冲掉。只定一次，不按胜率回头调。
+const KAIMEN_BONUS = 50;
+
 // ---------- 放铳概率 ----------
 // 单张弃牌的放铳概率 ≈ 综合危险度（多家）：1 - Π(1 - Pdeal)
 function pDealIn(player, tile) {
@@ -481,7 +490,17 @@ function meldCallEV(player, tile, kind, combo) {
             }
         }
     } catch (e) {}
-    const evCallFinal = evCall - disciplinePenalty;
+    // P0 规则感知：必须开门时，开门这一叫有刚需价值。
+    // evPass 用 bestStateEV 算的，不知道"门清不能胡"——不叫的真实期望≈0。
+    // KAIMEN_BONUS 经校准设定（见 b-p0/NOTES.md），只调一次。
+    let kaimenBonus = 0;
+    try {
+        if (typeof Game.ruleRequiresKaimen === 'function' && Game.ruleRequiresKaimen()
+            && (!exposed || exposed.length === 0)) {
+            kaimenBonus = KAIMEN_BONUS; // 这一叫能开门
+        }
+    } catch (e) {}
+    const evCallFinal = evCall - disciplinePenalty + kaimenBonus;
     return {
         take: evCallFinal > evPass.ev,
         evCall: evCallFinal, evPass: evPass.ev,
