@@ -90,7 +90,7 @@
         padding: 3px 10px;
         font-size: 15px;
     }
-    body.portrait-layout .bottom #hand-bottom { margin-bottom: 0; }
+    body.portrait-layout .bottom #hand-bottom { margin-bottom: calc(-1 * var(--meld-ext)); }
     /* 原版竖屏手牌：固定 29×39，横向滑动，不缩放 */
     body.portrait-layout .bottom .hand {
         --tile-w: 29px;
@@ -107,7 +107,7 @@
         max-width: 100%;
         gap: 1px;
         margin-top: 5px;
-        padding-bottom: 0;
+        padding-bottom: var(--meld-ext);
     }
     body.portrait-layout .bottom .hand .tile {
         width: 29px !important;
@@ -123,6 +123,10 @@
     body.portrait-layout .bottom .hand .tile-marker {
         font-size: 8px;
         height: 12px;
+    }
+    /* 副露组内 marker 必须为零（与横屏同一算法，边框精密贴合） */
+    body.portrait-layout .bottom .hand .meld-group .tile-marker {
+        display: none;
     }
     body.portrait-layout .bottom .avatar img {
         width: 44px;

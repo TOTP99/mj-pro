@@ -7,10 +7,11 @@
     .bottom { bottom: 0; left: 50%; transform: translateX(-50%); max-width: 95%;
         display: flex; flex-direction: column; align-items: center;
         border: none; background: transparent; padding: 4px 8px 2px;
-        --hand-tile-h: 41px; }
+        --hand-tile-h: 41px;
+        --meld-ext: 2px; } /* 自家副露框(1px 边框 + 1px 内边距)比牌多出的上下厚度；手牌行为它预留，牌的位置不变 */
     .bottom .player-label { order: 1; }
     .bottom #flow-log { order: 2; margin-top: calc(var(--hand-tile-h, 41px) * 0.15); }
-    .bottom #hand-bottom { order: 3; margin-bottom: 2px; }
+    .bottom #hand-bottom { order: 3; margin-bottom: calc(2px - var(--meld-ext)); }
 
     /* 任何提示都不得挡住自家手牌 */
     .player.bottom {
@@ -219,11 +220,12 @@
     .bottom .hand {
         --tile-w: 31px; --tile-h: 41px; --tile-fs: 29px;
         flex-wrap: nowrap; overflow-x: hidden; overflow-y: hidden; justify-content: center;
+        align-items: flex-end;            /* 手牌与副露组底边对齐（同一行、同一基线） */
         width: 100%;
         -webkit-overflow-scrolling: touch;
         overscroll-behavior-x: contain;
         touch-action: pan-x;
-        padding-bottom: 0;
+        padding-bottom: var(--meld-ext);  /* 给副露框下边框留位置，免得被 overflow 裁掉 */
     }
     /* 底牌区所有牌（含吃碰杠亮的组）统一按 --tile-w/--tile-h/--tile-fs 缩放，
        以便无论多少张牌（含最多三次杠）都能不换行、不重叠地在一行内同时显示 */
@@ -267,6 +269,19 @@
         border: 1px solid rgba(100, 160, 220, 0.65);
         border-radius: 5px;
     }
+    /* 自家手牌行里的副露组（吃/碰/明杠/暗杠/亮牌）统一规格：
+       1px 边框 + 1px 内边距，框紧贴牌（不含手牌上方的标记行），上下各比牌多 2px（= --meld-ext）；
+       用 -2px 下边距把框往下挪，使组内牌与手牌同一基线、同一行，不再偏低。AI 副露不受影响。 */
+    .bottom .hand .meld-group {
+        align-items: flex-start;
+        padding: 1px 2px;
+        border: 1px solid rgba(212, 175, 55, 0.38);
+        border-radius: 5px;
+        margin-bottom: calc(-1 * var(--meld-ext));
+    }
+    .bottom .hand .meld-group .tile-marker { display: none; }
+    .bottom .hand .meld-group.reveal-group { border-color: var(--gold); }
+    .bottom .hand .meld-group.angang-group { border-color: rgba(100, 160, 220, 0.65); }
     /* 牌墙与统计：现移至左侧空地，纵向排布，无背景无边框，贴近原版轻量显示 */
     #wall-count {
         position: absolute; top: 7%; left: 1.5%; width: 16%; height: 84%; z-index: 6;
