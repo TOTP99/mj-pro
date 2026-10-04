@@ -410,28 +410,8 @@ function shouldAiChi(player, tile, combo) {
     const meldCost = exposed.length * (style === 'conservative' ? 80 : style === 'shrewd' ? 50 : 30);
     const off = conf * 60 + (open ? 0 : 120) - meldCost;
     const evTake = r.evCall + off;
-    // 找门模式：combo 里的牌上家打出过（将来吃到的机会大）→ slight bonus。
-    // 吃的牌一定来自上家（规则），这里看的是 combo 另两张：同牌 +30，同花色 +15（权重减半）。
-    // 只动 chi 路径，peng/gang 不动。
-    let seekBonus = 0;
-    try {
-        if (typeof Game.isMeldSeeking === 'function' && Game.isMeldSeeking(player)) {
-            const kc = Game.kamichaDiscardCounts(player);
-            for (const t of (combo || [])) {
-                if ((kc[t] || 0) > 0) seekBonus += 30;
-                else {
-                    const s = Game.tileSuit(t);
-                    if (s !== '字') {
-                        for (const k in kc) {
-                            if (Game.tileSuit(k) === s) { seekBonus += 15; break; }
-                        }
-                    }
-                }
-            }
-        }
-    } catch (e) {}
     // 转守：EV 必须明显为正（>120 净胜）才吃
-    const take = (evTake + seekBonus) > r.evPass;
+    const take = evTake > r.evPass;
     // 轴1归因：跟"没学过(conf=0)"时会不会选得不一样比一比
     if (take !== (r.evCall > r.evPass)) Game.markAxisUsed(player, 'callAggr');
     return take;

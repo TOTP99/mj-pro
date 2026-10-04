@@ -82,15 +82,12 @@ function scoreDiscard(hand, exposed, player, discard) {
     const di = rest.indexOf(discard);
     if (di < 0) return null;
     rest.splice(di, 1);
-    let kv = tileKeepValue(discard, rest, exposed);
-    // 找门模式：少拆对子/两面搭，多留上家打过的花色（字典序 tiebreak，不动向听/进张主轴）
-    try { if (isMeldSeeking(player)) kv += meldSeekKeepBonus(discard, hand, player); } catch (e) {}
     return {
         tile: discard,
         shanten: Game.estimateShanten(rest, exposed),
         uk1: null, // 懒算
         uk2: null, // 懒算
-        keepValue: kv,
+        keepValue: tileKeepValue(discard, rest, exposed),
         danger: combinedDanger(player, discard),
         rest: rest,
     };
@@ -142,72 +139,6 @@ function chooseDiscardLex(hand, exposed, player) {
     return { tile: pruned[0].tile, scores: pruned[0], decider: decider.by, all: pruned };
 }
 
-/* ========== 找门模式（meld-seeking）：必须开门规则下，开局主动找开门机会 ==========
- * 与 20 的 P0（KAIMEN_BONUS：机会来了更愿意吃/碰）互补：这里是"主动创造吃的机会"。
- * 触发：必须开门 && 门清 && 前6人次。条件不满足时零影响。
- * 上家方向：nextPlayerOf(p) 是下家（可吃 p 打出的牌，findAiChi 已验证），
- * 故上家（我能吃他打出的牌）= turnOrder 逆序前一位。 */
-
-// 上家：我能吃他打出的牌的那家
-function kamichaOf(player) {
-    const idx = Game.turnOrder.indexOf(player);
-    if (idx < 0) return null;
-    return Game.turnOrder[(idx - 1 + Game.turnOrder.length) % Game.turnOrder.length];
-}
-
-// 上家打出过的牌统计（每次现算，无持久状态）：{tile: count}
-// Game.discardPile 条目格式 {player, tile}（01-globals-state.js:468）
-function kamichaDiscardCounts(player) {
-    const c = {};
-    const k = kamichaOf(player);
-    if (!k) return c;
-    for (const d of (Game.discardPile || [])) {
-        if (d && d.player === k && d.tile) c[d.tile] = (c[d.tile] || 0) + 1;
-    }
-    return c;
-}
-
-function isMeldSeeking(player) {
-    try {
-        if (typeof Game.ruleRequiresKaimen !== 'function' || !Game.ruleRequiresKaimen()) return false;
-        if ((Game.exposedMelds[player] || []).length > 0) return false; // 已开门
-        // handTurnCount 按人次递增（08 nextTurn）；无此字段时用弃牌堆长度估算
-        const tc = (typeof Game.handTurnCount === 'number')
-            ? Game.handTurnCount
-            : Math.floor((Game.discardPile || []).length / 4);
-        return tc <= 6;
-    } catch (e) { return false; }
-}
-
-// 找门模式下的留牌加成（加到 keepValue；字典序 shanten→uk1→keep→danger，只在前两轴打平时生效，
-// 不动向听/进张主轴）。
-// tile = 候选弃牌，hand = 打出前的完整手牌。
-function meldSeekKeepBonus(tile, hand, player) {
-    let b = 0;
-    const counts = {};
-    for (const t of hand) counts[t] = (counts[t] || 0) + 1;
-    // 对子：留着能碰
-    if ((counts[tile] || 0) >= 2) b += 6;
-    // 两面搭：与邻张组成搭子（3-4/4-5/5-6/6-7 这类）
-    const suit = Game.tileSuit(tile), rank = Game.tileRank(tile);
-    if (suit !== '字') {
-        const has = function (r) { return (counts[r + suit] || 0) > 0; };
-        if (has(rank - 1) || has(rank + 1)) b += 4;
-        else if (has(rank - 2) || has(rank + 2)) b += 2;
-    }
-    // 上家打出过：同牌 +4（将来吃到的机会大），同花色 +2（权重减半）
-    try {
-        const kc = kamichaDiscardCounts(player);
-        if ((kc[tile] || 0) > 0) b += 4;
-        else if (suit !== '字') {
-            for (const k in kc) {
-                if (Game.tileSuit(k) === suit) { b += 2; break; }
-            }
-        }
-    } catch (e) {}
-    return b;
-}
-
 /* ---- 对外接口 ---- */
 Game.indexToTile = indexToTile;
 Game.remainingCount = remainingCount;
@@ -215,10 +146,6 @@ Game.ukeire1Raw = ukeire1Raw;
 Game.scoreDiscard = scoreDiscard;
 Game.chooseDiscardLex = chooseDiscardLex;
 Game.combinedDanger = combinedDanger;
-Game.kamichaOf = kamichaOf;
-Game.kamichaDiscardCounts = kamichaDiscardCounts;
-Game.isMeldSeeking = isMeldSeeking;
-Game.meldSeekKeepBonus = meldSeekKeepBonus;
 
 // 教练模式：给 bottom（你）推荐一张弃牌 + 一句话理由。只在轮到你弃牌时生效。
 // 与 AI 主弃牌路径共用同一最终决策核心（Game.chooseDiscardCore），只是在外层包一层"为什么"的解释。
