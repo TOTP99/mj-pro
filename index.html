@@ -16,8 +16,8 @@
 <link rel="stylesheet" href="css/12-result-modal.css">
 <link rel="stylesheet" href="css/13-info-overlays.css">
 <link rel="stylesheet" href="css/14-compact-menus.css">
-<link rel="stylesheet" href="css/14-left-panel.css">
 <link rel="stylesheet" href="css/15-game-feel.css">
+<link rel="stylesheet" href="css/16-redesign-v2.css">
 <link rel="stylesheet" href="css/04-dice-menus.css">
 <link rel="stylesheet" href="css/06-media-landscape.css">
 <link rel="stylesheet" href="css/07-portrait-layout.css">
@@ -189,6 +189,7 @@
 <!-- 署名两行：内容由 js/14-credit-clock.js 生成（第一行署名，第二行时间 + 已玩时间） -->
 <div id="credit-label"></div>
 <div id="credit-label-2"></div>
+<div id="credit-corner">TP制作➸369❖❁</div>
 <div id="table-frame" onclick="Game.onTableTap(event)">
 <div id="table-center-prompt" aria-hidden="true"></div>
 <!-- 12. AI 思考转圈提示 -->
@@ -245,9 +246,9 @@
             <div id="wall-count-row">
                 <div class="wc-row nowrap"><span id="img-display-badge" title="TP制作">TP制作</span><button type="button" id="btn-view-zoom-in" title="放大" aria-label="放大" onclick="event.stopPropagation();Game.adjustViewSize(5)">＋</button><button type="button" id="btn-view-zoom-out" title="缩小" aria-label="缩小" onclick="event.stopPropagation();Game.adjustViewSize(-5)">－</button></div>
                 <div class="wc-row"><span id="wall-count-text"></span></div>
-                <div class="wc-row"><button type="button" class="credit-btn-ls" id="sfx-toggle-ls" onclick="event.stopPropagation();Game.toggleSfx()">音效开</button><button type="button" class="credit-btn-ls" id="danger-toggle-ls" onclick="event.stopPropagation();Game.toggleDangerHint()">危险开</button><button type="button" class="credit-btn-ls" id="coach-toggle-ls" onclick="event.stopPropagation();Game.toggleCoachMode()">教练关</button></div>
-                <div class="wc-row"><button type="button" class="credit-btn-ls" onclick="event.stopPropagation();Game.openModeSelect()">模式选择</button>
-                <button type="button" class="credit-btn-ls" onclick="event.stopPropagation();Game.openAmountSelect()">初始筹码</button></div>
+                <div class="wc-row"><button type="button" class="credit-btn-ls" id="sfx-toggle-ls" onclick="event.stopPropagation();Game.toggleSfx()">音效</button><button type="button" class="credit-btn-ls" id="danger-toggle-ls" onclick="event.stopPropagation();Game.toggleDangerHint()">炮牌</button><button type="button" class="credit-btn-ls" id="coach-toggle-ls" onclick="event.stopPropagation();Game.toggleCoachMode()">教练</button></div>
+                <div class="wc-row"><button type="button" class="credit-btn-ls" onclick="event.stopPropagation();Game.openModeSelect()">模式</button>
+                <button type="button" class="credit-btn-ls" onclick="event.stopPropagation();Game.openAmountSelect()">筹码</button></div>
             </div>
         </div>
         <div id="wall-count-gap"></div>
