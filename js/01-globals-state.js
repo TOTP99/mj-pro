@@ -564,6 +564,11 @@ function markDealer() {
         el.innerText = (up ? '↑' : down ? '↓' : '') + s;
         el.classList.toggle('pos', up);
         el.classList.toggle('neg', down);
+        // 庄家光环：头像加青色呼吸光
+        try {
+            const pd = $('p-' + p);
+            if (pd) pd.classList.toggle('is-dealer', p === Game.dealer);
+        } catch (e) {}
     }
     scheduleSaveProgress();
 }

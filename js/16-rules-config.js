@@ -139,9 +139,9 @@ loadAssist();
 function syncAssistLsButtons() {
     try {
         var c = document.getElementById('coach-toggle-ls');
-        if (c) c.textContent = Game.assist.coachMode ? '教练开' : '教练关';
+        if (c) { c.textContent = '教练'; c.classList.toggle('off', !Game.assist.coachMode); }
         var d = document.getElementById('danger-toggle-ls');
-        if (d) d.textContent = Game.assist.dangerHint ? '危险开' : '危险关';
+        if (d) { d.textContent = '炮牌'; d.classList.toggle('off', !Game.assist.dangerHint); }
     } catch (e) {}
 }
 Game.toggleCoachMode = function () {

@@ -114,10 +114,12 @@ Game.toggleSfx = function () {
 Game.isSfxEnabled = function () { return _enabled; };
 function syncSfxButtons() {
     try {
-        var lbl = _enabled ? '音效开' : '音效关';
         ['sfx-toggle', 'sfx-toggle-ls'].forEach(function (id) {
             var b = document.getElementById(id);
-            if (b) b.textContent = lbl;
+            if (b) {
+                b.textContent = '音效';
+                b.classList.toggle('off', !_enabled);
+            }
         });
     } catch (e) {}
 }

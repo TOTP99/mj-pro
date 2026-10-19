@@ -1,91 +1,36 @@
 ;(function(){
 /* 14-credit-clock.js
- * 接管 #credit-label / #credit-label-2 的全部内容（仅竖屏可见，横屏由 CSS 隐藏）：
- *   第一行（金字）：TP制作➸369❖❁ + 模式选择 + 初始筹码（纯文字符号，不用 emoji，各平台显示稳定）
- *   第二行：时:分:秒 星期(英文全称) 月-日-年(两位) 均为金字（继承 #credit-label-2 的颜色），
- *           「在线 …」本次已玩时间 为白色粗体
- * 在线时间严格按5分钟一档：0-5 mins、5 mins、10 mins …（向下取整到5的倍数）。
- * 只存内存，不写 localStorage；页面切到后台时暂停计时。
- * 横屏：竖屏那两行被 CSS 隐藏；左侧栏的 #img-display-badge（TP制作）只显示「TP制作」，
- *       不加时间（教练模式开关在同一行）。
+ * 接管 #credit-label 的内容（仅竖屏可见，横屏由 CSS 隐藏）：
+ *   单行：时钟框(HH:MM) + 模式 + 筹码 + 音效（缩写按钮，统一样式）
+ *   署名移到右下角 #credit-corner；1/东/1 移到牌墙旁；在线时长已删。
+ * 横屏：竖屏那行被 CSS 隐藏；左侧栏的 #img-display-badge（TP制作）只显示「TP制作」。
  * 加载顺序无要求：只在事件/点击回调里用 Game，加载期只碰 DOM。
  */
 (function () {
     'use strict';
 
-    var LINE1 = 'TP制作➸369❖❁';
-    var WEEK = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-    var PLAYED_STYLE = 'color:#ffffff;font-weight:700;';
-    // 时分秒盒子：宽度取 6.8 个数字宽（6位数字+2个冒号的最大宽度），避免秒数变化时右边文字抖动
-    var TIME_BOX = 'display:inline-block;width:6.8ch;';
-    var HMS_STYLE = TIME_BOX + 'margin-right:0.6em;'; // 第二行时钟：右侧间隙 0.6em
-
+    // 时钟框：按键同款样式（由 CSS .credit-clock 控制）
     var el1 = document.getElementById('credit-label');
-    var el2 = document.getElementById('credit-label-2');
-    var badge = document.getElementById('img-display-badge'); // 横屏左侧栏的"TP制作"
-    if (!el1 || !el2) return;
-    var BADGE_TEXT = 'TP制作';
+    if (!el1) return;
 
-    // 两行都不换行，数字等宽，避免每秒跳动时宽度抖动
-    [el1, el2].forEach(function (el) {
-        el.style.whiteSpace = 'nowrap';
-        el.style.fontVariantNumeric = 'tabular-nums';
-    });
-
-    // ---- 在线时长（仅内存，页面隐藏时暂停）----
-    var playedMs = 0;
-    var lastTick = Date.now();
-    var visible = !document.hidden;
-
-    function accumulate() {
-        var now = Date.now();
-        if (visible) playedMs += now - lastTick;
-        lastTick = now;
-    }
-
-    document.addEventListener('visibilitychange', function () {
-        accumulate();               // 先结算切换前的时间
-        visible = !document.hidden;
-        lastTick = Date.now();
-        Game.requestRender('visibilitychange');
-    });
+    el1.style.whiteSpace = 'nowrap';
+    el1.style.fontVariantNumeric = 'tabular-nums';
 
     function pad(n) { return n < 10 ? '0' + n : '' + n; }
 
-    // 严格5分钟一档：向下取整到5的倍数
-    function playedText(mins) {
-        if (mins < 5) return '0-5 mins';
-        return (Math.floor(mins / 5) * 5) + ' mins';
-    }
-
-    var lastHtml2 = '';
-    var lastBadgeHtml = null;
+    var lastHtml = '';
 
     function render() {
-        accumulate();
         var d = new Date();
-        var mins = Math.floor(playedMs / 60000);
-        var hms = pad(d.getHours()) + ':' + pad(d.getMinutes()) + ':' + pad(d.getSeconds());
-        var clock = '<span style="' + HMS_STYLE + '">' + hms + '</span>' +
-                    WEEK[d.getDay()] + ' ' +
-                    pad(d.getMonth() + 1) + '-' + pad(d.getDate()) + '-' + pad(d.getFullYear() % 100);
-        // 用 innerHTML 是因为要给在线时间单独上色；内容全部由本脚本生成，没有外部输入
-        var html2 = clock + ' <span style="' + PLAYED_STYLE + '">在线 ' +
-                    playedText(mins) + '</span>';
-        // 第一行：署名 + 模式选择/初始筹码（按钮只建一次；桌面不再放这些入口）
-        if (!el1.querySelector('.credit-text')) {
-            el1.innerHTML = '<span class="credit-text">' + LINE1 + '</span>' +
-                '<button type="button" class="credit-btn" onclick="Game.openModeSelect()">模式选择</button>' +
-                '<button type="button" class="credit-btn" onclick="Game.openAmountSelect()">初始筹码</button>' +
-                '<button type="button" class="credit-btn" id="sfx-toggle" onclick="Game.toggleSfx()">音效开</button>' +
-                '<span id="field-count" class="field-rounds">1/东/1</span>';
-        }
-        if (html2 !== lastHtml2) { el2.innerHTML = html2; lastHtml2 = html2; }
-
-        if (badge) {
-            // 横屏左栏第 1 行只显示「TP制作」，不加时间（教练模式开关在同一行）
-            if (BADGE_TEXT !== lastBadgeHtml) { badge.innerHTML = BADGE_TEXT; lastBadgeHtml = BADGE_TEXT; }
-        }
+        var hm = pad(d.getHours()) + ':' + pad(d.getMinutes());
+        // 单行：时钟框 + 三个缩写按钮（按钮只建一次）
+        var html = '<span class="credit-clock">' + hm + '</span>' +
+            '<button type="button" class="credit-btn" onclick="Game.openModeSelect()">模式</button>' +
+            '<button type="button" class="credit-btn" onclick="Game.openAmountSelect()">筹码</button>' +
+            '<button type="button" class="credit-btn" id="sfx-toggle" onclick="Game.toggleSfx()">音效</button>';
+        if (html !== lastHtml) { el1.innerHTML = html; lastHtml = html; }
+        // 同步音效按钮状态
+        try { if (typeof syncSfxButtons === 'function') syncSfxButtons(); } catch (e) {}
     }
 
     render();
