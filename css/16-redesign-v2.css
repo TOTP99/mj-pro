@@ -1,0 +1,80 @@
+/* 16-redesign-v2.css — v2 UI 重设计视觉层
+ * 只改视觉，不碰功能逻辑。
+ */
+
+/* ===== 庄家光环：青色呼吸光 ===== */
+@keyframes dealer-glow-v2 {
+    0%, 100% { box-shadow: 0 0 0 2px rgba(0,229,255,.95), 0 0 12px rgba(0,229,255,.5); }
+    50% { box-shadow: 0 0 0 2px rgba(0,229,255,.95), 0 0 24px rgba(0,229,255,.85); }
+}
+.player.is-dealer .avatar img {
+    animation: dealer-glow-v2 2.4s ease-in-out infinite;
+}
+
+/* ===== 顶栏按钮统一样式：8px 圆角 + 1px 金边 + 深底 ===== */
+#credit-label .credit-btn,
+.credit-btn-ls {
+    background: #1a1410 !important;
+    border: 1px solid #8a6d3b !important;
+    border-radius: 8px !important;
+    color: #e8c56a !important;
+    font-size: 12px !important;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    line-height: 1 !important;
+    margin: 0 0 0 8px !important;
+    padding: 6px 10px !important;
+    cursor: pointer;
+    white-space: nowrap;
+    vertical-align: middle;
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+    transition: color .2s, border-color .2s, opacity .2s;
+}
+/* 关状态：灰字暗边 */
+#credit-label .credit-btn.off,
+.credit-btn-ls.off {
+    color: #8a8a8a !important;
+    border-color: #4a4a4a !important;
+    opacity: .75;
+}
+#credit-label .credit-btn:active,
+.credit-btn-ls:active { transform: scale(.96); }
+
+/* ===== 时钟框：按键同款 ===== */
+#credit-label .credit-clock {
+    display: inline-block;
+    background: #1a1410;
+    border: 1px solid #8a6d3b;
+    border-radius: 8px;
+    color: #e8c56a;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    line-height: 1;
+    padding: 6px 10px;
+    vertical-align: middle;
+    font-variant-numeric: tabular-nums;
+}
+
+/* ===== 右下角署名小字：仅竖屏 ===== */
+#credit-corner { display: none; }
+body.portrait-layout #credit-corner {
+    display: block;
+    position: absolute;
+    right: 8px;
+    bottom: 4px;
+    font-size: 10px;
+    color: var(--gold);
+    opacity: .5;
+    pointer-events: none;
+    user-select: none;
+    z-index: 5;
+}
+
+/* ===== 竖屏：#credit-label-2 隐藏（时钟已并入 #credit-label） ===== */
+body.portrait-layout #credit-label-2 {
+    display: none !important;
+}
+
+/* ===== 分数：纯数字样式（v2 已有，保持） ===== */
