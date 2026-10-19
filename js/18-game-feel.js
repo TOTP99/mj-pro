@@ -129,7 +129,7 @@ syncSfxButtons(); // 14 先于 18 建按钮：启动时按存档同步一次文�
 Game.openSettings = function () {
     var m = document.getElementById('settings-modal');
     if (!m) return;
-    m.style.display = 'flex';
+    m.style.display = 'block';
     try { if (typeof syncSfxButtons === 'function') syncSfxButtons(); } catch (e) {}
     try { if (typeof syncAssistLsButtons === 'function') syncAssistLsButtons(); } catch (e) {}
 };
