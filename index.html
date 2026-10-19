@@ -105,19 +105,14 @@
 </div>
 
 <div id="settings-modal">
-    <div class="hu-box">
-        <div class="hu-title">设置</div>
-        <div class="hu-scroll">
-            <div class="settings-btns">
-                <button type="button" class="credit-btn-ls" onclick="Game.closeSettings();Game.openModeSelect()">模式</button>
-                <button type="button" class="credit-btn-ls" onclick="Game.closeSettings();Game.openAmountSelect()">筹码</button>
-                <button type="button" class="credit-btn-ls" id="sfx-toggle-settings" onclick="Game.toggleSfx()">音效</button>
-                <button type="button" class="credit-btn-ls" id="danger-toggle-settings" onclick="Game.toggleDangerHint()">炮牌</button>
-                <button type="button" class="credit-btn-ls" id="coach-toggle-settings" onclick="Game.toggleCoachMode()">教练</button>
-            </div>
-        </div>
-        <div class="hu-actions">
-            <button type="button" class="btn-ghost" onclick="Game.closeSettings()">关闭</button>
+    <div class="settings-pop">
+        <div class="settings-btns">
+            <button type="button" class="credit-btn-ls" onclick="Game.closeSettings();Game.openModeSelect()">模式</button>
+            <button type="button" class="credit-btn-ls" onclick="Game.closeSettings();Game.openAmountSelect()">筹码</button>
+            <button type="button" class="credit-btn-ls" id="sfx-toggle-settings" onclick="Game.toggleSfx()">音效</button>
+            <button type="button" class="credit-btn-ls" id="danger-toggle-settings" onclick="Game.toggleDangerHint()">炮牌</button>
+            <button type="button" class="credit-btn-ls" id="coach-toggle-settings" onclick="Game.toggleCoachMode()">教练</button>
+            <button type="button" class="credit-btn-ls settings-x" onclick="Game.closeSettings()">✕</button>
         </div>
     </div>
 </div>
