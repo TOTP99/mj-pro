@@ -78,3 +78,36 @@ body.portrait-layout #credit-label-2 {
 }
 
 /* ===== 分数：纯数字样式（v2 已有，保持） ===== */
+
+/* ===== 设置弹窗（横屏）：默认隐藏，5 按键布局 ===== */
+#settings-modal {
+    display: none; position: fixed; inset: 0; z-index: 50;
+    justify-content: center; align-items: safe center;
+    padding: 10px 0;
+    overflow-x: auto; overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+    touch-action: pan-x pan-y;
+    background: rgba(8, 14, 24, 0.72);
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+}
+#settings-modal .settings-btns {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    justify-content: center;
+    padding: 8px 4px;
+}
+#settings-modal .settings-btns .credit-btn-ls {
+    margin: 0 !important;
+    padding: 10px 18px !important;
+    font-size: 14px !important;
+}
+
+/* ===== 竖屏牌墙两行：行高紧凑 ===== */
+body.portrait-layout #wall-count-text {
+    line-height: 1.5;
+    display: inline-block;
+    white-space: normal !important;
+}
