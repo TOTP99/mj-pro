@@ -159,8 +159,9 @@ function renderFieldAmounts() {
     const a = Game.$('field-count');
     if (a) a.innerText = txt;
     // 2026-10-01：横屏局数已并入第2行牌墙文字（#field-count-ls 已删除），这里同步刷新
+    // 2026-10-19：竖屏牌墙为两行 HTML（含 <br>），改用 innerHTML
     const wc = Game.$('wall-count-text');
-    if (wc && typeof Game.wallCountLabel === 'function') wc.innerText = Game.wallCountLabel();
+    if (wc && typeof Game.wallCountLabel === 'function') wc.innerHTML = Game.wallCountLabel();
 }
 
 /** 骰子调庄后：新开一个 4 圈周期（局数清零） */

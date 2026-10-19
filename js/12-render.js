@@ -6,9 +6,11 @@ function wallCountLabel() {
     const circle = (typeof Game.fieldCircleText === 'function') ? Game.fieldCircleText() : '';
     const isPortrait = document.body && document.body.classList.contains('portrait-layout');
     if (isPortrait) {
-        // 竖屏：局/风/圈跟在牌墙后（顶栏已精简）
+        // 竖屏两行：第一行 牌墙张数·记局数；第二行 时间·圈/风/局
         const games = (Game.aiLearn && Game.aiLearn.games) || 0;
-        return wall + (circle ? '·' + circle : '') + '·记' + games + '局';
+        const d = new Date();
+        const hm = (d.getHours() < 10 ? '0' : '') + d.getHours() + ':' + (d.getMinutes() < 10 ? '0' : '') + d.getMinutes();
+        return wall + '·记' + games + '局<br>' + hm + (circle ? '·' + circle : '');
     }
     return wall + (circle ? '-' + circle : '');
 }
@@ -95,7 +97,7 @@ function render() {
     const discardView = Game.discardPile.slice(-20);
     wall.innerHTML = discardView.map((d, i, arr) =>
         `<div class="discardTile${i === arr.length - 1 ? ' latest' : ''}">${Game.tileImg(d.tile)}</div>`).join('');
-    Game.$('wall-count-text').innerText = Game.wallCountLabel();
+    Game.$('wall-count-text').innerHTML = Game.wallCountLabel();
     // 诊断：牌总数守恒 + 回合状态，有问题直接标红，卡住时一眼可见
     try {
         const tot = Game.totalTilesOf({ deck: Game.deck, discardPile: Game.discardPile, hands: Game.hands, exposedMelds: Game.exposedMelds });

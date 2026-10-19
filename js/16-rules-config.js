@@ -142,6 +142,16 @@ function syncAssistLsButtons() {
         if (c) { c.textContent = '教练'; c.classList.toggle('off', !Game.assist.coachMode); }
         var d = document.getElementById('danger-toggle-ls');
         if (d) { d.textContent = '炮牌'; d.classList.toggle('off', !Game.assist.dangerHint); }
+        // 竖屏顶栏的同名按钮（无 -ls 后缀）
+        var c2 = document.getElementById('coach-toggle');
+        if (c2) { c2.textContent = '教练'; c2.classList.toggle('off', !Game.assist.coachMode); }
+        var d2 = document.getElementById('danger-toggle');
+        if (d2) { d2.textContent = '炮牌'; d2.classList.toggle('off', !Game.assist.dangerHint); }
+        // 设置弹窗里的按钮（-settings 后缀）
+        var c3 = document.getElementById('coach-toggle-settings');
+        if (c3) { c3.textContent = '教练'; c3.classList.toggle('off', !Game.assist.coachMode); }
+        var d3 = document.getElementById('danger-toggle-settings');
+        if (d3) { d3.textContent = '炮牌'; d3.classList.toggle('off', !Game.assist.dangerHint); }
     } catch (e) {}
 }
 Game.toggleCoachMode = function () {

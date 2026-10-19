@@ -114,7 +114,7 @@ Game.toggleSfx = function () {
 Game.isSfxEnabled = function () { return _enabled; };
 function syncSfxButtons() {
     try {
-        ['sfx-toggle', 'sfx-toggle-ls'].forEach(function (id) {
+        ['sfx-toggle', 'sfx-toggle-ls', 'sfx-toggle-settings'].forEach(function (id) {
             var b = document.getElementById(id);
             if (b) {
                 b.textContent = '音效';
@@ -124,6 +124,19 @@ function syncSfxButtons() {
     } catch (e) {}
 }
 syncSfxButtons(); // 14 先于 18 建按钮：启动时按存档同步一次文字
+
+/* ---------------- 设置弹窗（横屏） ---------------- */
+Game.openSettings = function () {
+    var m = document.getElementById('settings-modal');
+    if (!m) return;
+    m.style.display = 'flex';
+    try { if (typeof syncSfxButtons === 'function') syncSfxButtons(); } catch (e) {}
+    try { if (typeof syncAssistLsButtons === 'function') syncAssistLsButtons(); } catch (e) {}
+};
+Game.closeSettings = function () {
+    var m = document.getElementById('settings-modal');
+    if (m) m.style.display = 'none';
+};
 
 /* ---------------- 节奏：AI 思考时长（毫秒） ---------------- */
 // 固定偏置 + 随机抖动：像人一样“想一下”，从不秒出，也从不拖沓
