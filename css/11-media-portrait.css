@@ -5,10 +5,6 @@
             height: min(86vh - var(--sat) - var(--sab), 128vw);
             border-radius: 16px;
         }
-        body.portrait-layout .bottom .avatar img {
-            width: 44px;
-            height: 44px;
-        }
         body.portrait-layout .bottom #flow-log {
             margin-top: 6px;
             min-height: 22px;
@@ -43,6 +39,10 @@
             --hand-tile-h: 35px;
         }
         body.portrait-layout .avatar img {
+            width: 34px;
+            height: 34px;
+        }
+        body.portrait-layout .bottom .avatar img {
             width: 34px;
             height: 34px;
         }
