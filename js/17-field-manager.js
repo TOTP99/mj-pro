@@ -61,7 +61,7 @@ function onFieldGameSettled(payouts) {
     if (typeof renderFieldAmounts === 'function') renderFieldAmounts();
 
     // 输光检查：任何一家金额变负 → 自动重开（筹码重置+骰子调庄），startGame 时执行
-    const busted = ['top', 'left', 'right', 'bottom'].find(p => Game.fieldAmounts[p] < 0);
+    const busted = ['top', 'left', 'right', 'bottom'].find(p => Game.fieldAmounts[p] <= 0);
     if (busted) {
         Game.bustAutoRestart = busted;
         return;
@@ -70,6 +70,22 @@ function onFieldGameSettled(payouts) {
     if (Game.fieldGameCount % FIELD_ROUNDS === 0) {
         setTimeout(() => showRoundReminder(), 800);
     }
+}
+
+
+/** 手动调分只应用差额，不重复增加局数；同时同步头像分数与场次筹码。 */
+function applyFieldSettlementAdjustments(deltas) {
+    if (!deltas || typeof deltas !== 'object') return;
+    if (!Game.fieldActive) return;
+    for (const p of ['top', 'left', 'right', 'bottom']) {
+        const delta = deltas[p];
+        if (typeof delta === 'number' && Number.isFinite(delta)) Game.fieldAmounts[p] += delta;
+    }
+    saveField();
+    if (typeof renderFieldAmounts === 'function') renderFieldAmounts();
+    const busted = ['top', 'left', 'right', 'bottom'].find(p => Game.fieldAmounts[p] <= 0);
+    if (busted) Game.bustAutoRestart = busted;
+    else if (Game.bustAutoRestart) Game.bustAutoRestart = null;
 }
 
 /** 流局也算一局 */
@@ -178,6 +194,7 @@ loadField();
 Game.startNewField = startNewField;
 Game.resetFieldCycle = resetFieldCycle;
 Game.onFieldGameSettled = onFieldGameSettled;
+Game.applyFieldSettlementAdjustments = applyFieldSettlementAdjustments;
 Game.onFieldDraw = onFieldDraw;
 Game.showRoundReminder = showRoundReminder;
 Game.confirmRoundReselect = confirmRoundReselect;

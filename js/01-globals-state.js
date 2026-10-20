@@ -415,6 +415,37 @@ function totalTilesOf(s) {
     return n;
 }
 const FULL_DECK_SIZE = suits.length * 9 * 4 + honors.length * 4; // 136
+const VALID_TILE_TYPES = new Set([
+    ...suits.flatMap(suit => Array.from({ length: 9 }, (_, i) => (i + 1) + suit)),
+    ...honors.map((_, i) => (i + 1) + '字')
+]);
+function validateSavedSnapshot(saved) {
+    if (!saved || !Array.isArray(saved.deck) || !saved.hands || typeof saved.hands !== 'object') return false;
+    if (!saved.exposedMelds || typeof saved.exposedMelds !== 'object' || !Array.isArray(saved.discardPile)) return false;
+    if (!Number.isInteger(saved.currentIndex) || saved.currentIndex < 0 || saved.currentIndex >= turnOrder.length) return false;
+    const counts = new Map();
+    const addTile = tile => {
+        if (!VALID_TILE_TYPES.has(tile)) return false;
+        const n = (counts.get(tile) || 0) + 1;
+        if (n > 4) return false;
+        counts.set(tile, n);
+        return true;
+    };
+    for (const tile of saved.deck) if (!addTile(tile)) return false;
+    for (const p of PLAYERS) {
+        if (!Array.isArray(saved.hands[p]) || !Array.isArray(saved.exposedMelds[p])) return false;
+        for (const tile of saved.hands[p]) if (!addTile(tile)) return false;
+        for (const meld of saved.exposedMelds[p]) {
+            if (!meld || !Array.isArray(meld.tiles) || !meld.tiles.length) return false;
+            for (const tile of meld.tiles) if (!addTile(tile)) return false;
+        }
+    }
+    for (const entry of saved.discardPile) {
+        if (!entry || !PLAYERS.includes(entry.player) || !addTile(entry.tile)) return false;
+    }
+    if (Object.keys(saved.scores || {}).length && PLAYERS.some(p => !Number.isFinite(saved.scores[p]))) return false;
+    return saved.gameOver || totalTilesOf(saved) === FULL_DECK_SIZE;
+}
 Game._lastTileWarnKey = '';
 function checkTileConservation(reason) {
     if (Game.gameOver) return true;
@@ -449,47 +480,82 @@ function logFlowMove(op, info) {
     if (Game.flowLog.length > FLOW_LOG_MAX) Game.flowLog.shift();
     checkTileConservation('flow:' + op);
 }
+function isFlowPlayer(player) { return PLAYERS.includes(player); }
+function handHasTiles(hand, tiles) {
+    if (!Array.isArray(hand) || !Array.isArray(tiles)) return false;
+    const counts = new Map();
+    for (const t of hand) counts.set(t, (counts.get(t) || 0) + 1);
+    for (const t of tiles) {
+        const n = counts.get(t) || 0;
+        if (n < 1) return false;
+        counts.set(t, n - 1);
+    }
+    return true;
+}
+function flowReject(op, reason) {
+    try { console.warn('[tile-flow] 操作已拒绝：' + op + '，' + reason); } catch (e) {}
+    try { Game.logFlow('【异常】牌操作已拒绝：' + op + '（' + reason + '）'); } catch (e) {}
+    return false;
+}
 Game.TileFlow = {
-    // 发牌：每家 13 张（原 initGame 的 deck.splice + sort，原样搬入）
     deal(sortFn) {
-        for (const p of PLAYERS) Game.hands[p] = Game.deck.splice(0, 13).sort(sortFn);
+        if (!Array.isArray(Game.deck) || Game.deck.length < PLAYERS.length * 13) return flowReject('deal', '牌墙不足以发完初始手牌');
+        const dealt = {};
+        for (const p of PLAYERS) dealt[p] = Game.deck.slice(0, 13).sort(sortFn);
+        Game.deck.splice(0, PLAYERS.length * 13);
+        for (const p of PLAYERS) Game.hands[p] = dealt[p];
         logFlowMove('deal', {});
+        return true;
     },
-    // 摸牌：deck.pop → 手牌.push，返回摸到的牌（op 区分 draw/replacement/revealDraw）
     draw(player, op) {
-        const tile = Game.deck.pop();
+        if (!isFlowPlayer(player) || !Array.isArray(Game.hands[player])) return flowReject(op || 'draw', '玩家或手牌无效');
+        if (!Array.isArray(Game.deck) || Game.deck.length === 0) return flowReject(op || 'draw', '牌墙已空');
+        const tile = Game.deck[Game.deck.length - 1];
+        if (typeof tile !== 'string' || !tile) return flowReject(op || 'draw', '牌墙顶牌无效');
+        Game.deck.pop();
         Game.hands[player].push(tile);
         logFlowMove(op || 'draw', { player, tile });
         return tile;
     },
-    // 出牌：手牌.splice → 弃牌堆.push
     discard(player, tile) {
+        if (!isFlowPlayer(player) || !Array.isArray(Game.hands[player]) || !Array.isArray(Game.discardPile)) return flowReject('discard', '玩家、手牌或弃牌堆无效');
+        if (!handHasTiles(Game.hands[player], [tile])) return flowReject('discard', '该牌不在玩家手牌中');
         takeTilesFromHandArr(Game.hands[player], tile, 1);
         Game.discardPile.push({ player, tile });
         logFlowMove('discard', { player, tile });
+        return true;
     },
-    // 荣和：弃牌堆顶 → 某家手牌（原子）
     takeDiscardToHand(player) {
-        const e = Game.discardPile.pop();
+        if (!isFlowPlayer(player) || !Array.isArray(Game.hands[player])) return flowReject('ron', '玩家或手牌无效');
+        const e = Array.isArray(Game.discardPile) ? Game.discardPile[Game.discardPile.length - 1] : null;
+        if (!e || typeof e.tile !== 'string' || !e.tile) return flowReject('ron', '弃牌堆为空或顶牌无效');
+        Game.discardPile.pop();
         Game.hands[player].push(e.tile);
         logFlowMove('ron', { player, tile: e.tile, from: e.player });
         return e.tile;
     },
-    // 手牌间转移：from 手牌 → to 手牌（抢杠，原子）
     transfer(from, to, tile) {
+        if (!isFlowPlayer(from) || !isFlowPlayer(to) || from === to || !Array.isArray(Game.hands[from]) || !Array.isArray(Game.hands[to])) return flowReject('transfer', '来源/目标玩家无效');
+        if (!handHasTiles(Game.hands[from], [tile])) return flowReject('transfer', '来源手牌中没有该牌');
         takeTilesFromHandArr(Game.hands[from], tile, 1);
         Game.hands[to].push(tile);
         logFlowMove('transfer', { from, to, tile });
+        return true;
     },
-    // 明组：手牌 → 副露（暗杠/亮牌；tiles 全来自手牌）
     meld(player, type, tiles, extra) {
+        if (!isFlowPlayer(player) || !Array.isArray(tiles) || !tiles.length || !Array.isArray(Game.hands[player]) || !Array.isArray(Game.exposedMelds[player])) return flowReject('meld', '玩家或副露牌组无效');
+        if (!handHasTiles(Game.hands[player], tiles)) return flowReject('meld', '手牌不足以组成该副露');
         for (const t of tiles) takeTilesFromHandArr(Game.hands[player], t, 1);
         Game.exposedMelds[player].push(Object.assign({ type, tiles: [...tiles] }, extra));
         logFlowMove('meld', { player, type, tiles: [...tiles] });
+        return true;
     },
-    // 吃碰杠：弃牌堆顶 + 手牌 handTiles → 副露（原子；sortFn 用于吃的排序）
     claim(player, type, handTiles, sortFn, extra) {
-        const e = Game.discardPile.pop();
+        if (!isFlowPlayer(player) || !Array.isArray(handTiles) || !Array.isArray(Game.hands[player]) || !Array.isArray(Game.exposedMelds[player])) return flowReject('claim', '玩家或手牌参数无效');
+        const e = Array.isArray(Game.discardPile) ? Game.discardPile[Game.discardPile.length - 1] : null;
+        if (!e || typeof e.tile !== 'string' || !e.tile) return flowReject('claim', '没有可吃碰杠的弃牌');
+        if (!handHasTiles(Game.hands[player], handTiles)) return flowReject('claim', '手牌不足以完成吃碰杠');
+        Game.discardPile.pop();
         for (const t of handTiles) takeTilesFromHandArr(Game.hands[player], t, 1);
         const meldTiles = [...handTiles, e.tile];
         if (sortFn) meldTiles.sort(sortFn);
@@ -497,13 +563,15 @@ Game.TileFlow = {
         logFlowMove('claim', { player, type, tile: e.tile, from: e.player });
         return meldTiles;
     },
-    // 加杠：手牌 1 张 → 自己的碰组（peng→gang，原子）
     addGang(player, tile) {
+        if (!isFlowPlayer(player) || !Array.isArray(Game.hands[player]) || !Array.isArray(Game.exposedMelds[player]) || !handHasTiles(Game.hands[player], [tile])) return flowReject('addGang', '手牌中没有加杠牌');
+        const meld = Game.exposedMelds[player].find(m => m.type === 'peng' && m.tiles && m.tiles[0] === tile && m.tiles.length === 3);
+        if (!meld) return flowReject('addGang', '找不到对应的三张碰牌');
         takeTilesFromHandArr(Game.hands[player], tile, 1);
-        for (const m of Game.exposedMelds[player]) {
-            if (m.type === 'peng' && m.tiles[0] === tile) { m.type = 'gang'; m.tiles.push(tile); break; }
-        }
+        meld.type = 'gang';
+        meld.tiles.push(tile);
         logFlowMove('addGang', { player, tile });
+        return true;
     },
 };
 Game.resetFlowLog = function () { Game.flowLog = []; };
@@ -673,11 +741,9 @@ function loadGameProgress() {
             Game.dealer = saved.dealer;
         }
 
-        // 完整对局快照（v2）才恢复牌面
-        if (saved.v !== 2 || !Array.isArray(saved.deck) || !saved.hands) return false;
-        // 进行中的牌局：牌总数必须是 136，否则说明存档已损坏，放弃牌面、只保留积分/庄家重开一局
-        if (!saved.gameOver && totalTilesOf(saved) !== FULL_DECK_SIZE) {
-            try { console.warn('[tile-check] 存档牌总数异常，已放弃该存档牌面：', totalTilesOf(saved)); } catch (e) {}
+        // 完整对局快照（v2）才恢复牌面；先完整校验，再一次性应用，避免半恢复状态。
+        if (saved.v !== 2 || !validateSavedSnapshot(saved)) {
+            try { console.warn('[save-check] 存档结构/牌种/牌数校验失败，已放弃该存档牌面'); } catch (e) {}
             return false;
         }
 
@@ -783,6 +849,7 @@ Game.setPhase = setPhase;
 Game.pushPhase = pushPhase;
 Game.popPhase = popPhase;
 Game.totalTilesOf = totalTilesOf;
+Game.checkTileConservation = checkTileConservation;
 Game.FULL_DECK_SIZE = FULL_DECK_SIZE;
 Game.markDealer = markDealer;
 Game.baseNames = baseNames; // 玩家固定门风：bottom=东/right=南/top=西/left=北（17-field-manager 的局数/风/圈数显示用）

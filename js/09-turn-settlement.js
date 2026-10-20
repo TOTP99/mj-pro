@@ -219,16 +219,24 @@ function resetSettlementPayouts() {
 
 
 function closeResultModal() {
-    // 若手动改过分，把差额补进 scores（系统分已在 settleScore 时写入）
+    // 系统结算已写入 scores/fieldAmounts；手动调分只同步差额，不能重复计局。
     if (Game.lastSettlement) {
+        const deltas = { top: 0, left: 0, right: 0, bottom: 0 };
         for (const p of Game.turnOrder) {
             const delta = Game.lastSettlement.payouts[p] - Game.lastSettlement.systemPayouts[p];
-            if (delta) Game.scores[p] += delta;
+            if (Number.isFinite(delta) && delta) {
+                Game.scores[p] += delta;
+                deltas[p] = delta;
+            }
+        }
+        if (typeof Game.applyFieldSettlementAdjustments === 'function') {
+            Game.applyFieldSettlementAdjustments(deltas);
         }
         Game.lastSettlement = null;
+        if (typeof Game.flushSaveProgress === 'function') Game.flushSaveProgress();
     }
     Game.$('result-modal').classList.remove('show');
-    if (Game.gameOver) Game.startGame();
+    if (Game.gameOver || Game.bustAutoRestart) Game.startGame();
 }
 
 // 确认/放弃按钮的图标（内联 SVG：绿底对勾、红底叉；大小跟随 .claim-btn 的 font-size）

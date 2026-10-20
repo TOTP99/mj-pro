@@ -55,18 +55,21 @@ function scoreWinningHand(concealedBeforeWin, winTile, exposed, isLastTile) {
             if (decomp.length !== neededSets) continue;
 
             // winTile在这套分解里落在哪：单吊(对子) / 边张 / 夹张 / 普通
+            // 同一张牌可能出现在多个有效面子中；不要因先遇到普通顺子而漏掉边张/夹张。
+            // 在当前分解内，取可解释的最高等待番型；跨分解仍由下方最高倍数逻辑择优。
             let waitType = 'normal';
+            const waitPriority = { normal: 0, kanchan: 1, bianzhang: 1, tanki: 2 };
             if (pairTile === winTile) {
                 waitType = 'tanki';
             } else {
                 for (const m of decomp) {
-                    if (m.type === 'sequence' && m.tiles.includes(winTile)) {
-                        const ranks = m.tiles.map(Game.tileRank);
-                        if (winTile === m.tiles[1]) waitType = 'kanchan'; // 中间那张：夹张
-                        else if (winTile === m.tiles[0] && ranks[2] === 9) waitType = 'bianzhang'; // 7,8,9缺7
-                        else if (winTile === m.tiles[2] && ranks[0] === 1) waitType = 'bianzhang'; // 1,2,3缺3
-                        break;
-                    }
+                    if (m.type !== 'sequence' || !m.tiles.includes(winTile)) continue;
+                    const ranks = m.tiles.map(Game.tileRank);
+                    let candidate = 'normal';
+                    if (winTile === m.tiles[1]) candidate = 'kanchan'; // 中间那张：夹张
+                    else if ((winTile === m.tiles[0] && ranks[2] === 9) ||
+                             (winTile === m.tiles[2] && ranks[0] === 1)) candidate = 'bianzhang';
+                    if (waitPriority[candidate] > waitPriority[waitType]) waitType = candidate;
                 }
             }
 

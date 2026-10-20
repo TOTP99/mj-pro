@@ -16,13 +16,6 @@ function autoRestartAfterBust() {
     if (typeof Game.startNewField === 'function') Game.startNewField(Game.fieldInitialAmount || 50);
     const rm = Game.$('result-modal');
     if (rm) rm.classList.remove('show'); // 骰子仪式要求结算弹窗已关闭
-    // 提示一下为什么重开（横幅会自行消失；失败不影响重开）
-    try {
-        const who = (typeof busted === 'string' && typeof Game.nameOf === 'function') ? Game.nameOf(busted) : '';
-        const msg = (who ? who + ' ' : '') + '输光，重新开场';
-        if (Game.feel && typeof Game.feel.banner === 'function') Game.feel.banner(msg);
-        if (typeof Game.logFlow === 'function') Game.logFlow(msg);
-    } catch (e) {}
     if (typeof Game.startDiceRitualWithMode === 'function') {
         Game.startDiceRitualWithMode('dealer');
     } else if (typeof Game.startGame === 'function') {
