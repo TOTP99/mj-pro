@@ -417,7 +417,9 @@ function totalTilesOf(s) {
 const FULL_DECK_SIZE = suits.length * 9 * 4 + honors.length * 4; // 136
 const VALID_TILE_TYPES = new Set([
     ...suits.flatMap(suit => Array.from({ length: 9 }, (_, i) => (i + 1) + suit)),
-    ...honors.map((_, i) => (i + 1) + '字')
+    // 注意：游戏内部字牌用 1字-7字（见 06-tiles-utils.js buildDeck / 02-scoring.js / 08-game-flow-core.js），
+    // 东南西北中发白只是显示名（Game.honors），校验必须用内部名
+    ...Array.from({ length: 7 }, (_, i) => (i + 1) + '字')
 ]);
 function validateSavedSnapshot(saved) {
     if (!saved || !Array.isArray(saved.deck) || !saved.hands || typeof saved.hands !== 'object') return false;
@@ -501,8 +503,7 @@ Game.TileFlow = {
     deal(sortFn) {
         if (!Array.isArray(Game.deck) || Game.deck.length < PLAYERS.length * 13) return flowReject('deal', '牌墙不足以发完初始手牌');
         const dealt = {};
-        for (const p of PLAYERS) dealt[p] = Game.deck.slice(0, 13).sort(sortFn);
-        Game.deck.splice(0, PLAYERS.length * 13);
+        for (const p of PLAYERS) dealt[p] = Game.deck.splice(0, 13).sort(sortFn);
         for (const p of PLAYERS) Game.hands[p] = dealt[p];
         logFlowMove('deal', {});
         return true;
