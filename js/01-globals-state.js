@@ -1,4 +1,5 @@
 var Game = {};
+Game.VERSION = '3.0';
 ;(function(){
 // ---------- 基础常量与全局状态 ----------
 const suits = ['万', '条', '筒'];
@@ -501,8 +502,7 @@ Game.TileFlow = {
     deal(sortFn) {
         if (!Array.isArray(Game.deck) || Game.deck.length < PLAYERS.length * 13) return flowReject('deal', '牌墙不足以发完初始手牌');
         const dealt = {};
-        for (const p of PLAYERS) dealt[p] = Game.deck.slice(0, 13).sort(sortFn);
-        Game.deck.splice(0, PLAYERS.length * 13);
+        for (const p of PLAYERS) dealt[p] = Game.deck.splice(0, 13).sort(sortFn);
         for (const p of PLAYERS) Game.hands[p] = dealt[p];
         logFlowMove('deal', {});
         return true;
