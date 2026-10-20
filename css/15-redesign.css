@@ -117,3 +117,8 @@ body.portrait-layout #wall-count-text {
     display: inline-block;
     white-space: normal !important;
 }
+
+/* 龙头像（avatar-top）图内圆盘比其他三张满约 3–5%，同盒子下显大；仅图缩放至视觉齐平，盒子/布局不动 */
+.player.top .avatar img {
+    transform: scale(.95);
+}
