@@ -144,7 +144,6 @@ Game.indexToTile = indexToTile;
 Game.remainingCount = remainingCount;
 Game.ukeire1Raw = ukeire1Raw;
 Game.scoreDiscard = scoreDiscard;
-Game.chooseDiscardLex = chooseDiscardLex;
 Game.combinedDanger = combinedDanger;
 
 // 教练模式：给 bottom（你）推荐一张弃牌 + 一句话理由。只在轮到你弃牌时生效。

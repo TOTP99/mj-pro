@@ -117,7 +117,6 @@ function autoFitTable(force) {
         }, 340);
     }
 }
-Game.autoFitTable = autoFitTable;
 
 let _autoFitTimers = [];
 function scheduleAutoFit() {
@@ -125,7 +124,6 @@ function scheduleAutoFit() {
     // iOS 内置浏览器的工具栏/地址栏落稳需要一小会儿，所以在多个时间点各量一次
     _autoFitTimers = [60, 250, 700, 1500].map(ms => setTimeout(() => { try { autoFitTable(false); } catch (e) {} }, ms));
 }
-Game.scheduleAutoFit = scheduleAutoFit;
 window.addEventListener('resize', scheduleAutoFit, { passive: true });
 window.addEventListener('orientationchange', scheduleAutoFit, { passive: true });
 window.addEventListener('pageshow', scheduleAutoFit, { passive: true });
@@ -402,7 +400,6 @@ function uiScaleOnRender() {
 
 /* ---- 本文件对外接口（IIFE 收敛，唯一出口） ---- */
 Game.ORIGINAL_VIEW_SCALE = ORIGINAL_VIEW_SCALE;
-Game.setViewSize = setViewSize;
 Game.adjustViewSize = adjustViewSize;
 Game.orientTransitionCheck = orientTransitionCheck;
 Game.uiScaleOnRender = uiScaleOnRender;

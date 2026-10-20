@@ -420,7 +420,6 @@ Game.speak = speak;
 Game.voiceName = voiceName;
 Game.logFlow = logFlow;
 Game.checkWindDragonPattern = checkWindDragonPattern;
-Game.pickAdvancedRevealKind = pickAdvancedRevealKind;
 Game.revealKindAfterDraw = revealKindAfterDraw;
 Game.applyReveal = applyReveal;
 Game.offerReveal = offerReveal;

@@ -130,7 +130,6 @@ function syncYnRow(attr, key, on) {
 }
 function syncAssistYN(key) { syncYnRow('data-assist', key, Game.assist[key]); }
 function syncAssistUI() { Object.keys(DEFAULT_ASSIST).forEach(syncAssistYN); }
-Game.setAssistYN = setAssistYN;
 Game.syncAssistUI = syncAssistUI;
 loadAssist();
 
@@ -354,8 +353,6 @@ function startGameWithMode() {
 
 /* ---- 本文件对外接口（IIFE 收敛，唯一出口） ---- */
 Game.isDailyMode = isDailyMode;
-Game.setGameMode = setGameMode;
-Game.setRule = setRule;
 Game.ruleRequiresKaimen = ruleRequiresKaimen;
 Game.ruleRequiresPeng = ruleRequiresPeng;
 Game.ruleDragonsPairAsPeng = ruleDragonsPairAsPeng;

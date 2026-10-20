@@ -111,7 +111,6 @@ Game.toggleSfx = function () {
     syncSfxButtons();
     return _enabled;
 };
-Game.isSfxEnabled = function () { return _enabled; };
 function syncSfxButtons() {
     try {
         ['sfx-toggle', 'sfx-toggle-settings'].forEach(function (id) {

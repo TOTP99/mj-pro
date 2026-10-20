@@ -548,15 +548,7 @@ function meldCallEV(player, tile, kind, combo) {
     };
 }
 Game.meldCallEV = meldCallEV;
-Game.bestStateEV = bestStateEV;
-Game.waitQuality = waitQuality;
-Game.classifyWait = classifyWait;
-Game.qhDiscount = qhDiscount;
-Game.pDealIn = pDealIn;
-Game.pWin = pWin;
-Game.winValue = winValue;
 Game.discardEV = discardEV;
-Game.pushFold = pushFold;
 
 // ---------- 2步期望搜索（AI 4.0 提强1） ----------
 // 打出 D 后，摸到各种进张 T 后的向听期望。比只看 immediate ukeire 更准：
@@ -598,7 +590,6 @@ function twoStepExp(hand, exposed, discard) {
     } catch (e) { return { exp: s1, totalRem: totalRem }; }
     return { exp: wTot ? wSum / wTot : s1, totalRem: totalRem };
 }
-Game.twoStepExp = twoStepExp;
 
 // ---------- AI 3.0 弃牌决策核心（chooseDiscard3 与教练模式共用） ----------
 // 返回 { tile, stance, decider, winner, runnerUp, scored }。

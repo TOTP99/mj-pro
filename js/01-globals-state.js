@@ -1,5 +1,5 @@
 var Game = {};
-Game.VERSION = '4.2';
+Game.VERSION = '4.3';
 ;(function(){
 // ---------- 基础常量与全局状态 ----------
 const suits = ['万', '条', '筒'];
@@ -843,19 +843,16 @@ Game.markAxisUsed = markAxisUsed;
 Game.resetLastCallTurn = resetLastCallTurn;
 Game.learnFromWin = learnFromWin;
 Game.learnFromDraw = learnFromDraw;
-Game.decayAiLearn = decayAiLearn;
 Game.$ = $;
 Game.setPhase = setPhase;
 Game.pushPhase = pushPhase;
 Game.popPhase = popPhase;
 Game.totalTilesOf = totalTilesOf;
-Game.checkTileConservation = checkTileConservation;
 Game.FULL_DECK_SIZE = FULL_DECK_SIZE;
 Game.markDealer = markDealer;
 Game.baseNames = baseNames; // 玩家固定门风：bottom=东/right=南/top=西/left=北（17-field-manager 的局数/风/圈数显示用）
 Game.MAHJONG_STORAGE_KEY = MAHJONG_STORAGE_KEY;
 Game.flushSaveProgress = flushSaveProgress;
-Game.saveGameProgress = saveGameProgress;
 Game.loadGameProgress = loadGameProgress;
 Game.resumeFromSave = resumeFromSave;
 

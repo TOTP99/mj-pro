@@ -323,9 +323,6 @@ try { placeClaimIndicatorForOrientation(isPortraitOrientation()); } catch (e) {}
 })();
 
 /* ---- 本文件对外接口（IIFE 收敛，唯一出口） ---- */
-Game.isIOSDevice = isIOSDevice;
-Game.isAndroidDevice = isAndroidDevice;
-Game.applyDevicePlatformClass = applyDevicePlatformClass;
 Game.syncAppViewportVars = syncAppViewportVars;
 Game.isPortraitOrientation = isPortraitOrientation;
 Game.hardenResultModalInteract = hardenResultModalInteract;
