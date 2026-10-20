@@ -1,5 +1,5 @@
 var Game = {};
-Game.VERSION = '3.0';
+Game.VERSION = '4.0';
 ;(function(){
 // ---------- 基础常量与全局状态 ----------
 const suits = ['万', '条', '筒'];
