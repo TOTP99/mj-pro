@@ -449,10 +449,34 @@ function validateSavedSnapshot(saved) {
     return saved.gameOver || totalTilesOf(saved) === FULL_DECK_SIZE;
 }
 Game._lastTileWarnKey = '';
+// 每种牌最多 4 张：返回超标的牌（如 '7筒×13'），没有则返回 ''（总数守恒查不出"发牌重复"这类错，要单独按牌种数）
+function overCountTile(s) {
+    const counts = new Map();
+    const add = t => counts.set(t, (counts.get(t) || 0) + 1);
+    (s.deck || []).forEach(add);
+    (s.discardPile || []).forEach(e => e && add(e.tile));
+    for (const p of PLAYERS) {
+        ((s.hands && s.hands[p]) || []).forEach(add);
+        for (const m of ((s.exposedMelds && s.exposedMelds[p]) || [])) ((m && m.tiles) || []).forEach(add);
+    }
+    for (const [t, c] of counts) if (c > 4) return t + '×' + c;
+    return '';
+}
 function checkTileConservation(reason) {
     if (Game.gameOver) return true;
-    const n = totalTilesOf({ deck: Game.deck, discardPile: Game.discardPile, hands: Game.hands, exposedMelds: Game.exposedMelds });
-    if (n === FULL_DECK_SIZE) return true;
+    const snap = { deck: Game.deck, discardPile: Game.discardPile, hands: Game.hands, exposedMelds: Game.exposedMelds };
+    const n = totalTilesOf(snap);
+    const over = overCountTile(snap);
+    if (n === FULL_DECK_SIZE && !over) return true;
+    if (n === FULL_DECK_SIZE && over) {
+        const k2 = reason + ':over:' + over;
+        if (k2 !== Game._lastTileWarnKey) {
+            Game._lastTileWarnKey = k2;
+            try { console.warn('[tile-check] 同一种牌超过 4 张', over, '@' + reason); } catch (e) {}
+            try { Game.logFlow('【异常】牌种重复 ' + over + (reason ? ' @' + reason : '')); } catch (e) {}
+        }
+        return false;
+    }
     const key = reason + ':' + n;
     if (key !== Game._lastTileWarnKey) {
         Game._lastTileWarnKey = key;
@@ -723,6 +747,12 @@ document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'hidden') flushSaveProgress();
 });
 
+/** 存档校验失败：清掉坏档，并记一个标记，bootGame 里给出简短提示 */
+function discardBadSave() {
+    Game.saveDiscarded = true;
+    try { localStorage.removeItem(MAHJONG_STORAGE_KEY); } catch (e) {}
+}
+
 function loadGameProgress() {
     try {
         let raw = localStorage.getItem(MAHJONG_STORAGE_KEY);
@@ -730,7 +760,7 @@ function loadGameProgress() {
             return false; // 无完整对局，走 initGame
         }
         const saved = JSON.parse(raw);
-        if (!saved || typeof saved !== 'object') return false;
+        if (!saved || typeof saved !== 'object') { discardBadSave(); return false; }
 
         // 始终恢复跨局指标
         if (saved.scores) {
@@ -745,6 +775,7 @@ function loadGameProgress() {
         // 完整对局快照（v2）才恢复牌面；先完整校验，再一次性应用，避免半恢复状态。
         if (saved.v !== 2 || !validateSavedSnapshot(saved)) {
             try { console.warn('[save-check] 存档结构/牌种/牌数校验失败，已放弃该存档牌面'); } catch (e) {}
+            discardBadSave();
             return false;
         }
 
@@ -773,7 +804,8 @@ function loadGameProgress() {
         return true;
     } catch (e) {
         Game.restoringGame = false;
-        return false; /* 存档损坏时忽略，从当前默认状态开始 */
+        discardBadSave(); // 存档损坏（JSON 解析失败等）：清掉，免得每次刷新都重复踩到
+        return false;
     }
 }
 

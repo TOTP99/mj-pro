@@ -389,6 +389,9 @@ function bootGame() {
         Game.resumeFromSave();
     } else if (typeof Game.openModeSelect === 'function') {
         Game.openModeSelect();
+        if (Game.saveDiscarded) {
+            setTimeout(() => { try { Game.feel.banner('上次存档已失效，请重新开始'); } catch (e) {} }, 900);
+        }
     } else {
         Game.initGame(); // 兜底：规则模块未加载时直接开局
     }
