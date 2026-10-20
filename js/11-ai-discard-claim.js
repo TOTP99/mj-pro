@@ -109,16 +109,30 @@ function isTileDangerousFor(player, tile) {
 function estimateTenpaiRisk(opponent) {
     let risk = 0;
     const melds = Game.exposedMelds[opponent] ? Game.exposedMelds[opponent].length : 0;
-    risk += melds * 0.35;
-    if (melds >= 3) risk += 0.4; // 穷胡规则最多3组副露，到顶了基本就是在等最后一口
-    const recent = Game.discardPile.filter(d => d.player === opponent).slice(-4);
+    // 副露是强信号，但避免把 2 组副露直接等同于听牌。
+    risk += [0, 0.24, 0.48, 0.72][Math.min(3, melds)] || 0;
+    if (melds >= 3) risk += 0.18;
+    // 关键修正：必须取“该对手自己的最近弃牌”，不能直接 slice 全桌最后 4 张。
+    const ownDiscards = Game.discardPile.filter(d => d.player === opponent);
+    const recent = ownDiscards.slice(-4);
     if (recent.length >= 3) {
         const midCount = recent.filter(d => {
             const s = Game.tileSuit(d.tile), r = Game.tileRank(d.tile);
             return s !== '字' && r >= 4 && r <= 6;
         }).length;
-        if (midCount === recent.length) risk += 0.3; // 连续切中张：该扔的边张/字牌早扔完了，牌型收紧
+        const edgeCount = recent.filter(d => {
+            const s = Game.tileSuit(d.tile), r = Game.tileRank(d.tile);
+            return s === '字' || r === 1 || r === 9;
+        }).length;
+        if (midCount === recent.length) risk += 0.18;
+        else if (midCount >= recent.length - 1) risk += 0.10;
+        // 连续打幺九/字牌可能只是早期整理；只在中后盘作为轻微信号。
+        const ownTurns = ownDiscards.length;
+        if (ownTurns >= 7 && edgeCount === recent.length) risk += 0.08;
     }
+    const ownTurns = ownDiscards.length;
+    if (ownTurns >= 10) risk += 0.10;
+    else if (ownTurns >= 6) risk += 0.05;
     return Math.min(risk, 1.2);
 }
 
@@ -155,28 +169,60 @@ function chooseAiDiscardTile(hand, player) {
         const wins = getWinningTilesOf(remain, exposed, player);
         if (!wins.length) continue;
         const prev = Game.aiWaitTiles[player] || [];
-        const overlap = prev.length ? wins.filter(w => prev.includes(w)).length : wins.length;
+        const overlap = prev.length ? wins.filter(w => prev.includes(w)).length : 0;
+        let ev = null;
+        try {
+            if (typeof Game.discardEV === 'function') ev = Game.discardEV(hand, exposed, player, t);
+        } catch (_) {}
+        let danger = 0;
+        try {
+            for (const opp of Game.turnOrder || []) {
+                if (opp === player) continue;
+                danger = Math.max(danger, Number(Game.publicDangerVs(player, t, opp)) || 0);
+            }
+        } catch (_) {}
         keepTenpai.push({
             tile: t,
             wins,
             overlap,
             waitCount: wins.length,
-            safe: !isTileDangerousFor(player, t)
+            ev: ev && Number.isFinite(ev.ev) ? ev.ev : null,
+            danger: Math.max(0, Math.min(1, danger))
         });
     }
     if (keepTenpai.length) {
-        // 1) 有不点炮的保听优先；2) 尽量与原听口重叠；3) 听张数更多
-        const pool = keepTenpai.some(x => x.safe) ? keepTenpai.filter(x => x.safe) : keepTenpai;
-        pool.sort((a, b) => {
-            if (b.overlap !== a.overlap) return b.overlap - a.overlap;
+        // 保听时不再用“存在安全牌就无条件过滤危险牌”的硬规则。
+        // 统一比较：预期收益 + 听张质量 + 听口连续性；危险度由 discardEV 计入。
+        const trait = Game.aiTraitOf ? Game.aiTraitOf(player) : {};
+        const riskAt = Number.isFinite(trait.riskDefenseAt) ? trait.riskDefenseAt : 0.95;
+        const riskWeight = Math.max(0.8, Math.min(1.8, 1.25 + (1 - riskAt) * 0.9));
+        for (const c of keepTenpai) {
+            const waitValue = c.waitCount * 22;
+            const continuityValue = c.overlap * 30;
+            c.utility = c.ev !== null
+                ? c.ev + waitValue + continuityValue
+                : waitValue * 4 + continuityValue * 4 - c.danger * 450 * riskWeight;
+        }
+        keepTenpai.sort((a, b) => {
+            if (Math.abs(b.utility - a.utility) > 0.001) return b.utility - a.utility;
             if (b.waitCount !== a.waitCount) return b.waitCount - a.waitCount;
-            return 0;
+            return b.overlap - a.overlap;
         });
-        const best = pool[0];
-        // 在同档最优里随机，避免死板
-        const top = pool.filter(x => x.overlap === best.overlap && x.waitCount === best.waitCount);
+        const best = keepTenpai[0];
+        // 同一评分档内保留少量随机性，避免固定种子以外的出牌完全僵化。
+        const top = keepTenpai.filter(x => Math.abs(x.utility - best.utility) < 0.001);
         const chosen = top[Math.floor(Math.random() * top.length)];
         Game.aiWaitTiles[player] = chosen.wins;
+        Game.lastAiDecision = Game.lastAiDecision || {};
+        Game.lastAiDecision[player] = {
+            phase: 'keep-tenpai',
+            tile: chosen.tile,
+            utility: Math.round(chosen.utility * 100) / 100,
+            waitCount: chosen.waitCount,
+            waitOverlap: chosen.overlap,
+            estimatedDanger: chosen.danger,
+            ev: chosen.ev
+        };
         return chosen.tile;
     }
     // 已无法保听（或尚未上听）→ 清空听口记忆；按「向听优先 + 安全 + 保留档」舍牌

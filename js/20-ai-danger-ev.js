@@ -218,7 +218,11 @@ function dealLoss(player, tile) {
 // AI 4.0：pDealIn 要乘以"对手真在听牌"的概率——没听牌时打危险牌也不点炮。
 function discardEV(hand, exposed, player, discard) {
     const rest = hand.slice();
-    rest.splice(rest.indexOf(discard), 1);
+    const discardIndex = rest.indexOf(discard);
+    if (discardIndex < 0) {
+        return { ev: -Infinity, pWin: 0, winValue: 0, pDeal: 1, dealLoss: 0, invalid: true };
+    }
+    rest.splice(discardIndex, 1);
     const pw = pWin(rest, exposed, player);
     const wv = winValue(rest, exposed, player);
     let pd = pDealIn(player, discard);
@@ -232,6 +236,19 @@ function discardEV(hand, exposed, player, discard) {
         // 点炮 = 对手在听 × 打出被抓。用平方根缓和（别太悲观）
         pd = pd * Math.sqrt(Math.max(0.1, maxTenpai));
     } catch (e) {}
+    // 自适应风险定价：领先者残局放大风险成本；大幅落后时适度降低风险厌恶。
+    // 只读取公开比分/牌墙上下文，且保留风险下限，不会把危险度归零。
+    try {
+        const c = typeof Game.getAiAdaptiveContext === 'function'
+            ? Game.getAiAdaptiveContext(player) : null;
+        if (c && ['top', 'left', 'right'].includes(player)) {
+            let riskMultiplier = 1;
+            if (c.ahead && c.lateGame) riskMultiplier += 0.22;
+            else if (c.ahead) riskMultiplier += 0.08;
+            if (c.farBehind) riskMultiplier -= c.lateGame ? 0.12 : 0.06;
+            pd *= Math.max(0.78, Math.min(1.35, riskMultiplier));
+        }
+    } catch (_) {}
     const dl = dealLoss(player, discard);
     return {
         ev: pw * wv - pd * dl,
@@ -244,30 +261,48 @@ function discardEV(hand, exposed, player, discard) {
 // 综合公开信号估计某对手已听牌的概率 0~1：
 //   副露数（最强信号）+ 舍牌趋势（连续切边张/字牌=牌型收紧）+ 巡数（越晚越可能听）
 // 只用公开信息，不读暗牌。
-function estimateOppTenpai(opp) {
-    let p = 0.05; // 基础先验
-    try {
-        const melds = (Game.exposedMelds[opp] || []).length;
-        // 副露：1组 +0.15，2组 +0.35，3组 +0.6（穷胡最多3组，到顶基本在等）
-        p += [0, 0.15, 0.35, 0.6][Math.min(3, melds)] || 0;
-        // 舍牌趋势：最近 4 张若全是边张/字牌，+0.2（该扔的早扔完了）
-        const recent = Game.discardPile.filter(d => d.player === opp).slice(-4);
-        if (recent.length >= 3) {
-            const edgeCount = recent.filter(d => {
-                const s = Game.tileSuit(d.tile), r = Game.tileRank(d.tile);
-                return s === '字' || r === 1 || r === 9;
-            }).length;
-            if (edgeCount === recent.length) p += 0.2;
-            else if (edgeCount >= recent.length - 1) p += 0.1;
-        }
-        // 巡数：每 10 巡 +0.08，上限 +0.3（别人也在往听牌走）
-        const turns = Game.handTurnCount || 0;
-        p += Math.min(0.3, turns / 10 * 0.08);
-        // 危险牌试探：如果他最近打过高危险牌且没人胡，说明他可能还没听（敢打生张）→ -0.1
-        // （这个信号较弱，只做微调）
-    } catch (e) {}
-    return Math.min(0.95, Math.max(0.02, p));
+function getOppTenpaiFeatures(opp) {
+    const ownDiscards = (Game.discardPile || []).filter(d => d.player === opp);
+    const recent = ownDiscards.slice(-4);
+    const melds = (Game.exposedMelds && Game.exposedMelds[opp] || []).length;
+    const ownTurns = ownDiscards.length;
+    let middle = 0, terminalsHonors = 0;
+    for (const d of recent) {
+        let suit = '', rank = 0;
+        try { suit = Game.tileSuit(d.tile); rank = Game.tileRank(d.tile); } catch (_) {}
+        if (suit !== '字' && rank >= 4 && rank <= 6) middle++;
+        if (suit === '字' || rank === 1 || rank === 9) terminalsHonors++;
+    }
+    return { melds, ownTurns, recentCount: recent.length, middle, terminalsHonors };
 }
+
+function estimateOppTenpai(opp) {
+    // 只使用该对手自己的公开弃牌序列。旧逻辑使用全桌 handTurnCount，
+    // 会把其他玩家的巡数错误地算到此对手身上；这里改为逐家弃牌计数。
+    const f = getOppTenpaiFeatures(opp);
+    let p = 0.045; // 无副露、早巡的保守先验
+    const meldBonus = [0, 0.13, 0.29, 0.48];
+    p += meldBonus[Math.min(3, f.melds)] || 0;
+    if (f.melds >= 3) p += 0.10;
+
+    // 近期舍牌趋于中张：通常意味着孤张整理阶段已过，轻度提高听牌概率。
+    if (f.recentCount >= 3) {
+        if (f.middle === f.recentCount) p += 0.13;
+        else if (f.middle >= f.recentCount - 1) p += 0.07;
+        // 中后盘连续打幺九/字牌也可能表示手牌收紧，但权重更低，避免与中张信号双重放大。
+        if (f.ownTurns >= 7 && f.terminalsHonors === f.recentCount) p += 0.05;
+    }
+    // 巡数使用该玩家实际已经打出的牌数，不再使用全局轮数。
+    if (f.ownTurns >= 10) p += 0.18;
+    else if (f.ownTurns >= 7) p += 0.11;
+    else if (f.ownTurns >= 4) p += 0.05;
+
+    // 牌墙浅只说明时间紧，不足以单独证明对手已听；最多给予小幅修正。
+    const wall = Array.isArray(Game.deck) ? Game.deck.length : 70;
+    if (wall <= 12 && f.ownTurns >= 6) p += 0.04;
+    return Math.min(0.88, Math.max(0.025, p));
+}
+Game.getOppTenpaiFeatures = getOppTenpaiFeatures;
 Game.estimateOppTenpai = estimateOppTenpai;
 
 // ---------- 攻守决策 ----------
@@ -312,6 +347,16 @@ function pushFold(hand, exposed, player) {
     try {
         bias = Game.positionBias ? Game.positionBias(player) : 0;
     } catch (e) {}
+    // 自适应局势直接进入最终攻守门槛，而不只改变静态性格参数。
+    try {
+        const c = typeof Game.getAiAdaptiveContext === 'function'
+            ? Game.getAiAdaptiveContext(player) : null;
+        if (c && ['top', 'left', 'right'].includes(player)) {
+            if (c.ahead) bias -= c.lateGame ? 420 : 180;
+            if (c.farBehind) bias += c.lateGame ? 360 : 220;
+            if (c.ownTenpai) attackEV *= 1.06;
+        }
+    } catch (_) {}
     // AI 4.0 提强2：对手听牌概率 → 攻守修正。
     // 有人很可能已听牌时，攻击的期望收益要打折（点炮风险↑）。
     // 性格差异：riskDefenseAt 越低（保守）对听牌信号越敏感，折扣越狠。
@@ -481,7 +526,19 @@ function meldCallEV(player, tile, kind, combo) {
             }
         }
     } catch (e) {}
-    const evCallFinal = evCall - disciplinePenalty;
+    // 自适应副露收益：落后时允许有正期望的副露帮助追分；领先且残局时
+    // 提高副露门槛，避免为了小幅提速破坏手牌弹性。杠牌保留补牌收益。
+    let adaptiveCallShift = 0;
+    try {
+        const c = typeof Game.getAiAdaptiveContext === 'function'
+            ? Game.getAiAdaptiveContext(player) : null;
+        if (c && ['top', 'left', 'right'].includes(player)) {
+            if (c.farBehind) adaptiveCallShift += c.lateGame ? 180 : 110;
+            if (c.ahead && c.lateGame && kind !== 'gang') adaptiveCallShift -= 160;
+            if (c.maxThreat >= 0.75 && kind !== 'gang') adaptiveCallShift -= 60;
+        }
+    } catch (_) {}
+    const evCallFinal = evCall - disciplinePenalty + adaptiveCallShift;
     return {
         take: evCallFinal > evPass.ev,
         evCall: evCallFinal, evPass: evPass.ev,
@@ -563,6 +620,9 @@ function chooseDiscardCore(hand, exposed, player, style) {
         // 7轴微调（只调参数，不碰向听/规则正确性）
         const suit = Game.tileSuit(t);
         let dangerW = 1 + (axes.defense || 0) * 0.4;
+        // riskDefenseAt 越低越谨慎，将动态性格直接反映到候选牌危险度。
+        const riskAt = Number.isFinite(T.riskDefenseAt) ? T.riskDefenseAt : 0.95;
+        dangerW *= Math.max(0.82, Math.min(1.22, 1.4 - riskAt * 0.4));
         const deckLen = Game.deck ? Game.deck.length : 70;
         // 残局求稳：静态 wallCautionAt 定"多早开始慌"，学习轴 wallCaution 定"慌多狠"
         const cautionAt = T.wallCautionAt || 10;
@@ -645,8 +705,11 @@ function chooseDiscardCore(hand, exposed, player, style) {
         // 性格差异：保守更早换（阈值 0.6），激进更头铁（阈值 0.85）。
         const dangerThresh = 0.6 + ((trait && trait.riskDefenseAt) || 1) * 0.15;
         if (winner.dangerAdj > dangerThresh) {
-            for (const c of pruned.slice(1, 3)) {
-                if (c.shanten <= winner.shanten + 1 && c.dangerAdj < 0.4) {
+            for (const c of pruned.slice(1, 4)) {
+                const qhAcceptable = c.qhPenalty <= winner.qhPenalty + 1;
+                const ukeireAcceptable = c.uk1 >= winner.uk1 * 0.65;
+                const searchAcceptable = c.shanten <= winner.shanten + 1;
+                if (searchAcceptable && qhAcceptable && ukeireAcceptable && c.dangerAdj < 0.4) {
                     tile = c.tile;
                     decider = 'danger-avoid';
                     break;
