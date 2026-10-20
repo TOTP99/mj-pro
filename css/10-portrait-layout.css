@@ -129,8 +129,8 @@
         display: none;
     }
     body.portrait-layout .bottom .avatar img {
-        width: 44px;
-        height: 44px;
+        width: 52px;
+        height: 52px;
     }
     /* 竖屏：所有位置（含底部自家）玩家数字统一字号，用一条全局规则代替原先重复的 .bottom 专属声明 */
     body.portrait-layout .player-score {

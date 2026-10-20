@@ -18,14 +18,14 @@ body:not(.portrait-layout) {
 }
 @media screen and (orientation: landscape) and (max-height: 420px) {
     body:not(.portrait-layout) {
-        --avatar-base: 36px;
+        --avatar-base: 44px;
         --score-base: 10px;
         --log-fs-base: 12px;
         --log-minh-base: 28px;
     }
 }
 @media screen and (orientation: landscape) and (max-height: 360px) {
-    body:not(.portrait-layout) { --avatar-base: 30px; }
+    body:not(.portrait-layout) { --avatar-base: 38px; }
 }
 @media screen and (orientation: landscape) and (min-width: 900px) and (min-height: 500px) {
     body:not(.portrait-layout) { --avatar-base: 48px; --statline-fs-base: 12px; }
@@ -34,7 +34,7 @@ body:not(.portrait-layout) {
     body:not(.portrait-layout) { --wallcount-fs-base: 9px; }
 }
 
-/* 头像 + 分数 */
+/* 头像 + 分数（横屏头像尺寸只由 --avatar-base × --ui-k 决定；09-media-landscape 里的 .avatar img 分档 48/36/30 已删，从未生效） */
 body:not(.portrait-layout) .avatar img {
     width: calc(var(--avatar-base) * var(--ui-k, 1));
     height: calc(var(--avatar-base) * var(--ui-k, 1));
