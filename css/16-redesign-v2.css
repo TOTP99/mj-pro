@@ -117,19 +117,14 @@ body.portrait-layout #credit-label-2 {
     color: #ff8888 !important;
     border-color: #8a4a4a !important;
 }
-/* 横屏设置键：固定在右下角 */
-body:not(.portrait-layout) #settings-btn-ls {
-    position: fixed;
-    right: 12px;
-    bottom: 12px;
-    z-index: 40;
-    margin: 0 !important;
-    padding: 10px 18px !important;
-    font-size: 14px !important;
+/* 横屏：TP制作位置改為「设置」二字（无背景边框，可点） */
+body:not(.portrait-layout) #img-display-badge {
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
 }
-/* 竖屏：右下角设置键隐藏（用顶栏5键） */
-body.portrait-layout #settings-btn-ls {
-    display: none !important;
+body:not(.portrait-layout) #img-display-badge:active {
+    opacity: .6;
 }
 
 /* ===== 竖屏牌墙两行：行高紧凑 ===== */
