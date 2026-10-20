@@ -33,7 +33,7 @@
     box-shadow: inset 0 0 4px rgba(0, 0, 0, 0.45);
 }
 
-/* 四家标记（原🦁🐲🐯🐈 emoji）：avatars/stat-*.webp。
+/* 四家标记（原为动物表情字符）：avatars/stat-*.webp。
    用 em 跟随所在文字的字号（.stat-cell / .stat-line / .tt-avatar 各断点字号不同，不用逐个改）。 */
 /* 长按保护：竖屏包在 .stat-cell 里、横屏包在 .stat-line 里，选择器不认容器、直接认图本身，横竖屏都生效 */
 .stat-avatar-img {
