@@ -1,0 +1,61 @@
+/* css/14-compact-menus.css
+   模式选择 / 高阶规则：紧凑菜单。
+   要求：横竖屏都比原来小，一页内无障碍看全；字阶降两档；
+   盒内可滚动（滑杆）+ 保留呼吸量，不裁切、不拥挤。
+   只作用于 #mode-select-modal 与 #rules-modal，不影响其他弹窗。 */
+
+    /* ---------- 盒子：收窄、收紧，保留呼吸量 ---------- */
+    #mode-select-modal .hu-box {
+        width: min(68vw, 300px);
+        padding: var(--sp-3);
+    }
+    #rules-modal .hu-box {
+        width: min(84vw, 340px);
+        max-height: min(88dvh, 560px);
+        padding: var(--sp-3);
+    }
+
+    /* ---------- 字阶降两档：t1→b1 / t2→b2 / b1→c1 / b2→c1（c1 触底） ---------- */
+    #mode-select-modal .hu-title,
+    #rules-modal .hu-title {
+        font-size: var(--fs-b1);
+        padding-bottom: var(--sp-1);
+        margin-bottom: var(--sp-2);
+    }
+    #mode-select-modal .mode-check { font-size: var(--fs-b2); width: 16px; }
+    #mode-select-modal .mode-text b { font-size: var(--fs-c1); }
+    #mode-select-modal .mode-text i { font-size: var(--fs-c1); }
+    #rules-modal .rules-hint { font-size: var(--fs-c1); }
+    #rules-modal .rules-group-title { font-size: var(--fs-b2); margin-bottom: var(--sp-1); }
+    #rules-modal .rule-row .rule-name { font-size: var(--fs-c1); }
+    #rules-modal .yn-seg button {
+        font-size: var(--fs-c1);
+        padding: 0.55em 1.2em;
+        min-height: 2.6em;
+    }
+    #mode-select-modal .hu-actions button,
+    #rules-modal .hu-actions button {
+        font-size: var(--fs-c1);
+        padding: 0.6em 1.4em;
+    }
+
+    /* ---------- 行距收紧 ---------- */
+    #mode-select-modal .mode-options { gap: var(--sp-2); }
+    #mode-select-modal .mode-option {
+        padding: var(--sp-2);
+        min-height: 3.2em;
+        gap: var(--sp-2);
+    }
+    #mode-select-modal .hu-actions,
+    #rules-modal .hu-actions { margin-top: var(--sp-2); gap: var(--sp-2); }
+    #rules-modal .rules-group { margin: var(--sp-2) 0; }
+    #rules-modal .rules-group:first-of-type { margin-top: var(--sp-1); }
+    #rules-modal .rule-row { padding: var(--sp-1) var(--sp-1); gap: var(--sp-2); }
+
+/* ---------- 横屏：盒子高度吃满可视区，内容在盒内滚动 ---------- */
+@media (orientation: landscape) {
+    #mode-select-modal .hu-box,
+    #rules-modal .hu-box {
+        max-height: calc(100dvh - 20px);
+    }
+}

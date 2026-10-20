@@ -1,0 +1,93 @@
+/* ============================================================
+ * css/15-game-feel.css — 手感一期：动画与反馈层
+ * 设计语言沿用现有成熟稳重风格：只做短促、克制的反馈，
+ * 时长代币 110/160/220ms，缓动 cubic-bezier(.23,1,.32,1)，
+ * 只用 transform/opacity（不触发布局重排）。
+ * ============================================================ */
+
+/* ---------- 出牌飞行克隆 ---------- */
+.feel-fly {
+    position: fixed;
+    z-index: 200;
+    pointer-events: none;
+    margin: 0;
+    transition: transform 0.22s cubic-bezier(.23,1,.32,1), opacity 0.22s ease;
+    will-change: transform, opacity;
+}
+.feel-fly .tile {
+    width: 100%;
+    height: 100%;
+}
+
+/* ---------- 弃牌落定小 bounce（仅 JS 主动添加时播放一次） ---------- */
+@keyframes feelLand {
+    0%   { transform: scale(1.22) rotate(-3deg); }
+    55%  { transform: scale(0.96) rotate(0deg); }
+    100% { transform: scale(1); }
+}
+.discardTile.feel-land {
+    animation: feelLand 0.22s cubic-bezier(.23,1,.32,1);
+}
+
+/* ---------- 摸牌滑入（手牌右端新牌，renderTile 一次性加 .feel-drawn） ---------- */
+@keyframes feelDrawIn {
+    from { transform: translateX(45%); opacity: 0; }
+    to   { transform: translateX(0); opacity: 1; }
+}
+.tile-wrap.feel-drawn .tile {
+    animation: feelDrawIn 0.18s ease-out;
+}
+
+/* ---------- 中央短横幅：吃/碰/杠/胡 ---------- */
+.feel-banner {
+    position: fixed;
+    left: 50%;
+    top: 36%;
+    transform: translate(-50%, -50%);
+    z-index: 300;
+    pointer-events: none;
+    font-size: var(--fs-d1, 28px);
+    font-weight: 800;
+    letter-spacing: 0.35em;
+    text-indent: 0.35em;
+    color: var(--gold, #d4a94e);
+    text-shadow: 0 2px 14px rgba(0,0,0,0.55), 0 0 2px rgba(212,169,78,0.8);
+    white-space: nowrap;
+    animation: feelBanner 0.95s ease forwards;
+}
+@keyframes feelBanner {
+    0%   { opacity: 0; transform: translate(-50%,-50%) scale(0.72); }
+    16%  { opacity: 1; transform: translate(-50%,-50%) scale(1.1); }
+    32%  { transform: translate(-50%,-50%) scale(1); }
+    72%  { opacity: 1; transform: translate(-50%,-50%) scale(1); }
+    100% { opacity: 0; transform: translate(-50%,-50%) scale(1.06); }
+}
+
+/* ---------- 当前行动者：头像呼吸光（思考/轮到谁一目了然） ---------- */
+@keyframes feelThinkPulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(212,169,78,0.0); }
+    50%      { box-shadow: 0 0 10px 2px rgba(212,169,78,0.55); }
+}
+.player.active .avatar {
+    animation: feelThinkPulse 1.4s ease-in-out infinite;
+    border-radius: 50%;
+}
+
+/* ---------- 点选手牌抬起（两段式出牌第一段已有 ▼，这里补 110ms 按压缩放） ---------- */
+@keyframes feelPress {
+    from { transform: scale(1); }
+    to   { transform: scale(0.97); }
+}
+#hand-bottom .tile:active {
+    animation: feelPress 0.11s ease-out;
+}
+
+/* ---------- 减少动态偏好：跳过飞行与 bounce，保留瞬时反馈 ---------- */
+@media (prefers-reduced-motion: reduce) {
+    .feel-fly { display: none; }
+    .discardTile.feel-land,
+    .tile-wrap.feel-drawn .tile,
+    #hand-bottom .tile:active { animation: none; }
+    .feel-banner { animation-duration: 0.3s; }
+    .player.active .avatar { animation: none; }
+}

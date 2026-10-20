@@ -1,0 +1,160 @@
+    /* ========== 八面 d8（单颗黄金镶钻骰子，canvas 绘制） ========== */
+    /* 舞台铺满牌桌：单骰落点在四家头像围成的桌心（不再 bottom:22% 偏上） */
+    #dice-stage {
+        position: absolute; inset: 0;
+        left: 0; right: 0; top: 0; bottom: 0;
+        z-index: 25;
+        display: none;
+        pointer-events: none;
+        background: radial-gradient(ellipse at center, rgba(8,14,24,0.35) 0%, transparent 55%);
+        contain: layout style;
+    }
+    #dice-stage.show { display: block; }
+    #dice-scene {
+        position: absolute; inset: 0;
+        will-change: transform;
+        transition: none;
+    }
+    #dice-scene.vanish {
+        transition: transform 0.38s cubic-bezier(0.4, 0, 0.6, 1), opacity 0.38s ease;
+        transform: scale(0.12) !important;
+        opacity: 0;
+    }
+    /* ========== 八面 d8（单颗黄金镶钻，canvas 绘制） ========== */
+    #dice-canvas {
+        position: absolute; inset: 0;
+        pointer-events: none;
+    }
+    /* 清零菜单：金色长框 + 透明底 */
+    #claim-indicator .reset-menu {
+        display: flex; flex-direction: column; align-items: center; gap: 4.5px;
+    }
+    #claim-indicator .reset-btn {
+        position: relative;
+        display: inline-flex; align-items: center; justify-content: center;
+        min-width: 8em; min-height: 2.8em; padding: 0.55em 1.5em;
+        border: 1px solid var(--gold);
+        border-radius: 5px;
+        background: transparent;
+        color: var(--text); font-size: var(--fs-b2); font-weight: 600;
+        letter-spacing: 0.12em; font-family: inherit;
+        cursor: pointer; user-select: none;
+        box-shadow: 0 0 8px rgba(212, 175, 55, 0.2);
+        transition: background 0.15s, box-shadow 0.15s;
+    }
+    /* 热区略微扩大：上下方向留少许，避免与相邻按钮重叠 */
+    #claim-indicator .reset-btn::after {
+        content: '';
+        position: absolute;
+        inset: -2px -4px;
+    }
+    #claim-indicator .reset-btn:active {
+        background: rgba(212, 175, 55, 0.12);
+        box-shadow: 0 0 12px rgba(212, 175, 55, 0.4);
+    }
+    /* 弹窗盒：与结算页统一；尺寸全部走设计令牌 */
+    .hu-box {
+        width: var(--modal-w);
+        max-height: min(72vh, 300px);
+        /* 5. 弹窗统一：外盒 flex 纵向、自身不滚动（内容走 .hu-scroll，底栏钉死） */
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+        margin: auto;
+        padding: var(--modal-pad);
+        border-radius: var(--modal-radius);
+        text-align: center;
+        color: var(--text);
+        background: var(--glass-strong);
+        border: 1px solid var(--gold);
+        box-shadow: var(--shadow-soft), inset 0 1px 0 rgba(255,255,255,0.06);
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
+        box-sizing: border-box;
+    }
+    /* 5. 弹窗统一：内容区（唯一滚动区） */
+    .hu-box .hu-scroll {
+        flex: 1 1 auto;
+        min-height: 0;
+        overflow-y: auto;
+        overflow-x: hidden;
+        -webkit-overflow-scrolling: touch;
+        overscroll-behavior: contain;
+        touch-action: pan-y;
+    }
+    /* 5. 弹窗统一：标题和底栏钉死 */
+    .hu-box .hu-title { flex: 0 0 auto; }
+    .hu-box .hu-actions { flex: 0 0 auto; }
+    .hu-title {
+        font-size: var(--fs-t1); font-weight: 700; letter-spacing: 0.1em;
+        color: var(--ice); margin: 0 0 var(--sp-2);
+        /* 标题下细分隔线：标题/内容主次分明，商业弹窗标准做法 */
+        padding-bottom: var(--sp-2);
+        border-bottom: 1px solid var(--gold-dim);
+    }
+    .hu-options {
+        display: flex; flex-direction: column; gap: var(--sp-2);
+        margin-bottom: var(--sp-3);
+    }
+    .hu-opt {
+        display: flex; align-items: center; justify-content: center; gap: 4px;
+        /* 高度由字号 em 智能推导：字号变，按钮整体跟着变，不再手写 px */
+        min-height: 3.2em;
+        padding: 0.55em 0.9em; border-radius: 6px;
+        border: 1px solid var(--gold-dim);
+        background: transparent;
+        color: var(--text-muted); font-size: var(--fs-b1); cursor: not-allowed;
+        transition: background 0.15s, border-color 0.15s, transform 0.12s;
+    }
+    .hu-opt.enabled {
+        color: var(--text); cursor: pointer;
+        border-color: var(--gold);
+        background: transparent;
+    }
+    .hu-opt.enabled:hover {
+        background: rgba(212, 175, 55, 0.1);
+        border-color: var(--gold);
+    }
+    .hu-opt.enabled:active { transform: scale(0.98); }
+    .hu-opt .tile {
+        width: 18px; height: 24.5px; font-size: 14.5px; border-radius: 2px;
+        cursor: inherit;
+    }
+    .hu-opt .tile-marker { height: 0; font-size: 0; }
+    .hu-actions { display: flex; gap: var(--sp-2); justify-content: center; flex-wrap: wrap; margin-top: var(--sp-3); }
+    .hu-actions button {
+        margin: 0; padding: 0.65em 1.7em; min-width: 5.5em; border-radius: 6px; cursor: pointer;
+        border: 1px solid var(--gold);
+        background: transparent;
+        color: var(--text); font-size: var(--fs-b1); font-family: inherit;
+        transition: background 0.15s, box-shadow 0.15s;
+    }
+    /* 纵向拉满变体：如初始筹码页，按钮独占一行（替代内联样式） */
+    .hu-actions.stack { flex-direction: column; align-items: stretch; }
+    .hu-actions.stack button { width: 100%; }
+    .hu-actions button:active {
+        background: rgba(212, 175, 55, 0.12);
+        box-shadow: 0 0 10px rgba(212, 175, 55, 0.25);
+    }
+    .hu-actions button:disabled { opacity: 0.4; cursor: not-allowed; }
+    /* 3. 主次：按钮三级——主操作（实心金）/ 次要（金描边默认）/ 取消（无框淡字） */
+    .hu-actions button.btn-primary {
+        background: #b8912f;
+        border-color: #b8912f;
+        color: #191307;
+        font-weight: 700;
+    }
+    .hu-actions button.btn-primary:active {
+        background: #d4af37;
+        box-shadow: 0 0 12px rgba(212, 175, 55, 0.45);
+    }
+    .hu-actions button.btn-ghost {
+        background: none;
+        border-color: transparent;
+        color: var(--text-muted);
+        font-weight: 400;
+    }
+    .hu-actions button.btn-ghost:active {
+        background: rgba(255, 255, 255, 0.06);
+        box-shadow: none;
+    }

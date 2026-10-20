@@ -1,0 +1,58 @@
+/* 图标（不用 emoji）：庄/听徽章、★、选中/刚摸标记、确认/过 SVG、听牌开关气泡、AI 牌背图。
+   最后加载，只补样式，不覆盖前面文件里的尺寸。 */
+
+/* 状态栏徽章：庄（金底）、听（红框）；★ 最高分 */
+.ico-badge {
+    display: inline-flex; align-items: center; justify-content: center;
+    box-sizing: border-box;
+    width: 1.35em; height: 1.35em;
+    border-radius: 50%;
+    font-family: var(--font-ui);
+    font-size: 0.85em; font-weight: 700; line-height: 1;
+    vertical-align: middle;
+}
+.ico-dealer { background: var(--gold); color: #1a2433; }
+.ico-tenpai { border: 1px solid #e0685c; color: #f08a7e; background: rgba(224, 104, 92, 0.14); }
+.ico-star { color: var(--gold); font-size: 1.05em; line-height: 1; vertical-align: middle; }
+
+/* 手牌上方标记：▼ 你点选的牌（金），● 刚摸到的牌（冰蓝） */
+.tile-marker .mk-sel { color: var(--gold); }
+.tile-marker .mk-new { color: var(--ice); }
+
+/* 吃碰杠提示条：确认（绿对勾）/ 过（红叉）。大小跟随 .claim-btn 的 font-size */
+#claim-indicator .claim-btn svg { display: block; width: 1em; height: 1em; pointer-events: none; }
+
+/* 听牌提示开关：对话气泡，颜色跟随按钮文字色（关=灰，开=金，见 02 的 .on） */
+.tenpai-hint-toggle svg { display: block; width: 1.15em; height: 1.15em; pointer-events: none; }
+
+/* AI 暗牌背：用 tiles/back.webp 铺满，去掉蓝底和边框；图片加载失败（.no-img）时回退成原来的蓝色牌背 */
+.tileback { background: transparent; border: 0; box-shadow: 0 2px 3px rgba(0, 0, 0, 0.4); }
+.tileback.no-img {
+    background: linear-gradient(145deg, #3a5a78, #1e3348);
+    border: 1px solid rgba(120, 160, 200, 0.25);
+    box-shadow: inset 0 0 4px rgba(0, 0, 0, 0.45);
+}
+
+/* 四家标记（原🦁🐲🐯🐈 emoji）：avatars/stat-*.webp。
+   用 em 跟随所在文字的字号（.stat-cell / .stat-line / .tt-avatar 各断点字号不同，不用逐个改）。 */
+/* 长按保护：竖屏包在 .stat-cell 里、横屏包在 .stat-line 里，选择器不认容器、直接认图本身，横竖屏都生效 */
+.stat-avatar-img {
+    display: inline-block;
+    width: 1.15em; height: 1.15em;
+    vertical-align: -0.22em;
+    border-radius: 50%;
+    object-fit: cover;
+    flex-shrink: 0;
+    transition: filter 0.15s ease, transform 0.15s ease;
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-touch-callout: none;
+    -webkit-user-drag: none;
+    pointer-events: auto;
+}
+
+/* 状态栏小头像长按反馈（调庄 hidden gem 等） */
+.stat-avatar-img.stat-avatar-pressing {
+    filter: brightness(1.15) drop-shadow(0 0 4px rgba(212, 175, 55, 0.65));
+    transform: scale(1.08);
+}
