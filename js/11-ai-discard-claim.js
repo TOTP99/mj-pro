@@ -590,6 +590,11 @@ function checkClaimOrAdvance(player, tile) {
     const canP = canClaimMore && Game.canPeng(Game.hands.bottom, tile);
     const canG = canClaimMore && Game.canGang(Game.hands.bottom, tile);
     const chiCombos = (canClaimMore && player === 'left') ? Game.findChiCombos(Game.hands.bottom, tile) : []; // 只能吃上家的牌
+    // 优先级：碰/杠 > 吃。你只能吃、而某个 AI 能碰/杠这张牌时，AI 先碰/杠，不再给你吃
+    if (!canP && !canG && chiCombos.length && findAiPeng(player, tile)) {
+        resolveAiPengOrAdvance(player, tile);
+        return;
+    }
     if (canP || canG || chiCombos.length) {
         Game.pendingClaim = { tile, fromPlayer: player, canPeng: canP, canGang: canG, chiCombos, mode: 'claim' };
         Game.setPhase(Game.PHASE.CLAIM_PROMPT, 'checkClaimOrAdvance');

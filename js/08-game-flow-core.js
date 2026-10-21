@@ -258,21 +258,26 @@ function continueAfterFirstTurnCheck(player) {
         if (player === 'bottom') {
             Game.offerHu({ mode: 'selfdraw' });
         } else {
-            Game.gameOver = true;
-            Game.winner = player;
             const winTile = Game.lastDrawnTile[player];
             const before = [...Game.hands[player]];
-            const wi = before.indexOf(winTile);
-            if (wi < 0) { logFlow('结算异常：手牌中找不到自摸的牌'); return; }
+            let wi = before.indexOf(winTile);
+            if (wi < 0) {
+                // 兜底：记录的摸牌不在手里（理论上不会发生），改用手里最后一张作为胡牌，保证能正常结算、不卡死
+                logFlow('结算异常：手牌中找不到自摸的牌，按手中最后一张结算');
+                wi = before.length - 1;
+            }
+            Game.gameOver = true;
+            Game.winner = player;
+            const winTileUsed = before[wi];
             before.splice(wi, 1);
-            const bonus = Game.scoreWinningHand(before, winTile, Game.exposedMelds[player], Game.lastDrawWasFinal[player]);
+            const bonus = Game.scoreWinningHand(before, winTileUsed, Game.exposedMelds[player], Game.lastDrawWasFinal[player]);
             Game.applyKongBonuses(bonus, player, 'selfdraw', null);
             const result = Game.settleScore(player, 'selfdraw', null, bonus);
             Game.clearKongFlags();
             logFlow(Game.nameOf(player) + ' 自摸胡牌！' + result.detail);
             speak('胡了，自摸');
             Game.learnFromWin(player, null, { fan: bonus.mult, turns: Game.handTurnCount });
-            Game.showResultModal(player, 'selfdraw', null, bonus, result, winTile);
+            Game.showResultModal(player, 'selfdraw', null, bonus, result, winTileUsed);
         }
         return;
     }

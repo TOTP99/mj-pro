@@ -245,10 +245,21 @@ function openModeSelect() {
     setTimeout(function () { showModal('mode-select-modal'); }, 650);
 }
 
+/** 对局是否真在进行：已开场、没结束，且已发牌（刷新后仅恢复了场次数据、没有牌局时不算） */
+function hasDealtHand() {
+    return !!(Game.hands && Game.hands.bottom && Game.hands.bottom.length > 0 && Game.deck && Game.deck.length > 0);
+}
+
+function isGameLive() {
+    return !Game.gameOver && !!Game.fieldActive
+        && !!(Game.hands && Game.hands.bottom && Game.hands.bottom.length > 0)
+        && !!(Game.deck && Game.deck.length > 0);
+}
+
 function chooseMode(mode) {
     hideModal('mode-select-modal');
     clearSelectGlow();
-    const gameLive = !Game.gameOver && !!Game.fieldActive; // 对局进行中且已开场
+    const gameLive = isGameLive(); // 对局进行中且已开场（且牌桌上真有一局牌）
     if (mode === 'advanced') {
         // 已在高阶且对局进行中：快照当前规则，供 confirmRules 判断用户是否真改了
         rulesSnapshotBeforeEdit = (gameLive && Game.gameMode === 'advanced') ? snapshotRules() : null;
@@ -261,7 +272,7 @@ function chooseMode(mode) {
     // 日常：已在日常且对局进行中 → 同模式，不确认、不重开，手牌不动
     if (gameLive && Game.gameMode === 'daily') return;
     // 如果已有对局在进行，换模式开新局需先确认
-    if (!Game.gameOver) { // gameOver 在 01 加载时恒为 false，无需 typeof 守卫
+    if (!Game.gameOver && hasDealtHand()) { // gameOver 在 01 加载时恒为 false；刷新后还没发牌时无需确认
         Game.confirmDialog('切换模式', '切换到日常模式将重新开局，继续吗？', function() {
             setGameMode('daily');
             startGameWithMode();
@@ -308,7 +319,7 @@ function rulesEqual(a, b) {
 }
 
 function confirmRules() {
-    const gameLive = !Game.gameOver && !!Game.fieldActive;
+    const gameLive = isGameLive();
     // 对局进行中、已在高阶、规则一条没动 → 不重开，手牌不动
     if (gameLive && Game.gameMode === 'advanced' && rulesSnapshotBeforeEdit && rulesEqual(rulesSnapshotBeforeEdit, Game.rulesConfig)) {
         hideModal('rules-modal');
@@ -316,7 +327,7 @@ function confirmRules() {
         return;
     }
     rulesSnapshotBeforeEdit = null;
-    if (!Game.gameOver) { // gameOver 在 01 加载时恒为 false，无需 typeof 守卫
+    if (!Game.gameOver && hasDealtHand()) { // gameOver 在 01 加载时恒为 false；刷新后还没发牌时无需确认
         Game.confirmDialog('应用规则', '应用高阶规则将重新开局，继续吗？', function() {
             hideModal('rules-modal');
             setGameMode('advanced');

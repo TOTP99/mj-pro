@@ -38,6 +38,13 @@ function scoreWinningHand(concealedBeforeWin, winTile, exposed, isLastTile) {
         return { mult, tags };
     }
     const neededSets = 4 - exposed.length;
+    // 单吊/边张/夹张只在「唯一听法」时才算：胡牌前的听牌若不止一张能胡，一律按普通胡
+    let uniqueWait = true;
+    try {
+        const owner = (Game.PLAYERS || []).find(pl => Game.exposedMelds[pl] === exposed) || null;
+        const wins = Game.allTileTypes().filter(t => Game.checkHu([...concealedBeforeWin, t], exposed, owner));
+        uniqueWait = wins.length <= 1;
+    } catch (e) { uniqueWait = true; }
     let best = { mult: 1, tags: [] };
     const counts = {};
     for (const t of concealed) counts[t] = (counts[t] || 0) + 1;
@@ -59,7 +66,9 @@ function scoreWinningHand(concealedBeforeWin, winTile, exposed, isLastTile) {
             // 在当前分解内，取可解释的最高等待番型；跨分解仍由下方最高倍数逻辑择优。
             let waitType = 'normal';
             const waitPriority = { normal: 0, kanchan: 1, bianzhang: 1, tanki: 2 };
-            if (pairTile === winTile) {
+            if (!uniqueWait) {
+                // 多面听：不算单吊/边张/夹张
+            } else if (pairTile === winTile) {
                 waitType = 'tanki';
             } else {
                 for (const m of decomp) {

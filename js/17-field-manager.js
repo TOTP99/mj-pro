@@ -22,6 +22,8 @@ function loadField() {
                 Game.fieldGameCount = s.gameCount || 0;
                 Game.fieldActive = !!s.active;
                 if (s.initialAmount > 0) Game.fieldInitialAmount = s.initialAmount;
+                // 输光待重开标记：刷新后保留，下一局开始时仍走自动重开
+                Game.bustAutoRestart = (typeof s.bust === 'string' && s.bust) ? s.bust : null;
             }
         }
     } catch (e) {}
@@ -32,6 +34,7 @@ function saveField() {
         localStorage.setItem(FIELD_STORAGE_KEY, JSON.stringify({
             amounts: Game.fieldAmounts, gameCount: Game.fieldGameCount, active: Game.fieldActive,
             initialAmount: Game.fieldInitialAmount,
+            bust: Game.bustAutoRestart || null,
         }));
     } catch (e) {}
 }
@@ -61,9 +64,10 @@ function onFieldGameSettled(payouts) {
     if (typeof renderFieldAmounts === 'function') renderFieldAmounts();
 
     // 输光检查：任何一家金额变负 → 自动重开（筹码重置+骰子调庄），startGame 时执行
-    const busted = ['top', 'left', 'right', 'bottom'].find(p => Game.fieldAmounts[p] <= 0);
+    const busted = ['top', 'left', 'right', 'bottom'].find(p => Game.fieldAmounts[p] < 0);
     if (busted) {
         Game.bustAutoRestart = busted;
+        saveField();
         return;
     }
     // 16 局提醒
@@ -83,9 +87,10 @@ function applyFieldSettlementAdjustments(deltas) {
     }
     saveField();
     if (typeof renderFieldAmounts === 'function') renderFieldAmounts();
-    const busted = ['top', 'left', 'right', 'bottom'].find(p => Game.fieldAmounts[p] <= 0);
+    const busted = ['top', 'left', 'right', 'bottom'].find(p => Game.fieldAmounts[p] < 0);
     if (busted) Game.bustAutoRestart = busted;
     else if (Game.bustAutoRestart) Game.bustAutoRestart = null;
+    saveField();
 }
 
 /** 流局也算一局 */

@@ -290,6 +290,7 @@ Game.gameEpoch = 0;
 function gameTimeout(fn, ms) {
     const epoch = Game.gameEpoch;
     const run = () => {
+        if (epoch !== Game.gameEpoch) return; // 局号已变（开了新局/清零重启）：上一局遗留的回调作废
         if (typeof Game.diceBusy !== 'undefined' && Game.diceBusy) { setTimeout(run, 200); return; } // 骰子仪式期间暂停
         fn();
     };
