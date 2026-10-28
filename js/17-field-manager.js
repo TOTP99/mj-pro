@@ -30,6 +30,7 @@ function loadField() {
 }
 
 function saveField() {
+    if (Game.netNoSave) return;
     try {
         localStorage.setItem(FIELD_STORAGE_KEY, JSON.stringify({
             amounts: Game.fieldAmounts, gameCount: Game.fieldGameCount, active: Game.fieldActive,

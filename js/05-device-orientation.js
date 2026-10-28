@@ -1,55 +1,36 @@
-;(function(){
+;(function () {
+'use strict';
+/* 视口 Sensor：统一输出 Game.layout，驱动横竖屏布局与缩放。
+ * 兼容旧 class portrait-layout；新增 data-layout / data-tier 供 CSS 使用。 */
+
 function isIOSDevice() {
     const ua = navigator.userAgent || '';
     return /iPad|iPhone|iPod/.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 }
 function isAndroidDevice() {
-    const ua = navigator.userAgent || '';
-    return /Android/i.test(ua);
+    return /Android/i.test(navigator.userAgent || '');
 }
-/** Pixel / 其它 Google 系机型（含 GSI 特征时的辅助识别） */
 function isGoogleAndroidDevice() {
     if (!isAndroidDevice()) return false;
     const ua = navigator.userAgent || '';
-    // Pixel 常见 UA 含 "Pixel"；部分 ChromeOS 平板不含 Android
     return /Pixel/i.test(ua) || /Nexus/i.test(ua);
 }
+
 function applyDevicePlatformClass() {
     const root = document.documentElement;
     const body = document.body;
     if (!root || !body) return;
     const android = isAndroidDevice();
     const ios = isIOSDevice();
-    root.classList.toggle('is-android', android);
-    root.classList.toggle('is-ios', ios);
-    root.classList.toggle('is-google-android', isGoogleAndroidDevice());
-    body.classList.toggle('is-android', android);
-    body.classList.toggle('is-ios', ios);
-    body.classList.toggle('is-google-android', isGoogleAndroidDevice());
+    const google = isGoogleAndroidDevice();
+    [root, body].forEach(function (el) {
+        el.classList.toggle('is-android', android);
+        el.classList.toggle('is-ios', ios);
+        el.classList.toggle('is-google-android', google);
+    });
 }
 
-/** 同步真实可视区域到 CSS 变量（iOS 地址栏 + Android Chrome 底栏/手势条） */
-function syncAppViewportVars() {
-    let w = window.innerWidth || document.documentElement.clientWidth || 0;
-    let h = window.innerHeight || document.documentElement.clientHeight || 0;
-    try {
-        if (window.visualViewport) {
-            w = Math.round(window.visualViewport.width) || w;
-            h = Math.round(window.visualViewport.height) || h;
-        }
-    } catch (e) { /* ignore */ }
-    // Android：全屏后优先用 layout 视口，避免 visualViewport 被工具栏短暂缩小
-    try {
-        if (isAndroidDevice() && (document.fullscreenElement || document.webkitFullscreenElement)) {
-            w = window.innerWidth || w;
-            h = window.innerHeight || h;
-        }
-    } catch (e) { /* ignore */ }
-    if (h > 0) document.documentElement.style.setProperty('--app-height', h + 'px');
-    return { w, h };
-}
-
-/** 读取当前可视宽高（优先 visualViewport） */
+/** 读取可视区尺寸（优先 visualViewport；Android 全屏优先 layout 视口） */
 function getViewportSize() {
     let w = window.innerWidth || document.documentElement.clientWidth || 0;
     let h = window.innerHeight || document.documentElement.clientHeight || 0;
@@ -59,43 +40,30 @@ function getViewportSize() {
             h = Math.round(window.visualViewport.height) || h;
         }
     } catch (e) { /* ignore */ }
-    // Android 旋转动画中 inner 可能短暂不准：若与 screen 方向明显相反，采信 screen
     try {
-        if (isAndroidDevice() && screen && screen.width && screen.height) {
-            const sw = screen.width, sh = screen.height;
-            const innerLand = w >= h;
-            const screenLand = sw >= sh;
-            // 仅在差异很大时校正，避免误伤分屏
-            if (innerLand !== screenLand && Math.max(w, h) / Math.max(1, Math.min(w, h)) < 1.15) {
-                const a = Math.max(w, h), b = Math.min(w, h);
-                if (screenLand) { w = a; h = b; }
-                else { w = b; h = a; }
-            }
+        if (isAndroidDevice() && (document.fullscreenElement || document.webkitFullscreenElement)) {
+            w = window.innerWidth || w;
+            h = window.innerHeight || h;
         }
     } catch (e) { /* ignore */ }
-    return { w, h };
+    return { w: w || 0, h: h || 0 };
 }
 
-/**
- * 综合判断是否竖屏
- * iOS Safari 旋转瞬间 orientation / matchMedia / 宽高可能短暂不一致：
- * 以「宽高比」为主信号，其它 API 作辅助；明显横宽时强制横屏。
- */
+function syncAppViewportVars() {
+    const size = getViewportSize();
+    const root = document.documentElement;
+    if (size.h > 0) root.style.setProperty('--app-height', size.h + 'px');
+    if (size.w > 0) root.style.setProperty('--app-width', size.w + 'px');
+    return size;
+}
+
+/** 是否竖屏：orientation API → matchMedia → 宽高比 */
 function isPortraitOrientation() {
-    const { w, h } = getViewportSize();
-    // 主信号：宽高（旋转完成后最可靠）
-    if (w > 0 && h > 0) {
-        // 明显横屏
-        if (w > h * 1.05) return false;
-        // 明显竖屏
-        if (h > w * 1.05) return true;
-    }
-    // 接近方形时再用系统 API
     try {
         if (typeof window.orientation === 'number') {
             const o = window.orientation;
-            if (o === 90 || o === -90) return false;
             if (o === 0 || o === 180) return true;
+            if (o === 90 || o === -90) return false;
         }
     } catch (e) { /* ignore */ }
     try {
@@ -109,31 +77,85 @@ function isPortraitOrientation() {
         if (window.matchMedia('(orientation: landscape)').matches) return false;
         if (window.matchMedia('(orientation: portrait)').matches) return true;
     } catch (e) { /* ignore */ }
-    if (!w || !h) return false;
-    return h >= w;
+    const size = getViewportSize();
+    if (!size.w || !size.h) return false;
+    return size.h >= size.w;
+}
+
+/** 尺寸档位：竖屏看高度，横屏看短边 */
+function resolveTier(mode, w, h) {
+    if (mode === 'portrait') {
+        if (h <= 580 || w <= 360) return 'xs';
+        if (h <= 700) return 'sm';
+        if (h >= 900 && w >= 400) return 'lg';
+        return 'md';
+    }
+    const shortSide = Math.min(w, h);
+    if (shortSide <= 360) return 'xs';
+    if (shortSide <= 500) return 'sm';
+    if (shortSide >= 700) return 'lg';
+    return 'md';
+}
+
+function readSafeInsets() {
+    const cs = getComputedStyle(document.documentElement);
+    const num = function (v) { const n = parseFloat(v); return isNaN(n) ? 0 : n; };
+    return {
+        t: num(cs.getPropertyValue('--sat')) || 0,
+        r: num(cs.getPropertyValue('--sar')) || 0,
+        b: num(cs.getPropertyValue('--sab')) || 0,
+        l: num(cs.getPropertyValue('--sal')) || 0
+    };
+}
+
+/** 单一真相源：写入 Game.layout + data-layout/data-tier + 兼容 class */
+function publishLayout(force) {
+    const size = syncAppViewportVars();
+    const portrait = isPortraitOrientation();
+    const mode = portrait ? 'portrait' : 'landscape';
+    const tier = resolveTier(mode, size.w, size.h);
+    const safe = readSafeInsets();
+    const dpr = window.devicePixelRatio || 1;
+    const sig = mode + '-' + tier + '-' + Math.round(size.w) + 'x' + Math.round(size.h);
+
+    const prev = Game.layout || {};
+    const changed = force || prev.sig !== sig || prev.mode !== mode;
+
+    Game.layout = { mode: mode, tier: tier, w: size.w, h: size.h, safe: safe, dpr: dpr, sig: sig };
+
+    const root = document.documentElement;
+    const body = document.body;
+    if (root) {
+        root.setAttribute('data-layout', mode);
+        root.setAttribute('data-tier', tier);
+    }
+    if (body) {
+        body.classList.toggle('portrait-layout', portrait);
+        body.setAttribute('data-layout', mode);
+        body.setAttribute('data-tier', tier);
+    }
+    return changed;
 }
 
 function placeClaimIndicatorForOrientation(isPortrait) {
-    const el = Game.$('claim-indicator');
+    const el = (Game.$ && Game.$('claim-indicator')) || document.getElementById('claim-indicator');
     if (!el) return;
     if (isPortrait) {
-        const table = Game.$('game-table');
+        const table = (Game.$ && Game.$('game-table')) || document.getElementById('game-table');
         if (table && el.parentElement !== table) table.appendChild(el);
     } else {
-        const wall = Game.$('wall-count');
+        const wall = (Game.$ && Game.$('wall-count')) || document.getElementById('wall-count');
         if (wall && el.parentElement !== wall) wall.appendChild(el);
     }
 }
 
-
-/** 结算弹窗打开时：清 transform / 锁定偏移，保证横竖屏切换后「确定」仍可点 */
+/** 结算弹窗打开时清除 transform，保证横竖切换后按钮可点 */
 function hardenResultModalInteract() {
     try {
         const body = document.body;
         if (!body) return;
         const rm = document.getElementById('result-modal');
-        const open = rm && rm.classList.contains('show');
-        if (!open) return;
+        if (!rm || !rm.classList.contains('show')) return;
         if (body.classList.contains('modal-open')) {
             body.style.top = '0px';
             body.dataset.scrollY = '0';
@@ -154,38 +176,33 @@ function hardenResultModalInteract() {
 }
 
 function checkPortraitGuard() {
-    syncAppViewportVars();
-    const isPortrait = isPortraitOrientation();
-    const body = document.body;
-    if (!body) return;
-    const wasPortrait = body.classList.contains('portrait-layout');
-    // 方向翻转时的牌桌隐藏过渡已由 handleOrientationEvent 开头的 orientTransitionCheck 触发，这里只管切换布局类
-    // 双布局：竖屏用 portrait-layout，横屏用默认横屏样式；不再强制拦截
-    body.classList.toggle('portrait-layout', !!isPortrait);
-    placeClaimIndicatorForOrientation(!!isPortrait);
-    // 方向切换时刷新牌墙下列表（竖屏五行 / 横屏侧栏）
-    if (wasPortrait !== !!isPortrait) {
+    const prevMode = (Game.layout && Game.layout.mode) || null;
+    const changed = publishLayout(false);
+    const portrait = Game.layout.mode === 'portrait';
+    placeClaimIndicatorForOrientation(portrait);
+
+    if (changed && prevMode && prevMode !== Game.layout.mode) {
         try { Game.hideExposedInfo(); } catch (e) {}
         try { Game.markDealer(); } catch (e) {}
         try { Game.requestRender('orientationChange'); } catch (e) {}
     }
-    setTimeout(() => { try { Game.fitBottomHand(); } catch (e) {} }, 60);
-    if (isPortrait) setTimeout(() => { try { Game.fitBottomHand(); } catch (e) {} }, 200);
+    setTimeout(function () { try { Game.fitBottomHand(); } catch (e) {} }, 60);
+    if (portrait) setTimeout(function () { try { Game.fitBottomHand(); } catch (e) {} }, 200);
     try { hardenResultModalInteract(); } catch (e) {}
+    return changed;
 }
 
-/** 旋转处理状态（Android Chrome 会连续触发 orientation + resize） */
 Game._orientationHandling = false;
 Game._lastOrientationKey = '';
 Game._orientationTimers = [];
 
 function clearOrientationTimers() {
-    Game._orientationTimers.forEach(id => clearTimeout(id));
+    Game._orientationTimers.forEach(function (id) { clearTimeout(id); });
     Game._orientationTimers = [];
 }
 
 function getOrientationKey() {
-    const { w, h } = getViewportSize();
+    const size = getViewportSize();
     let type = '';
     try {
         if (screen.orientation && screen.orientation.type) type = screen.orientation.type;
@@ -193,19 +210,16 @@ function getOrientationKey() {
     try {
         if (!type && typeof window.orientation === 'number') type = String(window.orientation);
     } catch (e) {}
-    return type + '|' + (w > h ? 'L' : 'P') + '|' + w + 'x' + h;
+    return type + '|' + (size.w > size.h ? 'L' : 'P') + '|' + size.w + 'x' + size.h;
 }
 
 /**
- * 统一响应屏幕旋转 / 视口变化
- * Android：orientationchange 时宽高常未更新，需等 resize / visualViewport；
- * 并做防抖，避免一次旋转触发十几次重排。
- * 旋转/尺寸变化后多次复核（iOS 地址栏收起与旋转动画期间尺寸会变）。
+ * 统一响应旋转 / 视口变化。
+ * Android 旋转时宽高常滞后，靠多档延迟复核；同一稳定状态不重复重排。
  */
 function handleOrientationEvent(source) {
-    try { Game.orientTransitionCheck(); } catch (e) { /* 04 未加载时忽略 */ } // 第一时间发现方向翻转，抢在浏览器绘制「半成品」布局之前隐藏
+    try { Game.orientTransitionCheck(); } catch (e) {}
     const key = getOrientationKey();
-    // 同一稳定状态不重复打满定时器（resize 噪声多）
     if (source === 'resize' && key === Game._lastOrientationKey && !Game._orientationHandling) {
         syncAppViewportVars();
         return;
@@ -216,80 +230,66 @@ function handleOrientationEvent(source) {
     try { Game.fitBottomHand(); } catch (e) {}
 
     clearOrientationTimers();
-    const delays = isAndroidDevice()
-        ? [0, 50, 100, 150, 250, 400, 600, 900, 1200, 1600]
-        : [0, 50, 120, 250, 400, 700, 1100];
-    delays.forEach(ms => {
-        const id = setTimeout(() => {
+    const delays = (source === 'init' || source === 'DOMContentLoaded')
+        ? [0, 80]
+        : [50, 120, 280];
+    delays.forEach(function (ms) {
+        const id = setTimeout(function () {
             syncAppViewportVars();
             checkPortraitGuard();
             try { Game.fitBottomHand(); } catch (e) {}
-            // 提示条若正显示：布局变了就重算菱形中心（16 可能尚未加载，用 typeof 守卫）
             try {
-                const tp = Game.$('table-center-prompt');
-                if (tp && tp.classList.contains('show') && typeof Game.placePromptAtDiamondCenter === 'function') Game.placePromptAtDiamondCenter();
+                if (typeof Game.autoFitTable === 'function') Game.autoFitTable(true);
             } catch (e) {}
-            const nowKey = getOrientationKey();
-            if (ms >= delays[delays.length - 1] - 50) {
-                Game._lastOrientationKey = nowKey;
-                Game._orientationHandling = false;
-            }
+            try {
+                const tp = document.getElementById('claim-indicator');
+                if (tp && tp.classList.contains('show') && typeof Game.placePromptAtDiamondCenter === 'function') {
+                    Game.placePromptAtDiamondCenter();
+                }
+            } catch (e) {}
+            hardenResultModalInteract();
+            Game._lastOrientationKey = getOrientationKey();
+            if (ms === delays[delays.length - 1]) Game._orientationHandling = false;
         }, ms);
         Game._orientationTimers.push(id);
     });
 }
 
-/** —— 屏幕旋转 / 视口事件绑定 —— */
 function bindOrientationListeners() {
-    // 1) 传统 orientationchange（部分 Android WebView 仍依赖）
-    window.addEventListener('orientationchange', () => {
+    window.addEventListener('orientationchange', function () {
         handleOrientationEvent('orientationchange');
     }, { passive: true });
-
-    // 2) Screen Orientation API（Chrome Android 推荐）
     try {
         if (screen.orientation && screen.orientation.addEventListener) {
-            screen.orientation.addEventListener('change', () => {
+            screen.orientation.addEventListener('change', function () {
                 handleOrientationEvent('screen.orientation');
             });
         }
-    } catch (e) { /* ignore */ }
-
-    // 3) matchMedia 横竖屏切换（不依赖 orientation 事件，兼容性好）
+    } catch (e) {}
     try {
         const mql = window.matchMedia('(orientation: landscape)');
-        const onMql = () => handleOrientationEvent('matchMedia');
+        const onMql = function () { handleOrientationEvent('matchMedia'); };
         if (mql.addEventListener) mql.addEventListener('change', onMql);
-        else if (mql.addListener) mql.addListener(onMql); // 旧 Android WebView
-    } catch (e) { /* ignore */ }
-
-    // 4) resize：旋转后尺寸落稳的主信号（防抖在 handle 内）
-    window.addEventListener('resize', () => {
+        else if (mql.addListener) mql.addListener(onMql);
+    } catch (e) {}
+    window.addEventListener('resize', function () {
         handleOrientationEvent('resize');
     }, { passive: true });
-
-    // 5) visualViewport：Chrome 工具栏伸缩 / 旋转后的真实可见区域
     if (window.visualViewport) {
-        window.visualViewport.addEventListener('resize', () => {
+        window.visualViewport.addEventListener('resize', function () {
             handleOrientationEvent('visualViewport');
         }, { passive: true });
-        window.visualViewport.addEventListener('scroll', () => {
-            // 仅同步 CSS 变量，不做全量旋转流程，减少抖动
+        window.visualViewport.addEventListener('scroll', function () {
             syncAppViewportVars();
         }, { passive: true });
     }
-
-    // 6) 回前台 / bfcache 恢复后再测一次（Android 多任务切换常见）
-    document.addEventListener('visibilitychange', () => {
-        if (document.visibilityState === 'visible') {
-            handleOrientationEvent('visibility');
-        }
+    document.addEventListener('visibilitychange', function () {
+        if (document.visibilityState === 'visible') handleOrientationEvent('visibility');
     });
-    window.addEventListener('pageshow', () => {
+    window.addEventListener('pageshow', function () {
         handleOrientationEvent('pageshow');
     });
-
-    document.addEventListener('DOMContentLoaded', () => {
+    document.addEventListener('DOMContentLoaded', function () {
         applyDevicePlatformClass();
         handleOrientationEvent('DOMContentLoaded');
     });
@@ -300,11 +300,8 @@ applyDevicePlatformClass();
 handleOrientationEvent('init');
 try { placeClaimIndicatorForOrientation(isPortraitOrientation()); } catch (e) {}
 
-/* harden-result-on-orient：旋转全程多次加固结算确认可点 */
 (function () {
-    function kick() {
-        try { hardenResultModalInteract(); } catch (e) {}
-    }
+    function kick() { try { hardenResultModalInteract(); } catch (e) {} }
     window.addEventListener('orientationchange', function () {
         kick();
         setTimeout(kick, 50);
@@ -312,9 +309,7 @@ try { placeClaimIndicatorForOrientation(isPortraitOrientation()); } catch (e) {}
         setTimeout(kick, 500);
         setTimeout(kick, 900);
     }, { passive: true });
-    window.addEventListener('resize', function () {
-        kick();
-    }, { passive: true });
+    window.addEventListener('resize', kick, { passive: true });
     try {
         if (window.visualViewport) {
             window.visualViewport.addEventListener('resize', kick, { passive: true });
@@ -322,10 +317,11 @@ try { placeClaimIndicatorForOrientation(isPortraitOrientation()); } catch (e) {}
     } catch (e) {}
 })();
 
-/* ---- 本文件对外接口（IIFE 收敛，唯一出口） ---- */
 Game.syncAppViewportVars = syncAppViewportVars;
 Game.isPortraitOrientation = isPortraitOrientation;
 Game.hardenResultModalInteract = hardenResultModalInteract;
 Game.checkPortraitGuard = checkPortraitGuard;
+Game.publishLayout = publishLayout;
+Game.getViewportSize = getViewportSize;
 
 ;})();

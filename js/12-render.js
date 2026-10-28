@@ -339,13 +339,13 @@ function updateAssistLine() {
     const myTurn = Game.turnOrder[Game.currentIndex] === 'bottom' && !Game.gameOver
         && (!Game.pendingClaim || Game.pendingClaim.mode === 'selfGang');
     // 1) 选中了危险牌 → 显示原因（优先级最高）
-    if (myTurn && Game.assist.dangerHint && Game.selectedIndex != null && Game.hands.bottom) {
+    if (myTurn && !Game.net && Game.assist.dangerHint && Game.selectedIndex != null && Game.hands.bottom) {
         const t = Game.hands.bottom[Game.selectedIndex];
         const reason = t ? Game.dangerReason(t) : '';
         if (reason) html = '<span class="as-danger">危险：' + escHtml(reason) + '</span>';
     }
     // 2) 教练模式 → 推荐出牌（一句话理由）
-    if (!html && Game.assist.coachMode && myTurn && (Game.selectedIndex == null)) {
+    if (!html && !Game.net && Game.assist.coachMode && myTurn && (Game.selectedIndex == null)) {
         try {
             const rec = Game.coachRecommend();
             if (rec) html = '<span class="as-coach">教练：建议打 ' + Game.tileImg(rec.tile, 'inline') + '（' + escHtml(rec.reason) + '）</span>';

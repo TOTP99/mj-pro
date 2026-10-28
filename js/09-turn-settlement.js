@@ -23,10 +23,12 @@ function findChiCombos(hand, tile) {
 }
 
 function nameOf(p) {
+    if (typeof Game.netNameOf === 'function') return Game.netNameOf(p); // 联机客人：座位名跟 canonical 身份走
     return { top: '西', left: '北', right: '南', bottom: '东' }[p];
 }
 /** 座位对应动物（状态栏小头像：龙西/虎北/狮南/猫东） */
 function animalOf(p) {
+    if (typeof Game.netAnimalOf === 'function') return Game.netAnimalOf(p); // 联机客人：跟 canonical 身份走
     return { top: '龙', left: '虎', right: '狮', bottom: '猫' }[p] || '';
 }
 /** 「东 猫」「南 狮」 */
@@ -39,6 +41,7 @@ function seatLabel(p) {
 function showResultModal(winnerPlayer, mode, payer, bonus, result, winTile) {
     Game.setPhase(Game.PHASE.SETTLING, 'showResultModal');
     Game.sfx.win(); Game.feel.banner('胡！'); // 手感：胡牌琶音 + 中央横幅
+    try { Game.feel.winCelebration && Game.feel.winCelebration(); } catch (e) {} // 胡牌庆祝：金色光晕 + 缓升微粒 + 和声（纯装饰）
     // 例：东 猫 胡 / 自摸；或 东 猫 胡 / 南 狮 点炮
     Game.$('result-title').innerText = seatLabel(winnerPlayer) + ' 胡';
     Game.$('result-subtitle').innerText =
@@ -219,6 +222,12 @@ function resetSettlementPayouts() {
 
 
 function closeResultModal() {
+    if (Game.net && Game.net.role === 'guest') { // 客人只关弹窗，分数/新局全听房主
+        Game.lastSettlement = null;
+        Game.$('result-modal').classList.remove('show');
+        if (typeof Game.netSendHost === 'function') Game.netSendHost({ t: 'ready', epoch: Game.gameEpoch }); // 告诉房主：我看完结算了
+        return;
+    }
     // 系统结算已写入 scores/fieldAmounts；手动调分只同步差额，不能重复计局。
     if (Game.lastSettlement) {
         const deltas = { top: 0, left: 0, right: 0, bottom: 0 };

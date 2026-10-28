@@ -9,12 +9,14 @@ function winnersOf(tile) {
         Game.getWinningTilesOf(Game.hands[p], Game.exposedMelds[p], p).includes(tile));
 }
 function isDangerousTile(tile) {
+    if (Game.net) return false; // 联机：不读真人暗牌，不给炮牌提示
     if (Game.assist && Game.assist.dangerHint === false) return false; // 开关=否：不再标炮牌
     return winnersOf(tile).length > 0;
 }
 
 // 危险原因（一句话，给提示用）：说出是哪几家会胡这张牌
 function dangerReason(tile) {
+    if (Game.net) return '';
     if (Game.assist && Game.assist.dangerHint === false) return ''; // 开关=否：不再标炮牌
     const winners = winnersOf(tile);
     if (!winners.length) return '';

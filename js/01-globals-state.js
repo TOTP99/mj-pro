@@ -1,5 +1,5 @@
 var Game = {};
-Game.VERSION = '4.3';
+Game.VERSION = '4.5.1';
 ;(function(){
 // ---------- 基础常量与全局状态 ----------
 const suits = ['万', '条', '筒'];
@@ -605,8 +605,8 @@ function markDealer() {
     if (isPortrait) {
         // 竖屏：原版牌墙下五行列表（头像/风位/奖杯/庄/听）
         ensurePortraitStatRows();
-        renderStatRow('stat-avatar', p => statAvatar[p]);
-        renderStatRow('stat-wind', p => baseNames[p]);
+        renderStatRow('stat-avatar', p => Game.statAvatar[p]);
+        renderStatRow('stat-wind', p => Game.baseNames[p]);
         renderStatRow('stat-medal', p => isLeader(p) ? '<span class="ico-star">★</span>' : '');
         renderStatRow('stat-dealer', p => p === Game.dealer ? '<span class="ico-badge ico-dealer">庄</span>' : '');
         renderStatRow('stat-tenpai', p => Game.isTenpai(p) ? '<span class="ico-badge ico-tenpai">听</span>' : '');
@@ -618,7 +618,7 @@ function markDealer() {
                 const medal = isLeader(p) ? ' <span class="ico-star">★</span>' : '';
                 const dealerMark = p === Game.dealer ? ' <span class="ico-badge ico-dealer">庄</span>' : '';
                 const tenpaiMark = Game.isTenpai(p) ? ' <span class="ico-badge ico-tenpai">听</span>' : '';
-                return `<div class="stat-line" data-player="${p}">${statAvatar[p]} ${baseNames[p]}${medal}${dealerMark}${tenpaiMark}</div>`;
+                return `<div class="stat-line" data-player="${p}">${Game.statAvatar[p]} ${Game.baseNames[p]}${medal}${dealerMark}${tenpaiMark}</div>`;
             }).join('');
         }
     }
@@ -680,8 +680,9 @@ function flushSaveProgress() {
     saveGameProgress();
 }
 
+Game.netNoSave = false; // 联机中不读写单机存档（23/24/25 设置）
 function saveGameProgress() {
-    if (Game.restoringGame) return;
+    if (Game.restoringGame || Game.netNoSave) return;
     if (!checkTileConservation('save')) return; // 牌数不对的异常状态不落盘，保留上一份正常存档
     try {
         localStorage.setItem(MAHJONG_STORAGE_KEY, JSON.stringify({
@@ -705,7 +706,10 @@ function saveGameProgress() {
             revealDeclined: cloneState(Game.revealDeclined),
             revealPatternSeen: cloneState(Game.revealPatternSeen),
             // 本局巡数：刷新恢复后 AI 学习评分（胡得快不快）不受影响
-            handTurnCount: Game.handTurnCount
+            handTurnCount: Game.handTurnCount,
+            // 杠上开花/杠后点炮标记：刷新后不能丢，否则这一局少算 ×2
+            afterKongDrawPlayer: Game.afterKongDrawPlayer || null,
+            afterKongDiscardPlayer: Game.afterKongDiscardPlayer || null
         }));
     } catch (e) { /* 隐私模式等不可用时忽略 */ }
 }
@@ -769,6 +773,8 @@ function loadGameProgress() {
         if (saved.revealDeclined) Game.revealDeclined = saved.revealDeclined;
         if (saved.revealPatternSeen) Game.revealPatternSeen = saved.revealPatternSeen;
         if (typeof saved.handTurnCount === 'number') Game.handTurnCount = saved.handTurnCount;
+        Game.afterKongDrawPlayer = PLAYERS.includes(saved.afterKongDrawPlayer) ? saved.afterKongDrawPlayer : null;
+        Game.afterKongDiscardPlayer = PLAYERS.includes(saved.afterKongDiscardPlayer) ? saved.afterKongDiscardPlayer : null;
         Game.restoringGame = false;
         return true;
     } catch (e) {
@@ -838,6 +844,23 @@ Game.suits = suits;
 Game.honors = honors;
 Game.PLAYERS = PLAYERS;
 Game.turnOrder = turnOrder;
+
+// ---------- 错误黑匣子：未捕获异常/Promise 拒绝进环形日志，Game.exportDiagnostics() 一键导出 ----------
+Game.errorLog = [];
+function recordError(kind, msg, extra) {
+    Game.errorLog.push({ t: Date.now(), kind: kind, msg: String(msg).slice(0, 300), extra: extra || '' });
+    if (Game.errorLog.length > 50) Game.errorLog.shift();
+}
+window.addEventListener('error', e => recordError('error', e.message, (e.filename || '').split('/').pop() + ':' + e.lineno));
+window.addEventListener('unhandledrejection', e => recordError('promise', e.reason && e.reason.message || e.reason));
+Game.exportDiagnostics = function () {
+    const lines = ['麻将诊断 ' + new Date().toISOString(), 'ua=' + navigator.userAgent,
+        'mode=' + Game.gameMode + ' phase=' + Game.phase + ' epoch=' + Game.gameEpoch + ' gameOver=' + Game.gameOver,
+        'scores=' + JSON.stringify(Game.scores) + ' field=' + JSON.stringify(Game.fieldAmounts) + ' count=' + Game.fieldGameCount,
+        'tiles=' + totalTilesOf({ deck: Game.deck, discardPile: Game.discardPile, hands: Game.hands, exposedMelds: Game.exposedMelds }) + '/' + FULL_DECK_SIZE,
+        'errors=' + JSON.stringify(Game.errorLog), 'aiSchedule=' + JSON.stringify(Game.aiScheduleLog.slice(-8)), 'flow=' + JSON.stringify((Game.flowLog || []).slice(-20))];
+    return lines.join('\n');
+};
 Game.statAvatar = statAvatar;
 Game.resetAiAxisUsed = resetAiAxisUsed;
 Game.markAxisUsed = markAxisUsed;

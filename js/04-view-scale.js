@@ -13,7 +13,10 @@ function fitViewPanX() {
     const sideEl = document.getElementById('wall-count');
     if (!wrapEl || !sideEl) return;
     let portrait = false;
-    try { portrait = document.body.classList.contains('portrait-layout'); } catch (e) {}
+    try {
+        if (Game.layout && Game.layout.mode) portrait = Game.layout.mode === 'portrait';
+        else portrait = document.body.classList.contains('portrait-layout');
+    } catch (e) {}
     if (portrait) { wrapEl.style.setProperty('--view-pan-x', '0px'); return; }
     // 先清零平移再测量（保留当前缩放）
     wrapEl.style.setProperty('--view-pan-x', '0px');
@@ -59,7 +62,11 @@ function autoFitTable(force) {
     const root = document.documentElement;
     const wrap = document.getElementById('table-wrap');
     const frame = document.getElementById('table-frame');
-    const portrait = document.body && document.body.classList.contains('portrait-layout');
+    let portrait = false;
+    try {
+        if (Game.layout && Game.layout.mode) portrait = Game.layout.mode === 'portrait';
+        else portrait = document.body && document.body.classList.contains('portrait-layout');
+    } catch (e) {}
     if (!AUTO_FIT || !wrap || !frame || portrait) {
         // 竖屏/未启用时把签名清掉：转回横屏时签名必不命中，保证重新算一次最优尺寸并写回 CSS 变量
         // （否则竖屏→横屏回到同一尺寸会命中旧签名直接 return，--view-scale 会卡在竖屏的 1）
@@ -170,7 +177,7 @@ function adjustViewSize(stepPct) {
 /* ==================== 横竖屏切换过渡 ====================
  * 旋转时浏览器先按新方向重排，JS 稍后才切换布局类并重新量尺寸，中间会闪几次「半成品」布局，看起来很生硬。
  * 现在：检测到方向翻转的第一时间把牌桌瞬间隐藏（opacity:0，无过渡），等可视区域尺寸稳定（连续两次量到相同）
- *       后再重新排版/适配，最后淡入（淡入的过渡写在 css/09-ui-scale.css）。最长隐藏 ORIENT_MAX_MS，超时强制显示。
+ *       后再重新排版/适配，最后淡入（淡入的过渡写在 css/12-ui-scale.css）。最长隐藏 ORIENT_MAX_MS，超时强制显示。
  * ORIENT_SMOOTH=false 可关闭，回到原来的直接切换。 */
 const ORIENT_SMOOTH = true;
 const ORIENT_MIN_MS = 160;    // 至少隐藏这么久
@@ -244,7 +251,7 @@ function endOrientTransition() {
  *       再乘一个安全系数，并复核一次；量不到或有异常时保持 1（=原尺寸）。
  * 触发：每次 ＋/－ 调节之后、旋转过渡结束、每局开局（可放大）；有人吃碰杠、副露变多时（只会缩小，不会中途变大，避免画面忽大忽小）。
  * 竖屏、AUTO_UI_SCALE=false 时系数恒为 1，界面与原来完全一致。
- * 样式在 css/09-ui-scale.css（下面会在缺少 <link> 时自动补上）。 */
+ * 样式在 css/12-ui-scale.css（下面会在缺少 <link> 时自动补上）。 */
 const AUTO_UI_SCALE = true;   // false：不放大，一切保持原尺寸
 const UI_K_MAX = 2;           // 放大上限
 const UI_GAP = 2;             // 各区域之间至少留的空隙（牌桌自身像素）
@@ -256,10 +263,10 @@ Game._uiBaseExtra = new Set(); // 系数=1 时就已经和「牌墙统计栏 W /
 
 (function ensureUiScaleCss() {
     try {
-        if (!document.querySelector('link[href*="09-ui-scale.css"]')) {
+        if (!document.querySelector('link[href*="12-ui-scale.css"]')) {
             const l = document.createElement('link');
             l.rel = 'stylesheet';
-            l.href = 'css/09-ui-scale.css';
+            l.href = 'css/12-ui-scale.css';
             document.head.appendChild(l); // 追加在最后，保证覆盖顺序
         }
     } catch (e) { /* ignore */ }
@@ -352,7 +359,9 @@ function uiFeasible(k) {
 function autoUiScale(mode) {
     const body = document.body;
     if (!body) return;
-    if (!AUTO_UI_SCALE || body.classList.contains('portrait-layout')) {
+    let isPortrait = body.classList.contains('portrait-layout');
+    try { if (Game.layout && Game.layout.mode) isPortrait = Game.layout.mode === 'portrait'; } catch (e) {}
+    if (!AUTO_UI_SCALE || isPortrait) {
         if (Game.uiScaleK !== 1) { uiSetK(1); try { Game.fitBottomHand(); } catch (e) {} }
         return;
     }
@@ -400,6 +409,7 @@ function uiScaleOnRender() {
 
 /* ---- 本文件对外接口（IIFE 收敛，唯一出口） ---- */
 Game.ORIGINAL_VIEW_SCALE = ORIGINAL_VIEW_SCALE;
+Game.autoFitTable = autoFitTable;
 Game.adjustViewSize = adjustViewSize;
 Game.orientTransitionCheck = orientTransitionCheck;
 Game.uiScaleOnRender = uiScaleOnRender;

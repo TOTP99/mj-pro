@@ -42,7 +42,7 @@ function scoreWinningHand(concealedBeforeWin, winTile, exposed, isLastTile) {
     let uniqueWait = true;
     try {
         const owner = (Game.PLAYERS || []).find(pl => Game.exposedMelds[pl] === exposed) || null;
-        const wins = Game.allTileTypes().filter(t => Game.checkHu([...concealedBeforeWin, t], exposed, owner));
+        const wins = Game.allTileTypes().filter(t => copiesHeld(concealedBeforeWin, exposed, t) < 4 && Game.checkHu([...concealedBeforeWin, t], exposed, owner));
         uniqueWait = wins.length <= 1;
     } catch (e) { uniqueWait = true; }
     let best = { mult: 1, tags: [] };
@@ -253,6 +253,15 @@ function allTileTypes() {
     Game._allTileTypesCache = types;
     return types;
 }
+
+/** 手里（暗牌+副露）已持有该牌的张数；≥4 张说明第 5 张根本不存在，不可能是听口 */
+function copiesHeld(concealed, exposed, tile) {
+    let n = 0;
+    for (const t of concealed) if (t === tile) n++;
+    for (const m of exposed || []) for (const t of m.tiles) if (t === tile) n++;
+    return n;
+}
+Game.copiesHeld = copiesHeld;
 
 function isTenpai(player) {
     return getWinningTiles(player).length > 0;

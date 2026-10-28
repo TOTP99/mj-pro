@@ -1,5 +1,12 @@
 ;(function(){
 function startGame() {
+    // 联机客人：新局由房主发牌，本机绝不自己开局
+    if (Game.net && Game.net.role === 'guest') return;
+    // 联机房主：等真人客人确认完结算再开下一局（最多等 netTimeouts.ready）
+    if (typeof Game.netHostStartGate === 'function' && Game.netHostStartGate(startGameNow)) return;
+    startGameNow();
+}
+function startGameNow() {
     // 输光自动重开：筹码重置为本场初始金额 + 骰子仪式重新调庄
     if (Game.bustAutoRestart) {
         if (typeof Game.autoRestartAfterBust === 'function') Game.autoRestartAfterBust();
@@ -14,6 +21,8 @@ function startGame() {
 
 // 点过：主动放弃当前可以碰/吃/杠的机会，不用等10秒超时
 function declineClaim() {
+    // 联机：只发"过"意图（24 房主本机 / 25 客人）
+    if (typeof Game.netClaimIntent === 'function' && Game.netClaimIntent('pass')) return;
     if (!Game.pendingClaim) { Game.logFlow('现在没有可以碰/吃/杠的牌'); return; }
     if (Game.pendingClaim.mode === 'diceMenu') return;
     const mode = Game.pendingClaim.mode;
@@ -109,6 +118,8 @@ function callChi() {
 }
 
 function chooseChiCombo(i) {
+    // 联机：只发吃法意图（24 房主本机 / 25 客人）
+    if (typeof Game.netClaimIntent === 'function' && Game.netClaimIntent('chi', i)) return;
     const combos = Game.pendingClaim && Game.pendingClaim.chiCombos;
     const combo = combos && combos[i];
     if (!combo) return;
@@ -141,6 +152,8 @@ function executeChi(combo) {
 // ---------- 你自己的操作：点确认 / 杠 / 杠后补牌 / 点牌出牌（原先放在 11-ai-discard-claim.js） ----------
 // 点确认：按 杠 > 碰 > 吃 优先级执行
 function acceptClaim() {
+    // 联机：只发意图，不在本地执行（24 房主本机 / 25 客人）
+    if (typeof Game.netClaimIntent === 'function' && Game.netClaimIntent('accept')) return;
     if (!Game.pendingClaim) return;
     if (Game.pendingClaim.mode === 'diceMenu') return; // 清零菜单用专用按钮，不走确认
     if (Game.pendingClaim.mode === 'nextGame') {
@@ -239,6 +252,8 @@ function handleDiscard(event) {
     // 再次点同一张：真正打出（出牌前先记牌面位置，供飞牌动画用）
     const card = Game.hands.bottom[idx];
     const fromRect = target.getBoundingClientRect ? target.getBoundingClientRect() : null;
+    // 联机客人：确认出牌改发意图给房主（25-net-guest.js）；单机时走原路
+    if (typeof Game.netGuestTurnIntent === 'function' && Game.netGuestTurnIntent(card)) return;
     Game.TileFlow.discard('bottom', card);
     Game.markKongDiscardIfNeeded('bottom');
     Game.selectedIndex = null;
@@ -249,6 +264,9 @@ function handleDiscard(event) {
     Game.requestRender('handleDiscard/discard');
     Game.sfx.discard(); // 手感：脆响 + 飞牌落定
     Game.feel.flyDiscard(fromRect, Game.tileImg(card));
+
+    // 联机房主：统一走点炮/吃碰杠裁决（24-net-host.js）；单机时走原路
+    if (typeof Game.netAfterDiscard === 'function' && Game.netAfterDiscard('bottom', card)) return;
 
     // 检查是否有AI能胡你打出的这张牌
     const ronPlayer = Game.findRonPriority('bottom', card);
@@ -411,6 +429,8 @@ if (document.readyState !== 'loading') setTimeout(bootGame, 0);
 Game.startGame = startGame;
 Game.declineClaim = declineClaim;
 Game.offerHu = offerHu;
+Game.callPeng = callPeng;
+Game.callGang = callGang;
 Game.callChi = callChi;
 Game.chooseChiCombo = chooseChiCombo;
 Game.closeChiChoice = closeChiChoice;

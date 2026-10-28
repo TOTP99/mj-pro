@@ -75,7 +75,7 @@ function declareDraw() {
         msg += '听牌：' + tenpaiPlayers.map(Game.nameOf).join('、') + '；不听：' + notTenpai.map(Game.nameOf).join('、');
     }
     logFlow(msg + ' 点确认开下一局');
-    speak('流局');
+    Game.speak('流局');
     Game.learnFromDraw(tenpaiPlayers);
     // 2.0 二期：流局也算一局
     if (typeof Game.onFieldDraw === 'function') {
@@ -203,7 +203,7 @@ function applyReveal(player, kind) {
     const tiles = kind === 'winds' ? ['1字', '2字', '3字', '4字'] : ['5字', '6字', '7字'];
     Game.TileFlow.meld(player, kind, tiles);
     logFlow(Game.nameOf(player) + (kind === 'winds' ? ' 亮出东南西北' : ' 亮出中发白') + '（算幺九+刻子，不算开门）');
-    speak('亮牌');
+    Game.speak('亮牌');
     if (kind === 'dragons') { Game.requestRender('applyReveal/dragons'); return true; } // 3张，不用补牌
     if (Game.deck.length <= DEAD_WALL) { declareDraw(); return false; }
     const drawn = Game.TileFlow.draw(player, 'revealDraw');
@@ -275,7 +275,7 @@ function continueAfterFirstTurnCheck(player) {
             const result = Game.settleScore(player, 'selfdraw', null, bonus);
             Game.clearKongFlags();
             logFlow(Game.nameOf(player) + ' 自摸胡牌！' + result.detail);
-            speak('胡了，自摸');
+            Game.speak('胡了，自摸');
             Game.learnFromWin(player, null, { fan: bonus.mult, turns: Game.handTurnCount });
             Game.showResultModal(player, 'selfdraw', null, bonus, result, winTileUsed);
         }
@@ -287,6 +287,8 @@ function continueAfterFirstTurnCheck(player) {
         offerSelfGangIfAny();
         if (!Game.pendingClaim) Game.setPhase(Game.PHASE.WAIT_DISCARD, 'continueAfterFirstTurnCheck');
         logFlow('轮到你，请点击一张牌出牌');
+    } else if (typeof Game.netOnSeatTurn === 'function' && Game.netOnSeatTurn(player)) {
+        // 联机房主：远端真人座位，等网络出牌（24-net-host.js 接管）
     } else {
         Game.setPhase(Game.PHASE.WAIT_DISCARD, 'continueAfterFirstTurnCheck');
         Game.scheduleAi(() => Game.aiDiscard(player), Game.aiThinkMs(), 'continueAfterFirstTurnCheck/aiDiscard');
@@ -343,7 +345,7 @@ function executeSelfGang() {
             const result = Game.settleScore(robber, 'dianpao', 'bottom', bonus);
             Game.clearKongFlags();
             logFlow(Game.nameOf(robber) + ' 抢杠胡了你加杠的 ' + Game.tileGlyph(tile) + '！' + result.detail);
-            speak('胡了，' + voiceName('bottom') + '点炮');
+            Game.speak('胡了，' + voiceName('bottom') + '点炮');
             Game.learnFromWin(robber, 'bottom', { fan: bonus.mult, turns: Game.handTurnCount });
             Game.requestRender('executeSelfGang/rob');
             Game.showResultModal(robber, 'dianpao', 'bottom', bonus, result, tile);
@@ -351,7 +353,7 @@ function executeSelfGang() {
         }
         Game.TileFlow.addGang('bottom', tile);
         logFlow('你加杠了 ' + Game.tileGlyph(tile) + '，补牌中...');
-        speak('杠' + Game.tileName(tile));
+        Game.speak('杠' + Game.tileName(tile));
         Game.sfx.gang(); Game.feel.banner('杠！');
         Game.requestRender('executeSelfGang/jia');
         Game.drawReplacementAndContinue();
@@ -361,7 +363,7 @@ function executeSelfGang() {
     if (Game.exposedMelds.bottom.length >= 3) { logFlow('穷胡规则：不能手把一，最后一组必须留在手里'); return; }
     Game.TileFlow.meld('bottom', 'gang', [tile, tile, tile, tile], { concealed: true });
     logFlow('你暗杠了 ' + Game.tileGlyph(tile) + '，补牌中...');
-    speak('杠' + Game.tileName(tile));
+    Game.speak('杠' + Game.tileName(tile));
     Game.sfx.gang(); Game.feel.banner('杠！');
     Game.requestRender('executeSelfGang/an');
     Game.drawReplacementAndContinue();
@@ -395,6 +397,7 @@ function nextTurn() {
                     offerReveal(kind);
                     return;
                 }
+                if (typeof Game.netRevealRemote === 'function' && Game.netRevealRemote(player, kind)) return;
                 if (!applyReveal(player, kind)) return;
             }
         }
@@ -408,6 +411,7 @@ function nextTurn() {
                 offerReveal(kind);
                 return;
             }
+            if (typeof Game.netRevealRemote === 'function' && Game.netRevealRemote(player, kind)) return;
             if (!applyReveal(player, kind)) return;
         }
     }
@@ -432,5 +436,6 @@ Game.confirmReveal = confirmReveal;
 Game.offerSelfGangIfAny = offerSelfGangIfAny;
 Game.executeSelfGang = executeSelfGang;
 Game.nextTurn = nextTurn;
+Game.continueAfterFirstTurnCheck = continueAfterFirstTurnCheck;
 
 ;})();
