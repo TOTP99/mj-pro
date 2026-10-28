@@ -210,6 +210,66 @@ Game.feel = {
             document.body.appendChild(el);
             setTimeout(function () { if (el.parentNode) el.parentNode.removeChild(el); }, 950);
         } catch (e) {}
+    },
+    // 胡牌庆祝（克制版）：金色光晕 + 26 粒缓升微粒 + C 大三和弦铺底，约 2.6s 收尾
+    winCelebration: function () {
+        try {
+            if (reducedMotion() || !realDom()) return;
+            var glow = document.createElement('div');
+            glow.className = 'feel-win-glow';
+            document.body.appendChild(glow);
+            requestAnimationFrame(function () { glow.classList.add('on'); });
+            var cv = document.createElement('canvas');
+            cv.className = 'feel-win-particles';
+            cv.width = window.innerWidth; cv.height = window.innerHeight;
+            document.body.appendChild(cv);
+            var ctx = cv.getContext('2d');
+            var ps = [], i, N = 26;
+            for (i = 0; i < N; i++) {
+                ps.push({
+                    x: Math.random() * cv.width,
+                    y: cv.height * (0.55 + Math.random() * 0.45),
+                    r: 1.2 + Math.random() * 2.2,
+                    vy: 0.35 + Math.random() * 0.7,
+                    vx: (Math.random() - 0.5) * 0.35,
+                    peak: 0.45 + Math.random() * 0.35,
+                    delay: Math.random() * 500
+                });
+            }
+            var start = performance.now(), DUR = 2600;
+            function cleanup() {
+                glow.classList.remove('on');
+                setTimeout(function () {
+                    if (glow.parentNode) glow.parentNode.removeChild(glow);
+                    if (cv.parentNode) cv.parentNode.removeChild(cv);
+                }, 1300);
+            }
+            function frame(now) {
+                var el = now - start;
+                if (el > DUR + 600) { cleanup(); return; }
+                ctx.clearRect(0, 0, cv.width, cv.height);
+                for (var j = 0; j < ps.length; j++) {
+                    var p = ps[j], t = el - p.delay;
+                    if (t < 0) continue;
+                    var k = t / DUR;
+                    if (k >= 1) continue;
+                    p.y -= p.vy; p.x += p.vx;
+                    var a = p.peak * Math.sin(Math.PI * Math.min(1, k));
+                    ctx.beginPath();
+                    ctx.arc(p.x, p.y, p.r, 0, 6.2832);
+                    ctx.fillStyle = 'rgba(255,213,110,' + a.toFixed(3) + ')';
+                    ctx.fill();
+                }
+                requestAnimationFrame(frame);
+            }
+            requestAnimationFrame(frame);
+            // 和声铺底：C 大三和弦，不抢琶音
+            try {
+                tone({ freq: 261.6, dur: 1.4, type: 'triangle', gain: 0.12 });
+                tone({ freq: 329.6, dur: 1.4, type: 'triangle', gain: 0.10, at: 0.05 });
+                tone({ freq: 392.0, dur: 1.6, type: 'triangle', gain: 0.10, at: 0.10 });
+            } catch (e2) {}
+        } catch (e) {}
     }
 };
 

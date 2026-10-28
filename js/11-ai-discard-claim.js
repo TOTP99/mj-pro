@@ -143,12 +143,14 @@ const _winTilesCache = new Map();
 function getWinningTilesOf(concealed, exposed, player) {
     const neededLen = (4 - exposed.length) * 3 + 2;
     if (concealed.length !== neededLen - 1) return [];
-    const key = (player || '') + (player && Game.windDragonBonus[player] ? '+' : '-') + '|'
+    // 胡牌条件随模式/规则开关变化：必须进缓存键，否则改规则后会读到旧规则下的听牌结果
+    const rulesSig = Game.gameMode === 'advanced' ? 'A' + JSON.stringify(Game.rulesConfig || {}) : 'D';
+    const key = rulesSig + '#' + (player || '') + (player && Game.windDragonBonus[player] ? '+' : '-') + '|'
         + concealed.slice().sort().join(',') + '|'
         + exposed.map(m => m.type + (m.concealed ? 'c' : '') + m.tiles.join('')).join(';');
     let res = _winTilesCache.get(key);
     if (res === undefined) {
-        res = Game.allTileTypes().filter(t => Game.checkHu([...concealed, t], exposed, player));
+        res = Game.allTileTypes().filter(t => Game.copiesHeld(concealed, exposed, t) < 4 && Game.checkHu([...concealed, t], exposed, player));
         if (_winTilesCache.size > 3000) _winTilesCache.clear();
         _winTilesCache.set(key, res);
     }
@@ -300,6 +302,9 @@ function aiDiscard(player) {
     Game.sfx.discard(); // 手感：AI 出牌脆响 + 从座位飞牌
     Game.feel.flyAiDiscard(player, Game.tileImg(tile));
     Game.speak(Game.tileName(tile));
+
+    // 联机房主：统一走点炮/吃碰杠裁决（24-net-host.js）；单机时 netAfterDiscard 未定义，走原路
+    if (typeof Game.netAfterDiscard === 'function' && Game.netAfterDiscard(player, tile)) return;
 
     // 多家可以胡的话，按下家方向离出牌人最近的先胡
     const ronPlayer = findRonPriority(player, tile);
@@ -626,6 +631,9 @@ Game.chooseAiDiscardTile = chooseAiDiscardTile;
 Game.shouldAiPeng = shouldAiPeng;
 Game.shouldAiChi = shouldAiChi;
 Game.aiDiscard = aiDiscard;
+Game.aiPengClaim = aiPengClaim;
+Game.aiChiClaim = aiChiClaim;
+Game.advanceTurn = advanceTurn;
 Game.findRonPriority = findRonPriority;
 Game.nextPlayerOf = nextPlayerOf;
 Game.resolveAiPengOrAdvance = resolveAiPengOrAdvance;
