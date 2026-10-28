@@ -14,10 +14,10 @@
 /* ===== 顶栏按钮统一样式：8px 圆角 + 1px 金边 + 深底 ===== */
 #credit-label .credit-btn,
 .credit-btn-ls {
-    background: #1a1410 !important;
-    border: 1px solid #8a6d3b !important;
-    border-radius: 8px !important;
-    color: #e8c56a !important;
+    background: var(--surface-btn) !important;
+    border: 1px solid var(--gold-bronze) !important;
+    border-radius: var(--r-btn) !important;
+    color: var(--gold-cream) !important;
     font-size: 12px !important;
     font-weight: 600;
     letter-spacing: 0.04em;
@@ -80,9 +80,9 @@ body.portrait-layout #credit-label-2 {
     left: 50%;
     top: 50%;
     transform: translate(-50%, -50%);
-    background: rgba(10, 16, 28, 0.96);
-    border: 1px solid #8a6d3b;
-    border-radius: 10px;
+    background: var(--surface-deep);
+    border: 1px solid var(--gold-bronze);
+    border-radius: var(--modal-radius);
     padding: 10px;
     box-shadow: 0 4px 20px rgba(0, 0, 0, 0.6);
     pointer-events: auto;
@@ -98,8 +98,8 @@ body.portrait-layout #credit-label-2 {
     font-size: 14px !important;
 }
 #settings-modal .settings-btns .settings-x {
-    color: #ff8888 !important;
-    border-color: #8a4a4a !important;
+    color: var(--danger) !important;
+    border-color: var(--danger-line) !important;
 }
 /* 横屏：TP制作位置改為「设置」二字（无背景边框，可点） */
 body:not(.portrait-layout) #img-display-badge {

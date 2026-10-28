@@ -14,7 +14,7 @@
         overscroll-behavior: contain;
         touch-action: pan-y;
         pointer-events: auto;
-        background: rgba(6, 12, 20, 0.68);
+        background: var(--backdrop);
         backdrop-filter: blur(8px);
         -webkit-backdrop-filter: blur(8px);
     }
@@ -58,7 +58,7 @@
     #result-modal .result-box > .result-adjust-btns {
         flex: 0 0 auto;
         position: static;
-        border-top: 1px solid rgba(212, 175, 55, 0.25);
+        border-top: 1px solid var(--gold-dim);
     }
 
     /* 底部按钮：横竖屏统一走 flex 固定栏（base 规则），不再用 sticky */
@@ -317,7 +317,7 @@
     #result-modal button {
         margin-top: 0;
         padding: 0.7em 1.5em;
-        border-radius: 6px;
+        border-radius: var(--r-btn);
         cursor: pointer;
         border: 1px solid var(--gold);
         background: transparent;
@@ -361,7 +361,7 @@
         -webkit-overflow-scrolling: touch;
         overscroll-behavior: contain;
         touch-action: pan-x pan-y;
-        background: rgba(8, 14, 24, 0.72);
+        background: var(--backdrop);
         backdrop-filter: blur(6px);
         -webkit-backdrop-filter: blur(6px);
     }

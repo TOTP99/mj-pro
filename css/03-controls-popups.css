@@ -20,21 +20,21 @@
     .rule-row.disabled { opacity: 0.4; }
     .rule-row.disabled .yn-seg button { pointer-events: none; }
     /* 规则 是/否 二选（选中打勾） */
-    .yn-seg { display: inline-flex; border: 1px solid rgba(212,175,55,0.45); border-radius: 6px; overflow: hidden; flex-shrink: 0; }
+    .yn-seg { display: inline-flex; border: 1px solid var(--gold-line); border-radius: var(--r-btn); overflow: hidden; flex-shrink: 0; }
     .yn-seg button {
         background: transparent; border: none; border-radius: 0; margin: 0;
-        color: #c5d4e0; font-size: var(--fs-b1); font-family: inherit;
+        color: var(--text-soft); font-size: var(--fs-b1); font-family: inherit;
         padding: 0.6em 1.4em; min-height: 2.9em; cursor: pointer; white-space: nowrap;
     }
-    .yn-seg button + button { border-left: 1px solid rgba(212,175,55,0.25); }
-    .yn-seg button.sel { background: rgba(212,175,55,0.16); color: var(--gold); font-weight: 700; }
+    .yn-seg button + button { border-left: 1px solid var(--gold-dim); }
+    .yn-seg button.sel { background: var(--gold-faint); color: var(--gold); font-weight: 700; }
     .yn-seg button.sel::before { content: '✓ '; }
     /* 模式选择：两个选项，打勾标出当前模式 */
     .mode-options { display: flex; flex-direction: column; gap: 10px; }
     .mode-option {
         display: flex; align-items: center; gap: var(--sp-2); width: 100%;
         margin: 0; padding: 0.8em 1em; min-height: 4em;
-        border: 1px solid var(--gold); border-radius: 6px;
+        border: 1px solid var(--gold); border-radius: var(--r-btn);
         background: transparent; color: var(--text);
         font-family: inherit; cursor: pointer; text-align: left;
     }
@@ -68,10 +68,10 @@
     /* 横屏顶栏里的局数：竖屏隐藏，横屏跟按钮一起显示 */
     /* 左侧栏：TP制作+＋－ / 牌墙+局数 / 音效+危险+教练 / 模式+筹码 */
     #img-display-badge {
-        position: static;
+        position: relative;
         top: auto; left: auto;
         z-index: 7;
-        padding: 0 2px 0 0;
+        padding: 2px 2px 2px 0;
         border: none;
         color: var(--gold);
         background: transparent;
@@ -84,6 +84,12 @@
         user-select: none;
         font-family: inherit;
         flex-shrink: 0;
+    }
+    /* 热区：竖向补到与 ＋/－ 同高再外扩，横向不越过 5px 间隙，不抢邻键 */
+    #img-display-badge::after {
+        content: '';
+        position: absolute;
+        top: -4px; bottom: -4px; left: -2px; right: -2px;
     }
     #wall-count-header {
         display: flex; flex-direction: column; align-items: flex-start; /* 不能用 center：内容比 #wall-count(overflow-x:hidden) 宽时会向两侧均分溢出，左边首字被裁 */
@@ -128,8 +134,17 @@
         opacity: 0.35;
         cursor: not-allowed;
     }
+    /* 热区：＋/－ 是小字按钮，上下外扩 3px、左右外扩 2px（间隙 5px，不抢邻键） */
+    #btn-view-zoom-in,
+    #btn-view-zoom-out { position: relative; }
+    #btn-view-zoom-in::after,
+    #btn-view-zoom-out::after {
+        content: '';
+        position: absolute;
+        top: -3px; bottom: -3px; left: -2px; right: -2px;
+    }
     #wall-count-text {
-        margin-bottom: 0; color: #c5d4e0; font-weight: normal; letter-spacing: 0; text-align: center;
+        margin-bottom: 0; color: var(--text-soft); font-weight: normal; letter-spacing: 0; text-align: center;
         font-size: var(--fs-c1); white-space: nowrap;
     }
     .tileback {

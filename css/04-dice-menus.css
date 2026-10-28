@@ -100,7 +100,7 @@
         display: flex; align-items: center; justify-content: center; gap: 4px;
         /* 高度由字号 em 智能推导：字号变，按钮整体跟着变，不再手写 px */
         min-height: 3.2em;
-        padding: 0.55em 0.9em; border-radius: 6px;
+        padding: 0.55em 0.9em; border-radius: var(--r-btn);
         border: 1px solid var(--gold-dim);
         background: transparent;
         color: var(--text-muted); font-size: var(--fs-b1); cursor: not-allowed;
@@ -123,7 +123,7 @@
     .hu-opt .tile-marker { height: 0; font-size: 0; }
     .hu-actions { display: flex; gap: var(--sp-2); justify-content: center; flex-wrap: wrap; margin-top: var(--sp-3); }
     .hu-actions button {
-        margin: 0; padding: 0.65em 1.7em; min-width: 5.5em; border-radius: 6px; cursor: pointer;
+        margin: 0; padding: 0.65em 1.7em; min-width: 5.5em; border-radius: var(--r-btn); cursor: pointer;
         border: 1px solid var(--gold);
         background: transparent;
         color: var(--text); font-size: var(--fs-b1); font-family: inherit;
@@ -139,14 +139,15 @@
     .hu-actions button:disabled { opacity: 0.4; cursor: not-allowed; }
     /* 3. 主次：按钮三级——主操作（实心金）/ 次要（金描边默认）/ 取消（无框淡字） */
     .hu-actions button.btn-primary {
-        background: #b8912f;
-        border-color: #b8912f;
+        background: var(--primary-bg);
+        border-color: var(--gold-deep);
         color: #191307;
         font-weight: 700;
+        box-shadow: var(--primary-shadow);
     }
     .hu-actions button.btn-primary:active {
-        background: #d4af37;
-        box-shadow: 0 0 12px rgba(212, 175, 55, 0.45);
+        background: var(--gold);
+        box-shadow: 0 0 12px var(--gold-line);
     }
     .hu-actions button.btn-ghost {
         background: none;

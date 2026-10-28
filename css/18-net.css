@@ -4,7 +4,7 @@
 #net-lobby-modal {
     position: fixed; inset: 0; z-index: 9000;
     display: none; align-items: center; justify-content: center;
-    background: rgba(0, 0, 0, 0.55);
+    background: var(--backdrop);
 }
 #net-lobby-modal.show { display: flex; }
 .net-lobby-box { width: min(92vw, 380px); }
@@ -12,30 +12,51 @@
 .net-label { font-size: 13px; color: var(--text-muted, #9db3ad); margin: 10px 2px 4px; }
 .net-row { display: flex; gap: 10px; margin-top: 12px; }
 .net-btn { flex: 1; }
-.net-btn.ghost { opacity: 0.75; }
+/* 联机按钮与主弹窗按钮同级：主操作实心金、次要幽灵灰，圆角/字号走统一令牌 */
+.hu-btn {
+    margin: 0; padding: 0.65em 1.2em; min-height: 44px; min-width: 5.5em;
+    border-radius: var(--r-btn); cursor: pointer;
+    border: 1px solid var(--gold-deep);
+    background: var(--primary-bg);
+    color: #191307; font-size: var(--fs-b1); font-weight: 700; font-family: inherit;
+    box-shadow: var(--primary-shadow);
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+    transition: background 0.15s, box-shadow 0.15s;
+}
+.hu-btn:active {
+    background: var(--gold);
+    box-shadow: 0 0 12px var(--gold-line);
+}
+.hu-btn.ghost, .net-btn.ghost {
+    background: none;
+    border-color: transparent;
+    color: var(--text-muted);
+    font-weight: 400;
+    box-shadow: none;
+    opacity: 1;
+}
+.hu-btn.ghost:active, .net-btn.ghost:active {
+    background: rgba(255, 255, 255, 0.06);
+    box-shadow: none;
+}
 .net-input {
     width: 100%; box-sizing: border-box;
     font-size: 16px; padding: 10px 12px; border-radius: 8px;
-    border: 1px solid rgba(212, 175, 55, 0.4);
+    border: 1px solid var(--gold-line);
     background: rgba(0, 0, 0, 0.35); color: #fff;
 }
 .net-code-input { text-align: center; letter-spacing: 12px; font-size: 22px; font-weight: 700; }
 .net-code {
     text-align: center; font-size: 44px; font-weight: 800; letter-spacing: 14px;
-    color: #ffd75e; margin: 6px 0 4px; text-indent: 14px;
+    color: var(--gold-light); margin: 6px 0 4px; text-indent: 14px;
 }
-.net-code-inline { color: #ffd75e; font-size: 18px; letter-spacing: 4px; }
-.net-err { min-height: 20px; font-size: 13px; color: #ff8a8a; margin-top: 10px; }
-.net-err.busy { color: #9db3ad; }
+.net-code-inline { color: var(--gold-light); font-size: 18px; letter-spacing: 4px; }
+.net-err { min-height: 20px; font-size: 13px; color: var(--danger); margin-top: 10px; }
+.net-err.busy { color: var(--text-muted); }
 
 /* 座位表：猫龙虎狮固定顺序 */
-.net-seats { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 10px 0 4px; }
-.net-seat {
-    font-size: 13px; padding: 9px 6px; border-radius: 8px; text-align: center;
-    border: 1px solid rgba(255, 255, 255, 0.12);
-    background: rgba(255, 255, 255, 0.04); color: #cfe0da;
-}
-.net-seat.human { border-color: rgba(46, 204, 113, 0.55); color: #bdf0d2; }
+.net-seat.human { border-color: var(--success-line); color: #bdf0d2; }
 .net-seat.ai { opacity: 0.6; }
 .net-seat.empty { opacity: 0.35; border-style: dashed; }
 
@@ -47,13 +68,13 @@
 }
 .net-badge.net-human {
     width: 11px; height: 11px; border-radius: 50%;
-    background: #2ecc71; border: 2px solid #0d2b26;
+    background: var(--success); border: 2px solid var(--pine);
     box-shadow: 0 0 4px rgba(46, 204, 113, 0.8);
 }
 .net-badge.net-ai {
-    font-size: 9px; font-weight: 700; color: #0d2b26;
+    font-size: 9px; font-weight: 700; color: var(--pine);
     background: #8a9a95; border-radius: 6px; padding: 2px 4px;
-    border: 1px solid #0d2b26;
+    border: 1px solid var(--pine);
 }
 
 /* 联机状态小 pill */
@@ -61,8 +82,8 @@
     position: fixed; left: 8px; bottom: 8px; z-index: 8000;
     font-size: 11px; color: #bdf0d2;
     background: rgba(13, 43, 38, 0.85);
-    border: 1px solid rgba(46, 204, 113, 0.5); border-radius: 12px;
-    padding: 4px 10px; pointer-events: none;
+    border: 1px solid var(--success-line); border-radius: 12px;
+    padding: 4px 10px; pointer-events: auto;
 }
 #net-status-pill.warn { color: #ffe1a8; border-color: rgba(255, 193, 7, 0.55); }
 
@@ -70,12 +91,12 @@
 #net-notice-modal {
     position: fixed; inset: 0; z-index: 9500;
     display: none; align-items: center; justify-content: center;
-    background: rgba(0, 0, 0, 0.6);
+    background: var(--backdrop);
 }
 #net-notice-modal.show { display: flex; }
 .net-notice-box { width: min(88vw, 320px); }
-.net-notice-title { font-size: 17px; font-weight: 700; color: #ffd75e; text-align: center; margin: 4px 0 8px; }
-.net-notice-body { font-size: 14px; color: #d7e5df; line-height: 1.8; text-align: center; margin: 0 4px 4px; }
+.net-notice-title { font-size: 17px; font-weight: 700; color: var(--ice); text-align: center; margin: 4px 0 8px; }
+.net-notice-body { font-size: 14px; color: var(--text); line-height: 1.8; text-align: center; margin: 0 4px 4px; }
 .net-notice-btns { display: flex; gap: 10px; margin-top: 14px; flex: 0 0 auto; }
 .net-notice-btns .hu-btn { flex: 1; min-height: 44px; }
 
@@ -84,8 +105,8 @@
     position: fixed; left: 50%; top: 18%; z-index: 9600;
     transform: translate(-50%, -8px); opacity: 0; pointer-events: none;
     transition: opacity 0.25s ease, transform 0.25s ease;
-    font-size: 14px; color: #fff; background: rgba(10, 30, 26, 0.92);
-    border: 1px solid rgba(212, 175, 55, 0.5); border-radius: 20px;
+    font-size: 14px; color: #fff; background: var(--surface-toast);
+    border: 1px solid var(--gold-soft); border-radius: 20px;
     padding: 9px 18px; max-width: 84vw; text-align: center;
 }
 #net-toast.show { opacity: 1; transform: translate(-50%, 0); }
@@ -94,21 +115,21 @@
 .net-spinner {
     width: 26px; height: 26px; margin: 14px auto 6px;
     border: 3px solid rgba(255, 255, 255, 0.15);
-    border-top-color: #ffd75e; border-radius: 50%;
+    border-top-color: var(--gold-light); border-radius: 50%;
     animation: net-spin 0.9s linear infinite;
 }
 @keyframes net-spin { to { transform: rotate(360deg); } }
-.net-busy-text { text-align: center; font-size: 13px; color: #9db3ad; margin: 2px 0 8px; }
+.net-busy-text { text-align: center; font-size: 13px; color: var(--text-muted); margin: 2px 0 8px; }
 
 /* ---- 房间码：点按复制 ---- */
 .net-code-btn {
     display: block; width: 100%; margin: 6px 0 4px; padding: 6px 0;
     background: none; border: none; cursor: pointer;
     text-align: center; font-size: 44px; font-weight: 800; letter-spacing: 14px;
-    text-indent: 14px; color: #ffd75e; font-family: inherit;
+    text-indent: 14px; color: var(--gold-light); font-family: inherit;
 }
 .net-code-btn:active { opacity: 0.7; }
-.net-copy-hint { text-align: center; font-size: 12px; color: #9db3ad; margin-bottom: 6px; }
+.net-copy-hint { text-align: center; font-size: 12px; color: var(--text-muted); margin-bottom: 6px; }
 
 /* ---- 座位表 v2：头像 + 名字 + 状态 ---- */
 .net-seats { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 10px 0 4px; }
@@ -116,30 +137,30 @@
     position: relative; display: flex; align-items: center; gap: 8px;
     font-size: 13px; padding: 8px; border-radius: 10px; text-align: left;
     border: 1px solid rgba(255, 255, 255, 0.12);
-    background: rgba(255, 255, 255, 0.04); color: #cfe0da;
+    background: rgba(255, 255, 255, 0.04); color: var(--text-soft);
     min-height: 52px; box-sizing: border-box;
 }
 .net-seat .net-seat-avatar { width: 36px; height: 36px; flex: 0 0 auto; border-radius: 50%; overflow: hidden; }
 .net-seat .net-seat-avatar img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .net-seat .net-seat-info { flex: 1 1 auto; min-width: 0; line-height: 1.5; }
 .net-seat .net-seat-name { font-size: 13px; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.net-seat .net-seat-sub { font-size: 11px; color: #9db3ad; }
-.net-seat.human { border-color: rgba(46, 204, 113, 0.55); }
+.net-seat .net-seat-sub { font-size: 11px; color: var(--text-muted); }
+.net-seat.human { border-color: var(--success-line); }
 .net-seat.human .net-seat-sub { color: #8fdcae; }
 .net-seat.ai { opacity: 0.62; }
 .net-seat.empty { opacity: 0.4; border-style: dashed; justify-content: center; }
 .net-seat.you { border-color: rgba(255, 215, 94, 0.7); background: rgba(255, 215, 94, 0.07); }
 .net-you-tag {
-    font-size: 10px; font-weight: 700; color: #0d2b26; background: #ffd75e;
+    font-size: 10px; font-weight: 700; color: #0d2b26; background: var(--gold-light);
     border-radius: 8px; padding: 1px 6px; margin-left: 4px; vertical-align: 1px;
 }
 .net-kick {
     flex: 0 0 auto; width: 30px; height: 30px; border-radius: 50%;
-    border: 1px solid rgba(255, 138, 138, 0.6); background: rgba(255, 138, 138, 0.1);
-    color: #ff9a9a; font-size: 15px; line-height: 1; cursor: pointer;
+    border: 1px solid var(--danger-line); background: rgba(255, 138, 138, 0.1);
+    color: var(--danger); font-size: 15px; line-height: 1; cursor: pointer;
 }
 .net-kick:active { background: rgba(255, 138, 138, 0.3); }
-.net-count { text-align: center; font-size: 12px; color: #9db3ad; margin: 2px 0 0; }
+.net-count { text-align: center; font-size: 12px; color: var(--text-muted); margin: 2px 0 0; }
 
 /* ---- 倒计时头像外圈进度环 ---- */
 .net-ring {
@@ -149,7 +170,7 @@
 .net-ring.show { opacity: 1; }
 .net-ring svg { display: block; width: 100%; height: 100%; transform: rotate(-90deg); }
 .net-ring-bg { fill: none; stroke: rgba(255, 255, 255, 0.14); stroke-width: 3; }
-.net-ring-fg { fill: none; stroke: #ffd75e; stroke-width: 3; stroke-linecap: round; }
+.net-ring-fg { fill: none; stroke: var(--gold-light); stroke-width: 3; stroke-linecap: round; }
 .net-ring-fg.warn { stroke: #ff9a9a; }
 
 /* ---- 座位加入动画：新座位行滑入（克制版） ---- */
@@ -164,7 +185,7 @@
     position: fixed; left: 50%; z-index: 9400; pointer-events: none;
     transform: translateX(-50%); display: none;
     font-size: 13px; font-weight: 700; color: #fff; border-radius: 16px; padding: 5px 14px;
-    background: rgba(10, 30, 26, 0.88); border: 1px solid rgba(212, 175, 55, 0.5);
+    background: var(--surface-toast); border: 1px solid var(--gold-soft);
 }
 #net-countdown { top: 6px; }
 #net-countdown.show, #net-reconnect.show { display: block; }
@@ -172,8 +193,9 @@
 #net-reconnect { top: 36px; color: #ffe1a8; border-color: rgba(255, 193, 7, 0.6); }
 #net-auto-banner {
     position: fixed; left: 50%; bottom: 14%; z-index: 9400; transform: translateX(-50%); display: none;
-    font-size: 14px; font-weight: 700; color: #0d2b26; background: #ffd75e; border: none;
+    font-size: 14px; font-weight: 700; color: #191307; background: var(--primary-bg); border: 1px solid var(--gold-deep);
     border-radius: 22px; padding: 10px 18px; min-height: 44px; cursor: pointer;
+    box-shadow: var(--primary-shadow);
 }
 #net-auto-banner.show { display: block; }
 #net-status-pill { cursor: pointer; }

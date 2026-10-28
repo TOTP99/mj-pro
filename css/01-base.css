@@ -8,6 +8,26 @@
         --text-muted: #8aa0b5;
         --glass-strong: rgba(14, 22, 34, 0.72);
         --shadow-soft: 0 8px 24px rgba(0, 0, 0, 0.4);
+        /* —— 统一令牌（UI 改版新增）：金阶 / 文字 / 状态 / 表面 / 主按钮 / 圆角 / 遮罩 —— */
+        --gold-light: #ffd75e;
+        --gold-deep: #b8912f;
+        --gold-bronze: #8a6d3b;
+        --gold-cream: #e8c56a;
+        --gold-line: rgba(212, 175, 55, 0.45);
+        --gold-faint: rgba(212, 175, 55, 0.16);
+        --text-soft: #c5d4e0;
+        --pine: #0d2b26;
+        --success: #2ecc71;
+        --success-line: rgba(46, 204, 113, 0.55);
+        --danger: #ff9a9a;
+        --danger-line: rgba(255, 138, 138, 0.6);
+        --surface-btn: #1a1410;
+        --surface-deep: rgba(10, 16, 28, 0.96);
+        --surface-toast: rgba(10, 30, 26, 0.92);
+        --backdrop: rgba(8, 14, 24, 0.72);
+        --primary-bg: linear-gradient(180deg, #e8c56a 0%, #b8912f 100%);
+        --primary-shadow: 0 2px 10px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.35);
+        --r-btn: 8px;
         --font-ui: "Songti SC", "STSong", "PingFang SC", "SimSun", serif;
         /* —— 字阶：六级统一（展示/标题/分组/正文/说明/微注），clamp 智能缩放 ——
            手机上≈原值（不打破现有排版），大屏/桌面适度放大，一步到位，不再逐处手写字号 */
