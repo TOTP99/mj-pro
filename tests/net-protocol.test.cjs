@@ -31,7 +31,7 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
   assert(Game.netValidCode(code) && code.length === 6, '房间码应为 6 位');
   assert(!/[IO01]/.test(code), '房间码不含易混字符');
   assert(Game.netValidCode('k7m2qx') && !Game.netValidCode('K7M2Q') && !Game.netValidCode('K7M2QI'));
-  assert.strictEqual(Game.netCleanName('  <b>阿猫</b>\n\t"x"  '), 'b阿猫/b x'.replace('/b x','/bx'));
+  assert.strictEqual(Game.netCleanName('  <b>阿猫</b>\n\t"x"  '), 'b阿猫bx', '名字净化应移除尖括号、斜杠和引号，并压缩空白');
   assert(!/[<>"\n\t]/.test(Game.netCleanName('<script>"a"\n</script>')), '名字不含危险字符');
   assert.strictEqual(Game.netCleanName('一二三四五六七八九十甲乙丙丁').length, 12, '名字限 12 字');
   assert.strictEqual(Game.netCleanName('   ', '默认'), '默认');
