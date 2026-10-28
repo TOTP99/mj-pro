@@ -74,3 +74,37 @@
             height: min(80vh, 130vw);
         }
     }
+/* —— data-tier 档位（与 Game.layout.tier 同步；兼容旧 media 断点） —— */
+html[data-layout="portrait"][data-tier="xs"] body.portrait-layout #table-frame,
+body[data-layout="portrait"][data-tier="xs"].portrait-layout #table-frame {
+    width: min(96vw, 78vh - var(--sat) - var(--sab));
+    height: min(90vh - var(--sat) - var(--sab), 120vw);
+    border-radius: 12px;
+}
+html[data-layout="portrait"][data-tier="xs"] body.portrait-layout .bottom .hand .tile,
+body[data-layout="portrait"][data-tier="xs"].portrait-layout .bottom .hand .tile {
+    width: 26px !important;
+    height: 35px !important;
+    font-size: 24px !important;
+}
+html[data-layout="portrait"][data-tier="xs"] body.portrait-layout .bottom .hand,
+body[data-layout="portrait"][data-tier="xs"].portrait-layout .bottom .hand {
+    --tile-w: 26px;
+    --tile-h: 35px;
+    --tile-fs: 24px;
+}
+html[data-layout="portrait"][data-tier="xs"] body.portrait-layout,
+body[data-layout="portrait"][data-tier="xs"].portrait-layout {
+    --hand-tile-h: 35px;
+}
+html[data-layout="portrait"][data-tier="xs"] body.portrait-layout .avatar img,
+body[data-layout="portrait"][data-tier="xs"].portrait-layout .avatar img {
+    width: 34px;
+    height: 34px;
+}
+html[data-layout="portrait"][data-tier="lg"] body.portrait-layout #table-frame,
+body[data-layout="portrait"][data-tier="lg"].portrait-layout #table-frame {
+    width: min(90vw, 58vh);
+    height: min(78vh - var(--sat) - var(--sab), 155vw);
+    border-radius: 24px;
+}
