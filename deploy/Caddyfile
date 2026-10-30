@@ -1,0 +1,4 @@
+# 反代 PeerServer 并自动签 TLS（把域名换成你的）
+mj.example.com {
+    reverse_proxy 127.0.0.1:9000
+}

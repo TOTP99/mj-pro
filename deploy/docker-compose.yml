@@ -1,0 +1,16 @@
+# 自建联机基础设施：PeerServer（信令）+ coturn（TURN 中继）
+# 用法见 README-DEPLOY.md。先把 turn.example.com / mj.example.com 和密码换成你自己的。
+services:
+  peerserver:
+    image: peerjs/peerjs-server:latest
+    restart: unless-stopped
+    command: ["--port", "9000", "--path", "/peerjs", "--key", "peerjs", "--proxied", "true"]
+    ports:
+      - "127.0.0.1:9000:9000"   # 只监听本机，由 Nginx/Caddy 反代并加 TLS
+
+  coturn:
+    image: coturn/coturn:latest
+    restart: unless-stopped
+    network_mode: host          # TURN 需要大端口范围，host 网络最省事
+    volumes:
+      - ./turnserver.conf:/etc/coturn/turnserver.conf:ro
