@@ -392,15 +392,29 @@ function gangReplacement(player, epoch) {
             var r = await awaitIntent(player, { kind: 'reveal', revealKind: rk }, Game.netTimeouts.reveal);
             if (Game.gameEpoch !== epoch || Game.gameOver) return;
             if (r.intent && r.intent.kind === 'reveal' && r.intent.accept) {
-                Game.applyReveal(player, rk);
+                if (revealAfterReplacement(player, rk)) return; // 亮牌补牌后自摸/流局已结算
                 Game.netBroadcastState(true);
             }
             hostAwaitTurn(player);
         })();
         return;
     }
-    if (rk) Game.applyReveal(player, rk);
+    if (rk && revealAfterReplacement(player, rk)) return;
     hostAwaitTurn(player);
+}
+/** 杠后补牌时的亮牌：东南西北亮出后又补了一张——不再算杠上开花，且新摸的牌要重新判自摸。
+ *  返回 true 表示本局已结束（自摸或流局），调用方不要再续行。 */
+function revealAfterReplacement(player, kind) {
+    var ok = Game.applyReveal(player, kind);
+    if (Game.gameOver) return true;
+    if (ok && kind === 'winds') {
+        Game.clearKongFlags();
+        if (Game.checkHu(Game.hands[player], Game.exposedMelds[player], player)) {
+            settleSelfDraw(player, Game.lastDrawnTile[player]);
+            return true;
+        }
+    }
+    return false;
 }
 
 // ---------- 结算（房主统一，广播结果） ----------
