@@ -1,11 +1,11 @@
 {
   "name": "mahjong-net",
-  "version": "4.5.3",
+  "version": "4.5.7",
   "private": true,
-  "description": "极简麻将 v4.5.3 — 联机（PeerJS）商业化加固版（23/26-net 已升级）",
+  "description": "极简麻将 v4.5.7 — 联机（PeerJS）商业化加固版（23/26-net 已升级）",
   "scripts": {
     "test": "npm run test:unit",
-    "test:unit": "node tests/net-fixes.test.cjs && node tests/net-protocol.test.cjs && node tests/ai-adaptive.test.cjs && node tests/ai-adaptive-property.test.cjs && node tests/ai-decision-coordination.test.cjs && node tests/ai-opponent-inference.test.cjs && node tests/engine-rules.test.cjs",
+    "test:unit": "node tests/net-fixes.test.cjs && node tests/net-protocol.test.cjs && node tests/net-hardening.test.cjs && node tests/net-state.test.cjs && node tests/qr.test.cjs && node tests/net-config.test.cjs && node tests/ai-adaptive.test.cjs && node tests/ai-adaptive-property.test.cjs && node tests/ai-decision-coordination.test.cjs && node tests/ai-opponent-inference.test.cjs && node tests/engine-rules.test.cjs && node tests/rob-kong-settlement.test.cjs && node tests/replacement-slot.test.cjs",
     "test:selfplay": "node tests/net-selfplay.pw.cjs 6",
     "test:chaos": "node tests/net-selfplay.pw.cjs 14 --chaos --lat=60",
     "test:all": "npm run test:unit && npm run test:engine && npm run test:selfplay && npm run test:chaos",

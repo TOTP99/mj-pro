@@ -31,12 +31,34 @@
 真人连续 2 次回应超时 → 自动**托管**（AI 代打，不再等待，不拖慢全桌）；本人点屏幕上的"恢复"即可回来。
 
 ## 可调参数 `Game.netTimeouts`
-`turn 45s / claim 15s / reveal 15s / hello 12s / ping 10s / dead 60s / hostSilent 35s / reserve 90s / ready 10s`
+`turn 45s / claim 15s / reveal 15s / hello 14s / ping 10s / dead 55s / hostSilent 32s / reserve 90s / ready 10s / open 15s`（以 `js/23-net.js` 的 `NET_CONFIG` 为准）
 
 ## 网络穿透
 默认 3 个公共 STUN。对称 NAT（部分手机网络）需要 TURN：
 `localStorage.qj_mj_net_ice = '[{"urls":"turn:your.host:3478","username":"u","credential":"p"}]'`
 自建信令：`Game.netPeerConfig = {host, port, path, secure}`。
+**生产部署**：改站点根的 `net-config.js`（`peer` / `ice`），完整步骤见 `deploy/README-DEPLOY.md`。优先级：`Game.netPeerConfig` > `net-config.js` > 默认。
 
 ## 诊断
 点屏幕上的联机状态条复制诊断信息（近 120 条事件、座位、RTT，不含手牌），反馈问题时附上。
+
+## v4.5.4 加固
+- **重复建房/加入**：已在房间中再建房或加入会被拒绝（`你已在联机房间中`），避免旧连接泄漏、客人变幽灵；状态条点按可随时回到房间面板（含踢人、锁房、复制诊断）。
+- **断线重连补发要约**：重连成功后，房主若正在等该座位，会把当前要约（`prompt`，带剩余时间）重发一次，不必干等超时。
+- **吃碰杠超时不计挂机**：`claim` 要约超时按"过"处理，不再累计托管次数。
+- **锁房**：房主可锁房，锁房后新玩家被拒，令牌重连不受影响。
+- **消息体积**：客人→房主上限 4KB；房主→客人上限 16KB（快照后期约 3.4KB）。超限不再静默，记入诊断日志 `guest:drop-oversize`。
+- **信令**：房主信令断开后带退避持续重连；建房/加入有总超时 `open`（15s）。
+- **前后台**：联机中申请屏幕常亮（Wake Lock）；回到前台立即检查连接，房主补发心跳与快照。
+- **客人端**：模式/筹码/调庄/清零由房主设置，客人点击只提示；"局/风/圈"以房主为准（快照 `fieldCount`）；结算页不显示手动调分。
+
+- **牌桌昵称**：真人座位在头像下方显示名字（来自座位表，`textContent` 渲染）；AI/空位不显示。
+
+
+## 补充（v4.5.5）
+- **快照字段**：除座位/手牌/分数外还带 `fieldCount`（局/风/圈以房主为准）、`started`（对局是否已开始，客人房间面板据此显示状态）。
+- **锁房**：`Game.net.locked` 为真时，新客人（无有效令牌）收到 `deny {text:'房主已锁房…'}`；令牌重连不受影响。
+- **重连补发要约**：令牌重连成功且房主正在等该座位时，重发当前 `prompt`（`ms` 为剩余时间）。
+- **消息上限**：客人→房主 4KB；房主→客人 16KB。超限的房主消息在客人侧记 `guest:drop-oversize` 到诊断日志。
+- **阶段**：`Game.netGetPhase()` → `offline | lobby | playing | settling`，结算门闩只在 `settling` 生效；诊断信息含 `phase`。
+- **邀请链接/二维码**：`?room=ABC234`（或 `#room=`）打开页面时自动加入（昵称取本机已存或默认「客人NN」），随后用 `history.replaceState` 清掉地址栏参数，刷新不会重复触发；失败则停在预填好的加入页。二维码编码的就是这条链接。
