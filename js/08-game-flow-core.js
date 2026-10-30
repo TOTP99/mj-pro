@@ -2,6 +2,14 @@
 // ---------- 游戏流程 ----------
 const DEAD_WALL = 16; // 荒牌墙：摸到只剩这些时流局
 
+// 补牌位检查（统一收口）：杠（明/暗/加）与东南西北亮牌都需要补一张牌；
+// 只有牌墙剩余超过荒牌墙（16 张）时才有补牌位置。牌墙剩 17 张时补牌允许——
+// 补走最后一张可摸牌，剩 16 张荒牌，补牌者仍正常出牌；剩 16 张时一律不补。
+// 玩家、AI、联机房主三条路径的杠/亮牌 offer 与执行都查这一个函数。
+function hasReplacementSlot() {
+    return Array.isArray(Game.deck) && Game.deck.length > DEAD_WALL;
+}
+
 function initGame() {
     Game.gameEpoch++; // 新的一局：让上一局遗留的延时回调全部作废
     Game.setPhase(Game.PHASE.DEALING, 'initGame');
@@ -173,6 +181,7 @@ function pickAdvancedRevealKind(player, firstTurn) {
     for (const k of ['winds', 'dragons']) { // 旧逻辑优先级：winds 优先
         if (kinds[k] && !prev[k]) delete declined[k]; // 新凑齐 → 重新允许提示
         if (picked || !kinds[k]) continue;
+        if (k === 'winds' && !hasReplacementSlot()) continue; // 无补牌位不亮风牌（中发白不受影响）
         if (Game.exposedMelds[player].some(m => m.type === k)) continue; // 该组已亮过
         if (declined[k]) continue; // 拒绝过且牌型未变
         if (typeof Game.ruleAllowsReveal === 'function' && !Game.ruleAllowsReveal(k, firstTurn)) continue;
@@ -197,8 +206,12 @@ function revealKindAfterDraw(player) {
 
 // 亮牌：把东南西北(4张)或中发白(3张)从暗牌里移出，变成一组“亮牌”明组，占一个面子位
 // 中发白正好3张，跟碰/吃一样不用补牌；东南西北4张，跟杠一样需要补一张牌才能凑够面子位的牌数
-// 算幺九+刻子，但不算开门。返回false代表补牌时牌墙已尽、流局已处理，调用方不要再继续往下走
+// 算幺九+刻子，但不算开门。返回 false 有两种情况，调用方须以 Game.gameOver 区分：
+//   gameOver=true：补牌时牌墙已尽、流局已处理，不要再继续往下走；
+//   gameOver=false：无补牌位，东南西北未动牌、未流局，继续正常流程（出牌/续行）
 function applyReveal(player, kind) {
+    // 先判后动：无补牌位时东南西北不动牌、不流局
+    if (kind === 'winds' && !hasReplacementSlot()) return false;
     Game.windDragonBonus[player] = true;
     const tiles = kind === 'winds' ? ['1字', '2字', '3字', '4字'] : ['5字', '6字', '7字'];
     Game.TileFlow.meld(player, kind, tiles);
@@ -236,9 +249,10 @@ function confirmReveal(reveal) {
     Game.pendingRevealContext = null;
     if (reveal) {
         if (!kind) return; // 防御：pendingReveal 为空时不执行亮牌
-        if (!applyReveal('bottom', kind)) return; // 补牌时牌墙已尽，流局已处理
+        // 无补牌位时 applyReveal 不动牌、不流局：直接走下面的 ctx 续行（正常出牌）
+        if (!applyReveal('bottom', kind)) { if (Game.gameOver) return; }
         // 杠后补牌时亮出东南西北又补了一张：之后胡牌不再算杠上开花
-        if (ctx === 'replacement' && kind === 'winds') Game.clearKongFlags();
+        else if (ctx === 'replacement' && kind === 'winds') Game.clearKongFlags();
     } else if (typeof Game.isDailyMode === 'function' && !Game.isDailyMode()) {
         // 高阶：拒绝后同牌型不再提示（牌型变化/新凑齐后会重新允许）
         if (!Game.revealDeclined.bottom) Game.revealDeclined.bottom = {};
@@ -298,6 +312,8 @@ function continueAfterFirstTurnCheck(player) {
 // 检查自己回合是否可暗杠或加杠，弹出「杠」提示与确认/过按钮（可选，点过或不理会都能继续出牌）
 function offerSelfGangIfAny() {
     if (Game.gameOver || Game.pendingClaim) return;
+    // 补牌位检查（统一收口）：无补牌位时不提示杠，玩家正常出牌
+    if (!hasReplacementSlot()) return;
     // 加杠：已碰过的牌，手里又有第4张
     for (const meld of Game.exposedMelds.bottom) {
         if (meld.type === 'peng' && Game.hands.bottom.includes(meld.tiles[0])) {
@@ -351,6 +367,8 @@ function executeSelfGang() {
             Game.showResultModal(robber, 'dianpao', 'bottom', bonus, result, tile);
             return;
         }
+        // 抢杠无人胡 → 再查补牌位：无补牌位不执行加杠，回到等出牌
+        if (!hasReplacementSlot()) { Game.setPhase(Game.PHASE.WAIT_DISCARD, 'executeSelfGang/noSlot'); logFlow('牌墙已无补牌位置，不能杠，请出牌'); return; }
         Game.TileFlow.addGang('bottom', tile);
         logFlow('你加杠了 ' + Game.tileGlyph(tile) + '，补牌中...');
         Game.speak('杠' + Game.tileName(tile));
@@ -361,6 +379,8 @@ function executeSelfGang() {
     }
     // 暗杠
     if (Game.exposedMelds.bottom.length >= 3) { logFlow('穷胡规则：不能手把一，最后一组必须留在手里'); return; }
+    // 补牌位检查（统一收口）：无补牌位不执行暗杠，回到等出牌
+    if (!hasReplacementSlot()) { Game.setPhase(Game.PHASE.WAIT_DISCARD, 'executeSelfGang/noSlot'); logFlow('牌墙已无补牌位置，不能杠，请出牌'); return; }
     Game.TileFlow.meld('bottom', 'gang', [tile, tile, tile, tile], { concealed: true });
     logFlow('你暗杠了 ' + Game.tileGlyph(tile) + '，补牌中...');
     Game.speak('杠' + Game.tileName(tile));
@@ -392,13 +412,17 @@ function nextTurn() {
         // 日常：旧版首巡亮牌逻辑 + 用户规则：已有 3 组副露不许第 4 组（亮牌也不行）
         if (typeof Game.isDailyMode === 'function' && Game.isDailyMode()) {
             let kind = Game.exposedMelds[player].length >= 3 ? null : checkWindDragonPattern(Game.hands[player]);
+            // 无补牌位时不亮东南西北：若同时凑齐中发白，改亮中发白；否则不亮
+            if (kind === 'winds' && !hasReplacementSlot()) {
+                kind = currentRevealKinds(Game.hands[player]).dragons ? 'dragons' : null;
+            }
             if (kind) {
                 if (player === 'bottom') {
                     offerReveal(kind);
                     return;
                 }
                 if (typeof Game.netRevealRemote === 'function' && Game.netRevealRemote(player, kind)) return;
-                if (!applyReveal(player, kind)) return;
+                if (!applyReveal(player, kind) && Game.gameOver) return;
             }
         }
     }
@@ -412,7 +436,7 @@ function nextTurn() {
                 return;
             }
             if (typeof Game.netRevealRemote === 'function' && Game.netRevealRemote(player, kind)) return;
-            if (!applyReveal(player, kind)) return;
+            if (!applyReveal(player, kind) && Game.gameOver) return;
         }
     }
 
@@ -421,6 +445,7 @@ function nextTurn() {
 
 /* ---- 本文件对外接口（IIFE 收敛，唯一出口） ---- */
 Game.DEAD_WALL = DEAD_WALL;
+Game.hasReplacementSlot = hasReplacementSlot;
 Game.initGame = initGame;
 Game.tileCompare = tileCompare;
 Game.poolTileCompare = poolTileCompare;

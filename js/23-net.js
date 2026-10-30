@@ -13,7 +13,8 @@ var NET_CONFIG = {
     CODE_ALPHABET: 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789', // 去掉易混 I O 0 1
     CODE_LEN: 6,
     TOKEN_BYTES: 16,          // 128-bit token
-    MAX_MSG_BYTES: 4096,      // 单条消息上限，防滥用
+    MAX_MSG_BYTES: 4096,      // 客人→房主 单条消息上限（意图都很小），防滥用
+    MAX_HOST_MSG_BYTES: 16384, // 房主→客人（快照/结算会随牌局增长，实测后期约 3.4KB，留足余量）
     RATE_BURST: 20,           // token-bucket 突发
     RATE_REFILL_PER_SEC: 8,   // 每秒补充
     MAX_NAME_LEN: 12,
@@ -29,7 +30,8 @@ var NET_CONFIG = {
         dead: 55000,          // 房主判定客人掉线
         hostSilent: 32000,    // 客人判定房主静默
         reserve: 90000,       // 掉线座位保留窗口
-        ready: 10000
+        ready: 10000,
+        open: 15000           // 连信令服务器的总超时（建房/加入）
     },
     // 默认 STUN；TURN 可通过 localStorage.qj_mj_net_ice 或 Game.netPeerConfig 覆盖
     defaultIce: [
@@ -69,7 +71,7 @@ Game.netDiag = function () {
         'ua=' + (typeof navigator !== 'undefined' ? navigator.userAgent : '?')
     ];
     if (n) {
-        lines.push('role=' + n.role + ' code=' + n.code + ' seat=' + n.seat + ' started=' + !!n.started);
+        lines.push('role=' + n.role + ' code=' + n.code + ' seat=' + n.seat + ' started=' + !!n.started + ' phase=' + Game.netGetPhase() + ' locked=' + !!n.locked);
         lines.push('seats=' + JSON.stringify(Game.netPublicSeats ? Game.netPublicSeats() : []));
         if (n.rtt) lines.push('rtt=' + JSON.stringify(n.rtt));
         if (n.lastHostMsg) lines.push('lastHostMsgAgo=' + (Date.now() - n.lastHostMsg) + 'ms');
@@ -101,12 +103,52 @@ Game.netWinds = WINDS;
 Game.netAnimals = ANIMALS;
 Game.netSeats = SEATS;
 
+/** 联机客人：模式/筹码/调庄/清零都由房主决定；客人点了只提示，不改本地状态 */
+Game.netGuestBlock = function () {
+    if (!Game.net || Game.net.role !== 'guest') return false;
+    try { if (Game.netToastUI) Game.netToastUI('联机中，由房主设置'); } catch (e) {}
+    return true;
+};
+
 function isNet() { return !!Game.net; }
 function isNetHost() { return !!(Game.net && Game.net.role === 'host'); }
 function isNetGuest() { return !!(Game.net && Game.net.role === 'guest'); }
 Game.isNet = isNet;
 Game.netIsHost = isNetHost;
 Game.netIsGuest = isNetGuest;
+
+/**
+ * 联机显式阶段（只读，用于诊断与竞态守卫）
+ * offline 未联机 | lobby 已建房/加入未开局 | playing 对局中 | settling 本局已结束（等 ready / 下一局）
+ */
+Game.netGetPhase = function () {
+    if (!Game.net) return 'offline';
+    if (!Game.net.started) return 'lobby';
+    if (Game.gameOver) return 'settling';
+    return 'playing';
+};
+/** 座位是否处于「掉线保留」窗口（令牌有效、AI 暂代） */
+Game.netSeatIsReserved = function (seat) {
+    if (!Game.net || !Game.net.seats) return false;
+    for (var i = 0; i < Game.net.seats.length; i++) {
+        var s = Game.net.seats[i];
+        if (s.seat === seat) return !!(s.away && s.token && s.reservedUntil && Date.now() < s.reservedUntil);
+    }
+    return false;
+};
+/** 座位是否由 AI 逻辑代打（AI / 托管 / 掉线无连接） */
+Game.netSeatIsAiLike = function (seat) {
+    if (!Game.net) return true;
+    if (seat === 'bottom' && Game.net.role === 'host') return false;
+    var m = null;
+    for (var i = 0; i < (Game.net.seats || []).length; i++) {
+        if (Game.net.seats[i].seat === seat) { m = Game.net.seats[i]; break; }
+    }
+    if (!m) return true;
+    if (m.kind === 'ai' || m.auto) return true;
+    if (seat !== 'bottom' && !(Game.net.conns && Game.net.conns[seat])) return true;
+    return false;
+};
 
 function peerJsReady() { return typeof Peer !== 'undefined'; }
 Game.netPeerJsReady = peerJsReady;
@@ -162,6 +204,12 @@ Game.netPeerConfig = null;
 
 function iceServers() {
     var list = NET_CONFIG.defaultIce.slice();
+    try { // 部署配置（net-config.js）里的 TURN/STUN
+        var cfg = (typeof window !== 'undefined' && window.QJ_NET_CONFIG) || null;
+        if (cfg && Array.isArray(cfg.ice)) {
+            cfg.ice.forEach(function (s) { if (s && s.urls) list.push(s); });
+        }
+    } catch (e) {}
     try {
         var extra = JSON.parse(localStorage.getItem('qj_mj_net_ice') || 'null');
         if (Array.isArray(extra)) {
@@ -179,9 +227,22 @@ function peerOptions() {
         config: { iceServers: iceServers() },
         // 生产环境可在 Game.netPeerConfig 中覆盖 host/port/path/key/secure
     };
-    if (Game.netPeerConfig) {
-        Object.keys(Game.netPeerConfig).forEach(function (k) {
-            o[k] = Game.netPeerConfig[k];
+    try { // 部署配置里的自建信令（host/port/path/secure/key）
+        var cfg = (typeof window !== 'undefined' && window.QJ_NET_CONFIG) || null;
+        if (cfg && cfg.peer && typeof cfg.peer === 'object') {
+            Object.keys(cfg.peer).forEach(function (k) { o[k] = cfg.peer[k]; });
+        }
+    } catch (e) {}
+    var cfg = Game.netPeerConfig;
+    if (!cfg) { // 无需改代码：localStorage.qj_mj_net_peer = '{"host":"peer.example.com","port":443,"path":"/mj","secure":true}'
+        try {
+            var raw = JSON.parse(localStorage.getItem('qj_mj_net_peer') || 'null');
+            if (raw && typeof raw === 'object' && typeof raw.host === 'string') cfg = raw;
+        } catch (e) {}
+    }
+    if (cfg) {
+        ['host', 'port', 'path', 'secure', 'key', 'pingInterval'].forEach(function (k) {
+            if (cfg[k] !== undefined) o[k] = cfg[k];
         });
     }
     return o;
@@ -258,6 +319,10 @@ Game.netCreateRoom = function (code, name) {
             resolve({ ok: false, err: '需要联网才能联机（PeerJS 未加载）' });
             return;
         }
+        if (Game.net) { // 已在房间里：不允许再建（否则旧连接泄漏、客人成幽灵）
+            resolve({ ok: false, err: '你已在联机房间中，请先离开当前房间' });
+            return;
+        }
         var id = roomIdOf(code);
         var done = false;
         var peer = null;
@@ -267,9 +332,18 @@ Game.netCreateRoom = function (code, name) {
             resolve({ ok: false, err: '创建失败：' + (e && e.message ? e.message : e) });
             return;
         }
+        var timedOut = false;
+        var openTimer = setTimeout(function () { // 信令服务器卡住：不让界面无限转圈
+            if (done) return;
+            done = true; timedOut = true;
+            try { peer.destroy(); } catch (e) {}
+            Game.netLog('host:open-timeout');
+            resolve({ ok: false, err: '连接联机服务器超时，请检查网络后重试' });
+        }, Game.netTimeouts.open);
         peer.on('open', function () {
             if (done) return;
             done = true;
+            clearTimeout(openTimer);
             name = Game.netCleanName(name, '房主');
             Game.net = {
                 role: 'host',
@@ -283,6 +357,7 @@ Game.netCreateRoom = function (code, name) {
                 rtt: {},
                 seq: 0,
                 started: false,
+                locked: false,
                 ready: {},
                 heartbeat: null
             };
@@ -290,16 +365,34 @@ Game.netCreateRoom = function (code, name) {
             wireHostPeer(peer);
             resolve({ ok: true, role: 'host', peer: peer });
         });
+        // 信令断开：带退避持续重连（客人断线重连要靠房主信令在线）
+        var sigTries = 0, sigTimer = 0;
+        function sigRetry() {
+            if (sigTimer) return;
+            if (!(Game.net && Game.net.peer === peer) || peer.destroyed) return;
+            if (!peer.disconnected) { sigTries = 0; return; }
+            var wait = Math.min(15000, 1500 * Math.pow(1.6, sigTries++));
+            sigTimer = setTimeout(function () {
+                sigTimer = 0;
+                if (!(Game.net && Game.net.peer === peer) || peer.destroyed) return;
+                if (peer.disconnected) {
+                    Game.netLog('host:signal-retry', sigTries);
+                    try { peer.reconnect(); } catch (e) {}
+                    sigRetry(); // 若仍断开，继续排下一次
+                } else sigTries = 0;
+            }, wait);
+        }
         peer.on('disconnected', function () {
             Game.netLog('host:signal-lost');
-            if (Game.net && Game.net.peer === peer) {
-                try { peer.reconnect(); } catch (e) {}
-            }
+            sigRetry();
         });
         peer.on('error', function (err) {
             var t = err && err.type;
             Game.netLog('host:error', t);
+            if (timedOut) return;
+            if (done && Game.net && Game.net.peer === peer && peer.disconnected) sigRetry();
             if (done && t !== 'unavailable-id') return;
+            clearTimeout(openTimer);
             if (t === 'unavailable-id' || t === 'peer-unavailable') {
                 try { peer.destroy(); } catch (e) {}
                 Game.netJoinRoom(code, name).then(resolve);
@@ -321,6 +414,10 @@ Game.netJoinRoom = function (code, name, opts) {
             resolve({ ok: false, err: '需要联网才能联机（PeerJS 未加载）' });
             return;
         }
+        if (Game.net && !opts.resume) { // 已在房间：不能再加入别的房间（重连例外）
+            resolve({ ok: false, err: '你已在联机房间中，请先离开当前房间', fatal: true });
+            return;
+        }
         var done = false;
         var peer = null;
         var to = null;
@@ -338,16 +435,20 @@ Game.netJoinRoom = function (code, name, opts) {
             Game.netLog('join:fail', msg);
             resolve({ ok: false, err: msg, fatal: !!fatal });
         }
+        // 信令服务器卡住（open 前）也要有总超时
+        to = setTimeout(function () { fail('连接联机服务器超时，请检查网络后重试'); }, Game.netTimeouts.open);
         peer.on('open', function () {
             var conn;
+            if (done) return;
             try {
                 conn = peer.connect(roomIdOf(code), { reliable: true });
             } catch (e) {
                 fail('连接失败');
                 return;
             }
+            if (to) clearTimeout(to);
             to = setTimeout(function () {
-                fail('房主无响应（房间码对吗？）');
+                fail('房主无响应（房间码对吗？房主是否仍在大厅？）');
             }, Game.netTimeouts.hello);
             conn.on('open', function () {
                 try {
@@ -364,7 +465,7 @@ Game.netJoinRoom = function (code, name, opts) {
             });
             conn.on('data', function (d) {
                 if (done || !d || typeof d !== 'object') return;
-                if (approxMsgBytes(d) > NET_CONFIG.MAX_MSG_BYTES) return;
+                if (approxMsgBytes(d) > NET_CONFIG.MAX_HOST_MSG_BYTES) return;
                 if (d.t === 'welcome') {
                     if (to) clearTimeout(to);
                     done = true;
@@ -372,6 +473,9 @@ Game.netJoinRoom = function (code, name, opts) {
                         try { peer.destroy(); } catch (e) {}
                         resolve({ ok: false, err: '版本不一致，请刷新页面', fatal: true });
                         return;
+                    }
+                    if (Game.net && Game.net.hostSilentTimer) { // 重连换新 net：清掉旧定时器，防泄漏
+                        try { clearInterval(Game.net.hostSilentTimer); } catch (e) {}
                     }
                     Game.net = {
                         role: 'guest',
@@ -401,14 +505,15 @@ Game.netJoinRoom = function (code, name, opts) {
         peer.on('error', function (err) {
             var t = err && err.type;
             fail(t === 'peer-unavailable'
-                ? '找不到房间（房间码对吗？房主在线吗？）'
-                : '网络错误：' + (t || 'unknown'));
+                ? '找不到房间（房间码对吗？房主是否仍在线？）'
+                : '网络错误：' + (t || 'unknown') + '。可尝试同一 Wi‑Fi 或配置 TURN（见大厅「网络说明」）');
         });
     });
 };
 
 // ========== 房主：连接与消息处理 ==========
 function wireHostPeer(peer) {
+    acquireWakeLock();
     peer.on('connection', function (conn) {
         var guard = makeRateGuard();
         var helloTimer = setTimeout(function () {
@@ -591,6 +696,10 @@ function hostAdmitGuest(conn, d) {
         deny(conn, '座位已过期，请重新加入', true);
         return;
     }
+    if (net.locked) { // 房主锁房：只放行令牌重连，不收新人
+        deny(conn, '房主已锁房，暂不接受新玩家');
+        return;
+    }
 
     // 2) 新客人
     var taken = {};
@@ -656,6 +765,7 @@ function hostDropSeat(seat, reason, keep) {
     var c = Game.net.conns[seat];
     delete Game.net.conns[seat];
     delete Game.net.lastSeen[seat];
+    if (Game.net.ready) delete Game.net.ready[seat]; // 结算门闩：该座位不再被等，避免卡住下一局
     if (c) {
         if (!keep && reason !== 'bye') {
             try { c.send({ t: 'kicked', reason: reason }); } catch (e) {}
@@ -668,6 +778,7 @@ function hostDropSeat(seat, reason, keep) {
         if (Game.net.started) {
             m.kind = 'ai';
             m.auto = false;
+            m.timeouts = 0;
             if (keep && m.token) {
                 m.away = true;
                 m.reservedUntil = Date.now() + Game.netTimeouts.reserve;
@@ -693,9 +804,14 @@ function hostDropSeat(seat, reason, keep) {
 
 // ========== 客人：接线 + 房主静默检测 ==========
 function wireGuestConn(conn) {
+    acquireWakeLock();
     conn.on('data', function (d) {
         if (!d || typeof d !== 'object') return;
-        if (approxMsgBytes(d) > NET_CONFIG.MAX_MSG_BYTES) return;
+        var sz = approxMsgBytes(d);
+        if (sz > NET_CONFIG.MAX_HOST_MSG_BYTES) { // 不再静默丢弃：留诊断，便于定位
+            Game.netLog('guest:drop-oversize', { t: d.t, bytes: sz });
+            return;
+        }
         if (Game.net && Game.net.guestConn === conn) {
             Game.net.lastHostMsg = Date.now();
         }
@@ -844,6 +960,34 @@ Game.netRefreshAvatarBadges = function () {
                 }
             }
         }
+        // 昵称：真人座位在头像下方显示名字（textContent，防注入）；AI/空位不显示
+        var labelEl = el.closest ? el.closest('.player-label') : null;
+        var nick = labelEl ? labelEl.querySelector('.net-nick') : null;
+        if (!meta || meta.kind !== 'human' || !meta.name) {
+            if (nick) nick.remove();
+        } else if (labelEl) {
+            if (!nick) {
+                nick = document.createElement('span');
+                nick.className = 'net-nick';
+                labelEl.appendChild(nick);
+            }
+            if (nick.textContent !== meta.name) nick.textContent = meta.name;
+        }
+        // 昵称：真人座位在头像下方显示名字（房主/客人通用，canonical 座位已映射到 view）
+        try {
+            var label = el.closest('.player-label');
+            var nick = label ? label.querySelector('.net-nick') : null;
+            if (meta && meta.kind === 'human' && meta.name) {
+                if (!nick && label) {
+                    nick = document.createElement('span');
+                    nick.className = 'net-nick';
+                    label.appendChild(nick);
+                }
+                if (nick) { nick.textContent = meta.name; nick.title = meta.name; }
+            } else if (nick) {
+                nick.remove();
+            }
+        } catch (e) {}
         if (!meta) {
             if (badge) badge.remove();
             return;
@@ -875,6 +1019,7 @@ Game.netRefreshAvatarBadges = function () {
 /** 离开联机：完整清理连接、定时器、标记 */
 Game.netLeave = function () {
     if (!Game.net) return;
+    try { if (wakeLock) { wakeLock.release(); wakeLock = null; } } catch (e) {}
     var wasGuest = Game.net.role === 'guest';
     Game._leaving = true;
     setTimeout(function () { Game._leaving = false; }, 2500);
@@ -912,6 +1057,38 @@ Game.netLeave = function () {
     }
     try { Game.netRefreshAvatarBadges(); } catch (e) {}
 };
+
+// ========== 前后台 / 锁屏防护 ==========
+// 房主或客人切后台、锁屏会让定时器被节流，对端会误判掉线。
+// 1) 在联机中申请屏幕常亮（Wake Lock）；2) 回到前台立刻检查连接并补发状态。
+var wakeLock = null;
+function acquireWakeLock() {
+    try {
+        if (!Game.net || !navigator.wakeLock || wakeLock || document.visibilityState !== 'visible') return;
+        navigator.wakeLock.request('screen').then(function (l) {
+            wakeLock = l;
+            l.addEventListener('release', function () { wakeLock = null; });
+        }, function () {});
+    } catch (e) {}
+}
+Game.netAcquireWakeLock = acquireWakeLock;
+document.addEventListener('visibilitychange', function () {
+    if (!Game.net) return;
+    if (document.visibilityState === 'visible') {
+        acquireWakeLock();
+        if (isNetHost()) {
+            Game.netLog('host:foreground');
+            try { Game.netBroadcast({ t: 'ping', ts: Date.now() }); } catch (e) {}
+            try { if (Game.net.started) Game.netBroadcastState(true); } catch (e) {}
+        } else if (isNetGuest() && Game.net.lastHostMsg &&
+                   Date.now() - Game.net.lastHostMsg > Game.netTimeouts.hostSilent) {
+            Game.netLog('guest:foreground-stale');
+            if (typeof Game.netGuestOnConnLost === 'function') Game.netGuestOnConnLost();
+        }
+    } else {
+        Game.netLog('hidden');
+    }
+});
 
 window.addEventListener('beforeunload', function () {
     if (Game.net && Game.net.role === 'host') {

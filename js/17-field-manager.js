@@ -128,6 +128,7 @@ function showAmountModal() {
 
 /** 署名行/横屏入口：直接选初始筹码 */
 function openAmountSelect() {
+    if (typeof Game.netGuestBlock === 'function' && Game.netGuestBlock()) return; // 联机客人：由房主设置
     // 对局进行中需先确认（重选会重新开场）
     if (typeof Game.gameOver !== 'undefined' && !Game.gameOver) {
         Game.confirmDialog('重新开场', '重新选择初始筹码将重新开场，继续吗？', function() {
@@ -145,6 +146,7 @@ function closeAmountModal() {
 }
 
 function chooseAmount(amt) {
+    if (typeof Game.netGuestBlock === 'function' && Game.netGuestBlock()) return; // 联机客人：由房主设置
     Game.$('amount-modal').classList.remove('show');
     if (typeof Game.clearSelectGlow === 'function') Game.clearSelectGlow();
     let n;
@@ -198,6 +200,7 @@ loadField();
 
 /* ---- 本文件对外接口（IIFE 收敛，唯一出口） ---- */
 Game.startNewField = startNewField;
+Game.renderFieldAmounts = renderFieldAmounts;
 Game.resetFieldCycle = resetFieldCycle;
 Game.onFieldGameSettled = onFieldGameSettled;
 Game.applyFieldSettlementAdjustments = applyFieldSettlementAdjustments;

@@ -240,7 +240,8 @@ function aiDiscard(player) {
     const hand = Game.hands[player];
     if (hand.length === 0) { advanceTurn(); return; } // 防御性检查：正常情况下不会发生
     // AI 加杠 / 暗杠：未听牌时执行（加杠需处理抢杠；暗杠不计抢杠）
-    if (!Game.isTenpai(player)) {
+    // 补牌位检查（统一收口）：无补牌位时跳过杠，直接按保牌策略出牌
+    if (!Game.isTenpai(player) && Game.hasReplacementSlot()) {
         for (const meld of Game.exposedMelds[player]) {
             if (meld.type === 'peng' && hand.includes(meld.tiles[0])) {
                 const gTile = meld.tiles[0];
@@ -405,18 +406,30 @@ function shouldAiPeng(p, tile, overrides) {
 
 // 除discarder外，检查是否有AI能碰（或杠）这张牌，且局势上值得碰
 function findAiPeng(discarder, tile) {
-    for (const p of ['top', 'left', 'right']) {
-        if (p === discarder) continue;
+    // 按出牌者之后的实际座位顺序检查，而不是固定 top/left/right。
+    // AI 若策略上放弃碰/杠，继续检查下一位有资格的 AI。
+    const idx = Game.turnOrder.indexOf(discarder);
+    if (idx < 0) return null;
+    for (let step = 1; step <= 3; step++) {
+        const p = Game.turnOrder[(idx + step) % Game.turnOrder.length];
+        if (p === 'bottom') continue; // 真人玩家由 checkClaimOrAdvance 统一参与优先级裁决
         if (Game.exposedMelds[p].length >= 3) continue; // 穷胡规则：不能手把一，最多3组面子在外
         if (!Game.canPeng(Game.hands[p], tile)) continue;
         const actual = shouldAiPeng(p, tile);
         // 归因：把轴1/轴3的学习值分别归零，看这个决定是不是因为学到的东西才变了
-        // （分别只归零一条、另一条保持实际值，这样才是这条轴自己的影响，不会互相混)
         if (shouldAiPeng(p, tile, { callAggr: 0 }) !== actual) Game.markAxisUsed(p, 'callAggr');
         if (shouldAiPeng(p, tile, { chaseSpecial: 0 }) !== actual) Game.markAxisUsed(p, 'chaseSpecial');
         if (actual) return p;
     }
     return null;
+}
+
+// 比较真人与 AI 的碰/明杠资格：离出牌者最近的合格响应者优先。
+function claimDistance(discarder, claimant) {
+    const from = Game.turnOrder.indexOf(discarder);
+    const to = Game.turnOrder.indexOf(claimant);
+    if (from < 0 || to < 0) return Infinity;
+    return (to - from + Game.turnOrder.length) % Game.turnOrder.length || Infinity;
 }
 
 // 多家能胡这张牌时，按下家方向（离出牌人最近的下家优先）找第一个能胡的玩家，找不到返回null
@@ -497,7 +510,8 @@ function aiPengClaim(p, tile) {
     if (Game.trackAiCall) Game.trackAiCall(p); // AI 3.0 分化度：记一次吃碰
     const cnt = Game.hands[p].filter(x => x === tile).length;
     // 凑齐3张暗的+这张：EV 比较"明杠（补牌期望+番）"vs"碰（手牌灵活）"，取高者；否则碰
-    let useGang = cnt >= 3;
+    // 补牌位检查（统一收口）：无补牌位时不选明杠，直接碰
+    let useGang = cnt >= 3 && Game.hasReplacementSlot();
     if (useGang) {
         try {
             const rG = Game.meldCallEV(p, tile, 'gang', null);
@@ -552,10 +566,12 @@ function aiDrawReplacement(p) {
     // 杠后补牌与普通摸牌一致：先检查亮牌
     const revealKind = Game.revealKindAfterDraw(p);
     if (revealKind) {
-        if (!Game.applyReveal(p, revealKind)) return; // 补牌时牌墙已尽，流局已处理
-        // 亮出东南西北又补了一张：之后胡牌不再算杠上开花
-        if (revealKind === 'winds') Game.clearKongFlags();
-        Game.requestRender('aiDrawReplacement/reveal');
+        // 无补牌位时 applyReveal 不动牌、不流局：直接走下面的胡牌/出牌续行
+        if (Game.applyReveal(p, revealKind)) {
+            // 亮出东南西北又补了一张：之后胡牌不再算杠上开花
+            if (revealKind === 'winds') Game.clearKongFlags();
+            Game.requestRender('aiDrawReplacement/reveal');
+        } else if (Game.gameOver) return; // 补牌时牌墙已尽，流局已处理
     }
     // 亮牌（东南西北）可能又补了一张：以实际最后摸到的牌为准
     const winTile = Game.lastDrawnTile[p];
@@ -590,17 +606,25 @@ function resolveAiPengOrAdvance(discarder, tile) {
 }
 
 function checkClaimOrAdvance(player, tile) {
-    // 检查你是否可以碰/杠/吃这张牌（穷胡规则：不能手把一，最多3组面子在外，第4组必须留在手里）
+    // 真人与 AI 一起参加碰/明杠优先级裁决；碰/杠整体优先于吃。
     const canClaimMore = Game.exposedMelds.bottom.length < 3;
     const canP = canClaimMore && Game.canPeng(Game.hands.bottom, tile);
-    const canG = canClaimMore && Game.canGang(Game.hands.bottom, tile);
-    const chiCombos = (canClaimMore && player === 'left') ? Game.findChiCombos(Game.hands.bottom, tile) : []; // 只能吃上家的牌
-    // 优先级：碰/杠 > 吃。你只能吃、而某个 AI 能碰/杠这张牌时，AI 先碰/杠，不再给你吃
-    if (!canP && !canG && chiCombos.length && findAiPeng(player, tile)) {
-        resolveAiPengOrAdvance(player, tile);
+    const canG = canClaimMore && Game.canGang(Game.hands.bottom, tile) && Game.hasReplacementSlot();
+    const chiCombos = (canClaimMore && player === 'left') ? Game.findChiCombos(Game.hands.bottom, tile) : [];
+
+    const aiPeng = findAiPeng(player, tile);
+    const humanCanPengGang = canP || canG;
+    if (humanCanPengGang && aiPeng && claimDistance(player, aiPeng) < claimDistance(player, 'bottom')) {
+        aiPengClaim(aiPeng, tile);
         return;
     }
-    if (canP || canG || chiCombos.length) {
+    // 真人是最近的碰/杠响应者，先给真人操作；点过后再按座位顺序交给 AI。
+    if (humanCanPengGang || chiCombos.length) {
+        // 若真人只有吃，而任一 AI 可碰/杠，则碰/杠优先，不展示吃提示。
+        if (!humanCanPengGang && aiPeng) {
+            aiPengClaim(aiPeng, tile);
+            return;
+        }
         Game.pendingClaim = { tile, fromPlayer: player, canPeng: canP, canGang: canG, chiCombos, mode: 'claim' };
         Game.setPhase(Game.PHASE.CLAIM_PROMPT, 'checkClaimOrAdvance');
         const options = [canG ? '杠' : null, canP ? '碰' : null, chiCombos.length ? '吃' : null].filter(Boolean).join('/');
@@ -608,7 +632,10 @@ function checkClaimOrAdvance(player, tile) {
         Game.logFlow('可以' + options + '，点确认执行 / 点过');
         return;
     }
-    resolveAiPengOrAdvance(player, tile);
+    if (aiPeng) { aiPengClaim(aiPeng, tile); return; }
+    const chi = findAiChi(player, tile);
+    if (chi) { aiChiClaim(chi.player, tile, chi.combo); return; }
+    advanceTurn();
 }
 
 function advanceTurn() {

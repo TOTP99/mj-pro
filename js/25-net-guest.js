@@ -92,12 +92,27 @@ Game.netGuestApplyState = function (snap) {
             Game.lastDrawnTile.bottom = Game.hands.bottom[Game.lastDrawnIndex];
         if (!Game.netPrompt) Game.pendingClaim = null;
         Game.netNames = snap.names || {};
+        // 开局标志：优先用快照 started；兼容旧房主仅靠手牌/牌墙推断（房间面板据此显示"对局进行中"）
+        if (snap.started || (snap.hand && snap.hand.length) || snap.gameOver) Game.net.started = true;
+        if (typeof snap.fieldCount === 'number') { // 局/风/圈 以房主为准，不读客人本机的单机数据
+            Game.fieldGameCount = snap.fieldCount;
+            Game.fieldActive = !!snap.fieldActive;
+            try { if (typeof Game.renderFieldAmounts === 'function') Game.renderFieldAmounts(); } catch (e2) {}
+        }
         // 新局开始（非结束态）：收起上一局残留的结算弹窗；开局后关掉等待大厅
         if (!snap.gameOver) {
             try { var rm = Game.$('result-modal'); if (rm && rm.classList.contains('show')) rm.classList.remove('show'); } catch (e) {}
             Game.lastSettlement = null;
         }
         try { if (Game.netLobbyIsOpen && Game.netLobbyIsOpen() && (snap.hand || []).length) Game.netLobbyClose(); } catch (e) {}
+        if ((snap.hand || []).length) { // 开局后收起本机残留的模式/筹码/规则弹窗（客人不设置这些）
+            try { ['mode-select-modal', 'amount-modal', 'rules-modal'].forEach(function (id) { var m = Game.$(id); if (m) m.classList.remove('show'); }); if (Game.clearSelectGlow) Game.clearSelectGlow(); } catch (e) {}
+        }
+        // 客人本机启动时残留的"请选择模式/筹码"桌面提示：对局开始后清掉
+        try {
+            var tp = Game.$('table-center-prompt');
+            if (tp && tp.classList.contains('show') && (snap.hand || []).length && /^请选择/.test(tp.textContent)) tp.classList.remove('show');
+        } catch (e) {}
         Game.requestRender('netGuest/state');
         try { Game.netRefreshAvatarBadges(); } catch (e) {}
     } catch (e) { /* 快照异常不炸，下一帧会再来 */ }
@@ -108,7 +123,7 @@ Game.netGuestOnMsg = function (d) {
     if (!Game.net || Game.net.role !== 'guest') return;
     if (d.t === 'state') Game.netGuestApplyState(d.snap);
     else if (d.t === 'prompt') onPrompt(d);
-    else if (d.t === 'seats') { Game.net.seats = d.seats; if (typeof Game.netLobbyRender === 'function') Game.netLobbyRender(); }
+    else if (d.t === 'seats') { Game.net.seats = d.seats; if (typeof Game.netLobbyRender === 'function') Game.netLobbyRender(); try { Game.netRefreshAvatarBadges(); } catch (e) {} }
     else if (d.t === 'toast') { try { Game.logFlow('[联机] ' + d.text); if (Game.netToastUI) Game.netToastUI(String(d.text).slice(0, 60)); } catch (e) {} }
     else if (d.t === 'auto') setAutoBanner(!!d.on);
     else if (d.t === 'result') onResult(d);
@@ -223,6 +238,7 @@ Game.netGuestOnConnLost = function () {
 };
 
 Game.netGuestCleanup = function () {
+    try { var ab = Game.$('btn-toggle-adjust'); if (ab) ab.style.display = ''; } catch (e) {}
     Game.netPrompt = null;
     try { Game.netGuestStopReconnect(); Game.netCountdownHide(); } catch (e) {}
     Game.netClaimIntent = Game._netHostClaimIntent || null; // 还给房主版本，别置空
@@ -317,7 +333,15 @@ function onResult(d) {
             d.result.payouts = vp;
             if (d.result.noKaimenPlayers) d.result.noKaimenPlayers = d.result.noKaimenPlayers.map(viewOf);
         }
+        // detail 里的"XX 点炮"是房主视角的座位名，按客人视角重写
+        try {
+            if (d.mode === 'dianpao' && payer && d.result && typeof d.result.detail === 'string') {
+                var ix = d.result.detail.indexOf(' 点炮');
+                if (ix > 0) d.result.detail = Game.nameOf(payer) + d.result.detail.slice(ix);
+            }
+        } catch (e3) {}
         Game.showResultModal(w, d.mode, payer, d.bonus, d.result, d.tile);
+        try { var ab = Game.$('btn-toggle-adjust'); if (ab) ab.style.display = 'none'; } catch (e2) {} // 客人不能手动调分，分数以房主为准
     } catch (e) {}
 }
 

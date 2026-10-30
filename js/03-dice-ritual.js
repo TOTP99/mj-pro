@@ -192,6 +192,7 @@ function startDiceDealerRitual() {
 }
 
 function startDiceRitualWithMode(mode) {
+    if (typeof Game.netGuestBlock === 'function' && Game.netGuestBlock()) return; // 联机客人：由房主设置
     if (Game.diceBusy) return;
     if (Game.$('result-modal') && Game.$('result-modal').classList.contains('show')) return;
     Game.diceBusy = true;

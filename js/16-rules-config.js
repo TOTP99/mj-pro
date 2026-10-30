@@ -233,6 +233,7 @@ function clearSelectGlow() {
 }
 
 function openModeSelect() {
+    if (typeof Game.netGuestBlock === 'function' && Game.netGuestBlock()) return; // 联机客人：由房主设置
     Game.setPhase(Game.PHASE.MODE_SELECT, 'openModeSelect');
     // 标出当前模式（打勾）
     document.querySelectorAll('#mode-select-modal .mode-option').forEach(function (b) {
@@ -257,6 +258,7 @@ function isGameLive() {
 }
 
 function chooseMode(mode) {
+    if (typeof Game.netGuestBlock === 'function' && Game.netGuestBlock()) return; // 联机客人：由房主设置
     hideModal('mode-select-modal');
     clearSelectGlow();
     const gameLive = isGameLive(); // 对局进行中且已开场（且牌桌上真有一局牌）

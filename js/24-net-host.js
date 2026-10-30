@@ -68,6 +68,7 @@ Game.netBroadcastSeats = function () {
     if (!isHost()) return;
     Game.netBroadcast({ t: 'seats', seats: Game.netPublicSeats() });
     if (typeof Game.netLobbyRender === 'function') Game.netLobbyRender();
+    try { Game.netRefreshAvatarBadges(); } catch (e) {}
 };
 
 /** 构造给某客人的快照（只含他自己的手牌） */
@@ -81,7 +82,9 @@ function buildSnapshot(forSeat) {
         handCounts: {}, melds: {}, scores: {}, names: {},
         hand: null, drawnIdx: null,
         gameOver: !!Game.gameOver, winner: Game.winner || null,
-        fieldActive: !!Game.fieldActive
+        fieldActive: !!Game.fieldActive,
+        fieldCount: Game.fieldGameCount || 0,
+        started: !!Game.net.started
     };
     SEATS.forEach(function (s) {
         snap.handCounts[s] = ((Game.hands && Game.hands[s]) || []).length;
@@ -114,6 +117,28 @@ Game.netBroadcastState = function (immediate) {
 Game.netHostSyncGuest = function (seat, resumed) {
     try { Game.net.conns[seat].send({ t: 'state', snap: buildSnapshot(seat) }); } catch (e) {}
     if (!resumed) Game.netToast(seatName(seat) + ' 加入对局（当前对局继续）');
+    else Game.netHostResendPrompt(seat);
+};
+
+/** 断线重连后：若房主正在等这个座位，补发当前要约（剩余时间），否则重连者要干等到超时 */
+Game.netHostResendPrompt = function (seat) {
+    var now = Date.now();
+    Object.keys(_awaits).forEach(function (id) {
+        var a = _awaits[id];
+        if (a.seat !== seat) return;
+        var left = a.deadline - now;
+        if (left < 1500) return;
+        Game.netSendTo(seat, Object.assign({ t: 'prompt', id: id, ms: left }, a.msg));
+        Game.netLog('host:resend-prompt', seat + ' ' + a.msg.kind);
+    });
+};
+
+/** 房主锁房/解锁：锁房后不收新人（令牌重连不受影响） */
+Game.netSetLocked = function (on) {
+    if (!isHost()) return;
+    Game.net.locked = !!on;
+    Game.netLog('host:lock', !!on);
+    if (typeof Game.netLobbyRender === 'function') Game.netLobbyRender();
 };
 
 /** 客人掉线：座位转 AI；若正等他，做 AI 兜底 */
@@ -153,11 +178,14 @@ function awaitIntent(seat, msg, timeoutMs) {
         Game.netSendTo(seat, Object.assign({ t: 'prompt', id: id, ms: timeoutMs }, msg));
         var timer = setTimeout(function () {
             delete _awaits[id]; delete Game.netOffers[seat];
-            noteTimeout(seat);
+            // 吃碰杠要约超时＝默认"过"，不算挂机（否则不想吃碰又没点过的人会被误托管）
+            if (msg.kind !== 'claim') noteTimeout(seat);
             resolve({ timeout: true });
         }, timeoutMs);
         _awaits[id] = {
             seat: seat,
+            msg: msg,
+            deadline: Date.now() + timeoutMs,
             resolve: function (r) {
                 clearTimeout(timer); delete _awaits[id]; delete Game.netOffers[seat];
                 if (Game.gameEpoch !== epoch) resolve({ epochChanged: true });
@@ -193,7 +221,9 @@ function hostDropSeatBye(seat) {
 
 // ---------- 下一局门闩：等真人客人看完结算（ready）或超时 ----------
 Game.netHostStartGate = function (proceed) {
-    if (!isHost() || !Game.net.started || !Game.gameOver) return false;
+    if (!isHost()) return false;
+    if (Game.netGetPhase() !== 'settling') return false; // 只在结算阶段有门闩
+    if (!Game.net.started || !Game.gameOver) return false;
     if (Game.net._gate) return true; // 已在等，忽略重复点击
     function pending() { return SEATS.filter(function (s) { return isRemoteHuman(s) && Game.net.ready[s] !== Game.gameEpoch; }); }
     var first = pending();
@@ -231,8 +261,10 @@ Game.netRevealRemote = function (player, kind) {
         if (Game.gameEpoch !== epoch || Game.gameOver) return;
         var accept = r.intent && r.intent.kind === 'reveal' && r.intent.accept;
         if (accept) {
-            if (!Game.applyReveal(player, kind)) { Game.netBroadcastState(true); return; }
+            var ok = Game.applyReveal(player, kind);
             Game.netBroadcastState(true);
+            // 无补牌位时 applyReveal 不动牌、不流局：继续该座位回合（等出牌）
+            if (!ok && Game.gameOver) return;
         }
         Game.continueAfterFirstTurnCheck(player);
     })();
@@ -243,6 +275,7 @@ Game.netRevealRemote = function (player, kind) {
 function selfGangOptions(player) {
     var out = [];
     if (Game.gameOver) return out;
+    if (!Game.hasReplacementSlot()) return out; // 补牌位检查（统一收口）：无补牌位不提供杠选项
     (Game.exposedMelds[player] || []).forEach(function (meld) {
         if (meld.type === 'peng' && Game.hands[player].indexOf(meld.tiles[0]) >= 0)
             out.push({ tile: meld.tiles[0], kind: 'jia' });
@@ -319,9 +352,13 @@ function doSelfGang(player, tile, kind, epoch) {
             settleRon(robber, player, tile, true);
             return;
         }
+        // 抢杠无人胡 → 再查补牌位：无补牌位不执行加杠，回等出牌
+        if (!Game.hasReplacementSlot()) { hostAwaitTurn(player); return; }
         Game.TileFlow.addGang(player, tile);
     } else {
         if ((Game.exposedMelds[player] || []).length >= 3) { hostAwaitTurn(player); return; }
+        // 补牌位检查（统一收口）：无补牌位不执行暗杠，回等出牌
+        if (!Game.hasReplacementSlot()) { hostAwaitTurn(player); return; }
         Game.TileFlow.meld(player, 'gang', [tile, tile, tile, tile], { concealed: true });
     }
     Game.logFlow(seatName(player) + (kind === 'jia' ? ' 加杠 ' : ' 暗杠 ') + Game.tileGlyph(tile) + '，补牌中...');
@@ -445,7 +482,8 @@ function _claims(discarder, tile, epoch) {
                 }
             } else {
                 o.peng = Game.canPeng(Game.hands[s], tile);
-                o.gang = Game.canGang(Game.hands[s], tile);
+                // 补牌位检查（统一收口）：无补牌位时不对真人座位提供杠
+                o.gang = Game.canGang(Game.hands[s], tile) && Game.hasReplacementSlot();
                 if (s === next) o.chiCombos = Game.findChiCombos(Game.hands[s], tile);
             }
             if (o.peng || o.gang || o.chiOne || (o.chiCombos && o.chiCombos.length)) offers.push(o);
@@ -545,6 +583,11 @@ Game.netClaimIntent = Game._netHostClaimIntent = function (action, i) {
 function execClaimWin(win, discarder, tile, epoch) {
     if (Game.gameOver || Game.gameEpoch !== epoch) return;
     var seat = win.seat;
+    // 防御：要约时已守门，此处仅防 stale 杠意图；无补牌位时杠降为碰，不能碰则按过处理
+    if (win.choice === 'gang' && !Game.hasReplacementSlot()) {
+        if (Game.canPeng(Game.hands[seat], tile)) win = { seat: seat, choice: 'peng' };
+        else { Game.advanceTurn(); return; }
+    }
     Game.logFlow(seatName(seat) + ' ' + ({ peng: '碰', gang: '杠', chi: '吃' }[win.choice] || '') + '了 ' + Game.tileGlyph(tile));
     if (isAiLike(seat) && seat !== 'bottom') {
         if (win.choice === 'peng') { Game.aiPengClaim(seat, tile); return; }

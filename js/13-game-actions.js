@@ -67,7 +67,9 @@ function offerHu(ctx) {
 
     const bonus = Game.scoreWinningHand(before, winTile, Game.exposedMelds.bottom, isLastTile);
     const mode = isSelfDraw ? 'selfdraw' : 'dianpao';
-    Game.applyKongBonuses(bonus, 'bottom', mode, payer);
+    // 抢杠不是杠后弃牌点炮，不得叠加「杠后点炮×2」；
+    // 与 AI 抢 AI 加杠的结算路径保持一致。
+    if (!ctx.robGang) Game.applyKongBonuses(bonus, 'bottom', mode, payer);
     Game.gameOver = true;
     Game.winner = 'bottom';
     const result = isSelfDraw
@@ -177,6 +179,8 @@ function callGang() {
     // 明杠：别人打出的牌，手里已有3张（由 acceptClaim 在 canGang 时调用）
     // 加杠/暗杠走 executeSelfGang，不在此重复
     if (!Game.pendingClaim || !Game.pendingClaim.canGang) { Game.logFlow('现在不能杠'); return; }
+    // 补牌位检查（统一收口）：无补牌位不执行明杠，保留提示，玩家可改选碰/吃/过
+    if (!Game.hasReplacementSlot()) { Game.logFlow('牌墙已无补牌位置，不能杠'); return; }
     const { tile, fromPlayer } = Game.pendingClaim;
     Game.TileFlow.claim('bottom', 'gang', [tile, tile, tile], null, { concealed: false });
     Game.pendingClaim = null;

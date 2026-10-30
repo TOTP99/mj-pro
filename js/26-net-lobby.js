@@ -33,10 +33,10 @@ function ensureLobbyDom() {
     statusPill = document.createElement('div');
     statusPill.id = 'net-status-pill';
     statusPill.style.display = 'none';
-    statusPill.title = '点按复制联机诊断信息（反馈问题时发给开发者）';
+    statusPill.title = '点按打开房间面板';
     statusPill.setAttribute('role', 'button');
     statusPill.tabIndex = 0;
-    statusPill.onclick = function () { copyText(Game.netDiag(), '诊断信息已复制'); };
+    statusPill.onclick = function () { Game.netLobbyOpen(); };
     statusPill.onkeydown = function (e) {
         if (e.key === 'Enter' || e.key === ' ') {
             e.preventDefault();
@@ -100,7 +100,9 @@ Game.netShowNotice = netShowNotice;
 // Esc：通知弹窗优先处理次要按钮；大厅关闭
 document.addEventListener('keydown', function (e) {
     if (e.key !== 'Escape') return;
-    if (noticeEl && noticeEl.classList.contains('show')) {
+    if (qrEl && qrEl.classList.contains('show')) {
+        qrEl.classList.remove('show');
+    } else if (noticeEl && noticeEl.classList.contains('show')) {
         var g = noticeEl.querySelector('.hu-btn.ghost');
         if (g) g.click();
         else {
@@ -133,7 +135,10 @@ Game.netToastUI = netToastUI;
 /* ---------- 大厅开关 ---------- */
 Game.netLobbyOpen = function () {
     ensureLobbyDom();
-    renderMain();
+    // 已在房间里：回到当前房间面板（不能再建/加入别的房间）
+    if (Game.net && Game.net.role === 'host') renderHostRoom();
+    else if (Game.net && Game.net.role === 'guest') renderGuestWaiting({ seat: Game.net.seat, seats: Game.net.seats });
+    else renderMain();
     lobbyEl.classList.add('show');
     try {
         var firstBtn = lobbyBody.querySelector('button');
@@ -259,12 +264,46 @@ function renderMain() {
         '<button class="hu-btn net-btn" id="net-go-join">加入房间</button>' +
         '</div>' +
         '<div class="net-row">' +
+        '<button class="hu-btn net-btn ghost" id="net-net-help">网络说明</button>' +
         '<button class="hu-btn net-btn ghost" id="net-lobby-cancel">返回</button>' +
         '</div>';
     $('net-go-create').onclick = renderCreate;
-    $('net-go-join').onclick = renderJoin;
+    $('net-go-join').onclick = function () { renderJoin(); };
+    $('net-net-help').onclick = showNetHelp;
     $('net-lobby-cancel').onclick = Game.netLobbyClose;
     try { $('net-go-create').focus(); } catch (e) {}
+}
+
+/** 是否已配置 TURN（部署配置 net-config.js 或本机 localStorage） */
+function turnConfigured() {
+    function has(list) {
+        return Array.isArray(list) && list.some(function (x) {
+            return x && x.urls && /(^|[\s,\[])turns?:/i.test(Array.isArray(x.urls) ? x.urls.join(',') : String(x.urls));
+        });
+    }
+    try { if (window.QJ_NET_CONFIG && has(window.QJ_NET_CONFIG.ice)) return true; } catch (e) {}
+    try { if (has(JSON.parse(localStorage.getItem('qj_mj_net_ice') || 'null'))) return true; } catch (e) {}
+    return false;
+}
+
+/** 网络说明：连不上时的自查与 TURN 配置指引 */
+function showNetHelp() {
+    var hasTurn = turnConfigured();
+    var body =
+        '联机走 PeerJS 点对点，默认使用公共信令和公共 STUN。\n\n' +
+        '连不上时建议：\n' +
+        '1. 尽量和房主在同一 Wi‑Fi\n' +
+        '2. 关闭 VPN / 代理后重试\n' +
+        '3. 手机流量或公司网络失败属常见现象（对称 NAT），需要 TURN 中继\n\n' +
+        '当前 TURN：' + (hasTurn ? '已配置' : '未配置') + '\n\n' +
+        '部署方（站长）：编辑站点根目录的 net-config.js 填入自建信令与 TURN，步骤见 deploy/README-DEPLOY.md。';
+    netShowNotice('联机网络说明', body, [
+        { text: '知道了' },
+        {
+            text: '复制诊断', primary: false,
+            onClick: function () { copyText(Game.netDiag(), '诊断信息已复制'); }
+        }
+    ]);
 }
 
 /** 用户已取消但那次建房/加入其实成功了：干净退出，避免幽灵座位 */
@@ -323,13 +362,41 @@ function renderCreate() {
     });
 }
 
-function renderJoin() {
+/** 从 URL 读取房间码（?room= / ?code= / #room=），无效返回空串 */
+function readRoomFromUrl() {
+    try {
+        var u = new URL(location.href);
+        var c = u.searchParams.get('room') || u.searchParams.get('code');
+        if (!c && u.hash) {
+            var m = u.hash.match(/(?:^|[&#])room=([A-Za-z0-9]+)/i);
+            if (m) c = m[1];
+        }
+        c = Game.netNormCode(c || '');
+        return Game.netValidCode(c) ? c : '';
+    } catch (e) {
+        return '';
+    }
+}
+
+/** 加入失败时给出可操作的建议 */
+function joinFailTips(errMsg) {
+    var msg = String(errMsg || '加入失败');
+    var tips = '';
+    if (/已在联机房间/.test(msg)) tips = '';
+    else if (/找不到房间|peer-unavailable|无响应|房间码|已锁房/i.test(msg)) tips = '\n\n请确认：房间码正确、房主仍在线、未解散也未锁房。';
+    else if (/网络|连接失败|断开|超时|timeout|ICE|webrtc/i.test(msg)) tips = '\n\n网络建议：尽量同一 Wi‑Fi；关闭 VPN；仍失败请看大厅「网络说明」。';
+    else if (/版本/.test(msg)) tips = '\n\n请双方都强制刷新页面后再试。';
+    return msg + tips;
+}
+
+function renderJoin(prefillCode) {
     var mySeq = ++busySeq;
+    var initialCode = Game.netNormCode(typeof prefillCode === 'string' ? prefillCode : readRoomFromUrl()).slice(0, Game.netCodeLen);
     lobbyBody.innerHTML =
         '<div class="net-label">房间码（房主告诉你的 ' + Game.netCodeLen + ' 位字母数字）</div>' +
         '<input class="net-input net-code-input" id="net-code" maxlength="' + Game.netCodeLen +
         '" autocomplete="off" autocapitalize="characters" spellcheck="false" ' +
-        'aria-label="房间码" placeholder="K7M2QX">' +
+        'aria-label="房间码" placeholder="K7M2QX" value="' + esc(initialCode) + '">' +
         '<div class="net-label">你的名字</div>' +
         '<input class="net-input" id="net-name2" maxlength="12" placeholder="比如：阿虎" ' +
         'value="' + esc(Game.netDefaultName()) + '" autocomplete="nickname" aria-label="你的名字">' +
@@ -340,7 +407,10 @@ function renderJoin() {
         '<div class="net-err" id="net-err"></div>';
     var codeEl = $('net-code');
     var nameEl = $('net-name2');
-    try { codeEl.focus(); } catch (e) {}
+    try {
+        if (initialCode.length >= Game.netCodeLen) nameEl.focus();
+        else codeEl.focus();
+    } catch (e) {}
 
     // 自动转大写、去杂质；满码后聚焦名字；支持粘贴
     function normalizeCodeInput() {
@@ -363,7 +433,7 @@ function renderJoin() {
             return;
         }
         Game.netRememberName(name);
-        setBusy('正在连接房主…', true, function () { renderJoin(); });
+        setBusy('正在连接房主…', true, function () { renderJoin(code); });
         Game.netJoinRoom(code, name).then(function (r) {
             if (mySeq !== busySeq) {
                 dropStaleNet(r);
@@ -373,13 +443,13 @@ function renderJoin() {
                 renderGuestWaiting(r.welcome);
                 if (typeof Game.netGuestInit === 'function') Game.netGuestInit(r.welcome);
             } else {
-                setErr(r.err || '加入失败');
-                renderJoin();
+                clearBusy();
+                setErr(joinFailTips(r.err || '加入失败')); // 不重绘页面，已填的房间码和名字保留
             }
         }).catch(function (err) {
             if (mySeq !== busySeq) return;
-            setErr('加入异常：' + (err && err.message ? err.message : err));
-            renderJoin();
+            clearBusy();
+            setErr(joinFailTips('加入异常：' + (err && err.message ? err.message : err)));
         });
     };
     $('net-back2').onclick = renderMain;
@@ -415,30 +485,138 @@ function copyText(text, okMsg) {
     }
 }
 
+/** 邀请链接：同页面 + ?room=房间码（朋友打开自动预填） */
+function getShareUrl(code) {
+    code = Game.netNormCode(code || (Game.net && Game.net.code) || '');
+    if (!code) return '';
+    try {
+        var u = new URL(location.href);
+        u.search = '';
+        u.hash = '';
+        u.searchParams.set('room', code);
+        return u.toString();
+    } catch (e) {
+        return (location.origin || '') + (location.pathname || '/') + '?room=' + encodeURIComponent(code);
+    }
+}
+function copyShareLink() {
+    var code = Game.net && Game.net.code;
+    if (!code) return;
+    var url = getShareUrl(code);
+    if (!url) { copyRoomCode(); return; }
+    copyText(url, '邀请链接已复制，朋友打开即可填入房间码');
+}
+function copyShareInvite() {
+    var code = Game.net && Game.net.code;
+    if (!code) return;
+    var url = getShareUrl(code);
+    copyText('来打麻将！房间码 ' + code + (url ? '\n' + url : ''), '邀请文案已复制（含房间码+链接）');
+}
+
+/** 二维码弹窗：朋友用手机相机/微信扫一扫即可打开加入页（链接带 ?room=） */
+var qrEl = null;
+function qrSvg(text) {
+    var q = (window.QJQR && window.QJQR.make) ? window.QJQR.make(text) : null;
+    if (!q) return '';
+    var quiet = 4, n = q.size + quiet * 2, d = '';
+    for (var r = 0; r < q.size; r++) {
+        for (var c = 0; c < q.size; c++) {
+            if (q.isDark(r, c)) d += 'M' + (c + quiet) + ' ' + (r + quiet) + 'h1v1h-1z';
+        }
+    }
+    return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ' + n + ' ' + n + '" shape-rendering="crispEdges" role="img" aria-label="房间二维码">' +
+        '<rect width="100%" height="100%" fill="#fff"/><path d="' + d + '" fill="#000"/></svg>';
+}
+function showQr() {
+    var code = Game.net && Game.net.code;
+    if (!code) return;
+    var url = getShareUrl(code);
+    var svg = qrSvg(url);
+    if (!svg) { netShowNotice('二维码生成失败', '请改用「复制链接」或直接发房间码：' + code, [{ text: '知道了' }]); return; }
+    if (!qrEl) {
+        qrEl = document.createElement('div');
+        qrEl.id = 'net-qr-modal';
+        qrEl.setAttribute('role', 'dialog');
+        qrEl.setAttribute('aria-modal', 'true');
+        qrEl.setAttribute('aria-label', '扫码加入');
+        qrEl.addEventListener('click', function (e) { if (e.target === qrEl) qrEl.classList.remove('show'); });
+        document.body.appendChild(qrEl);
+    }
+    var secure = /^https:/i.test(url) || /^http:\/\/(localhost|127\.0\.0\.1)/i.test(url);
+    var warn = /^https:/i.test(url) ? '' :
+        '<div class="net-qr-warn">当前不是 HTTPS 公网地址，朋友的手机可能打不开；请先把游戏部署到网上，或直接发房间码。</div>';
+    qrEl.innerHTML =
+        '<div class="hu-box net-qr-box">' +
+        '<div class="hu-title">扫码加入</div>' +
+        '<div class="net-qr-img">' + svg + '</div>' +
+        '<div class="net-qr-code">' + esc(code) + '</div>' +
+        '<div class="net-qr-hint">朋友用手机相机或微信「扫一扫」即可打开加入页</div>' +
+        warn +
+        '<div class="net-row"><button type="button" class="hu-btn net-btn" id="net-qr-close">关闭</button></div>' +
+        '</div>';
+    qrEl.classList.add('show');
+    $('net-qr-close').onclick = function () { qrEl.classList.remove('show'); };
+    try { $('net-qr-close').focus(); } catch (e) {}
+}
+Game.netShowQr = showQr;
+
 function copyRoomCode() {
     var code = Game.net && Game.net.code;
     if (!code) return;
     copyText(code, '房间码已复制，发给朋友来加入吧');
 }
 
+/** 建房后静默尝试把邀请文案放进剪贴板（需浏览器允许；失败不打扰） */
+function autoCopyInvite() {
+    try {
+        var code = Game.net && Game.net.code;
+        if (!code || !navigator.clipboard || !navigator.clipboard.writeText) return;
+        var url = getShareUrl(code);
+        navigator.clipboard.writeText('来打麻将！房间码 ' + code + (url ? '\n' + url : '')).then(function () {
+            netToastUI('邀请已自动复制，直接粘贴发给朋友');
+        }, function () {});
+    } catch (e) {}
+}
+
+var hostRoomShown = '';
 function renderHostRoom() {
     busySeq++;
     lobbyBody.innerHTML =
         '<div class="net-label">房间码（点按复制，发给朋友）</div>' +
         '<button type="button" class="net-code-btn" id="net-code-copy" aria-label="复制房间码">' +
         esc(Game.net.code) + '</button>' +
-        '<div class="net-copy-hint">点按房间码复制</div>' +
+        '<div class="net-copy-hint">点房间码复制 · 也可复制链接发给朋友</div>' +
+        '<div class="net-share-box">' +
+        '<button type="button" class="net-qr-inline" id="net-show-qr" aria-label="放大二维码" title="点按放大">' + qrSvg(getShareUrl(Game.net.code)) + '</button>' +
+        '<div class="net-share-btns">' +
+        '<div class="net-qr-tip">朋友扫码即可自动加入</div>' +
+        '<button type="button" class="hu-btn net-btn ghost" id="net-copy-link">复制链接</button>' +
+        '<button type="button" class="hu-btn net-btn ghost" id="net-copy-invite">复制邀请</button>' +
+        '</div></div>' +
         '<div id="net-seats-wrap">' + seatsHtml(Game.net.seats) + '</div>' +
+        '<div class="net-sticky">' +
+        (Game.net.started
+            ? '<div class="net-row"><button class="hu-btn net-btn" id="net-back-table">返回牌桌</button></div>'
+            : '<div class="net-row">' +
+              '<button class="hu-btn net-btn" id="net-start-daily">日常开局</button>' +
+              '<button class="hu-btn net-btn" id="net-start-adv">高阶开局</button>' +
+              '</div>') +
         '<div class="net-row">' +
-        '<button class="hu-btn net-btn" id="net-start-daily">日常开局</button>' +
-        '<button class="hu-btn net-btn" id="net-start-adv">高阶开局</button>' +
-        '</div>' +
-        '<div class="net-row">' +
+        '<button class="hu-btn net-btn ghost" id="net-lock">锁房</button>' +
+        '<button class="hu-btn net-btn ghost" id="net-diag">复制诊断</button>' +
         '<button class="hu-btn net-btn ghost" id="net-leave1">解散房间</button>' +
-        '</div>';
+        '</div></div>';
     $('net-code-copy').onclick = copyRoomCode;
-    $('net-start-daily').onclick = function () { hostStart('daily'); };
-    $('net-start-adv').onclick = function () { hostStart('advanced'); };
+    $('net-copy-link').onclick = copyShareLink;
+    $('net-copy-invite').onclick = copyShareInvite;
+    $('net-show-qr').onclick = showQr;
+    if (hostRoomShown !== Game.net.code) { hostRoomShown = Game.net.code; autoCopyInvite(); }
+    if ($('net-start-daily')) $('net-start-daily').onclick = function () { hostStart('daily'); };
+    if ($('net-start-adv')) $('net-start-adv').onclick = function () { hostStart('advanced'); };
+    if ($('net-back-table')) $('net-back-table').onclick = Game.netLobbyClose;
+    $('net-lock').onclick = function () { Game.netSetLocked(!Game.net.locked); };
+    $('net-diag').onclick = function () { copyText(Game.netDiag(), '诊断信息已复制'); };
+    updateLockBtn();
     $('net-leave1').onclick = function () {
         netShowNotice('解散房间', '确定解散房间吗？所有客人将被断开。', [
             {
@@ -455,6 +633,11 @@ function renderHostRoom() {
     wireKickButtons();
     updatePill();
     try { $('net-code-copy').focus(); } catch (e) {}
+}
+
+function updateLockBtn() {
+    var b = $('net-lock');
+    if (b && Game.net) b.textContent = Game.net.locked ? '解锁' : '锁房';
 }
 
 function hostStart(mode) {
@@ -481,11 +664,16 @@ function renderGuestWaiting(welcome) {
         esc(Game.net.code) + '</b></div>' +
         '<div class="net-label">你是：<b>' + esc(seatLabel(welcome.seat)) + '</b></div>' +
         '<div id="net-seats-wrap">' + seatsHtml(welcome.seats || Game.net.seats) + '</div>' +
-        '<div class="net-spinner" aria-hidden="true"></div>' +
-        '<div class="net-busy-text">等待房主开始游戏…</div>' +
-        '<div class="net-row">' +
+        (Game.net.started
+            ? '<div class="net-busy-text">对局进行中</div>'
+            : '<div class="net-spinner" aria-hidden="true"></div><div class="net-busy-text">等待房主开始游戏…</div>') +
+        '<div class="net-sticky"><div class="net-row">' +
+        (Game.net.started ? '<button class="hu-btn net-btn" id="net-back-table2">返回牌桌</button>' : '') +
+        '<button class="hu-btn net-btn ghost" id="net-diag2">复制诊断</button>' +
         '<button class="hu-btn net-btn ghost" id="net-leave2">离开房间</button>' +
-        '</div>';
+        '</div></div>';
+    if ($('net-back-table2')) $('net-back-table2').onclick = Game.netLobbyClose;
+    $('net-diag2').onclick = function () { copyText(Game.netDiag(), '诊断信息已复制'); };
     $('net-leave2').onclick = function () {
         netShowNotice('离开房间', '确定离开吗？需要重新加入才能继续。', [
             {
@@ -546,6 +734,7 @@ Game.netLobbyRender = function () {
         w.innerHTML = seatsHtml(Game.net.seats);
         wireKickButtons();
     }
+    updateLockBtn();
     updatePill();
 };
 
@@ -570,6 +759,11 @@ function setBusy(t, cancellable, onCancel) {
     }
 }
 
+function clearBusy() {
+    var e = $('net-err');
+    if (e) { e.className = 'net-err'; e.textContent = ''; }
+}
+
 function setErr(t) {
     var e = $('net-err');
     if (e) {
@@ -585,7 +779,7 @@ function updatePill() {
         statusPill.className = '';
         var role = Game.net.role === 'host' ? '房主' : '客人';
         var extra = Game.net.role === 'host'
-            ? '·' + humanCount(Game.net.seats) + '/4人'
+            ? '·' + humanCount(Game.net.seats) + '/4人' + (Game.net.locked ? '·已锁' : '')
             : '';
         statusPill.textContent =
             '联机中·' + role + '·' + seatLabel(Game.net.seat) +
@@ -640,10 +834,40 @@ function injectEntry() {
     box.appendChild(b);
 }
 
+/** 深链（扫码 / 点链接）：带 ?room= 打开页面 → 自动加入，无需再点；失败则停在预填好的加入页 */
+function autoJoinName() {
+    var n = '';
+    try { n = Game.netCleanName(Game.netDefaultName(), ''); } catch (e) {}
+    if (!n) n = '客人' + String(Math.floor(10 + Math.random() * 90)); // 没填过名字：给个默认名
+    return n;
+}
+function tryDeepLinkJoin() {
+    if (Game.net) return;
+    var code = readRoomFromUrl();
+    if (!code || !Game.netPeerJsReady()) return;
+    try {
+        var m = $('mode-select-modal');
+        if (m) m.classList.remove('show');
+    } catch (e) {}
+    ensureLobbyDom();
+    renderJoin(code);
+    lobbyEl.classList.add('show');
+    var nameEl = $('net-name2');
+    if (nameEl && !nameEl.value) nameEl.value = autoJoinName();
+    try { history.replaceState(null, '', location.pathname); } catch (e) {} // 地址栏去掉 ?room=，刷新不会重复自动加入
+    netToastUI('正在加入房间 ' + code + '…');
+    var btn = $('net-do-join');
+    if (btn) btn.click();
+}
+
 if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', injectEntry);
+    document.addEventListener('DOMContentLoaded', function () {
+        injectEntry();
+        setTimeout(tryDeepLinkJoin, 1200);
+    });
 } else {
     injectEntry();
+    setTimeout(tryDeepLinkJoin, 1200);
 }
 // 兜底：弹窗可能是后渲染的
 setTimeout(injectEntry, 800);
