@@ -132,7 +132,7 @@
 .net-copy-hint { text-align: center; font-size: 12px; color: var(--text-muted); margin-bottom: 6px; }
 
 /* ---- 座位表 v2：头像 + 名字 + 状态 ---- */
-.net-seats { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 10px 0 4px; }
+.net-seats { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin: 10px 0 4px; }
 .net-seat {
     position: relative; display: flex; align-items: center; gap: 8px;
     font-size: 13px; padding: 8px; border-radius: 10px; text-align: left;
@@ -204,4 +204,82 @@
     .net-spinner, #net-countdown.warn { animation: none; }
     .net-seat-enter { animation: none; }
     #net-toast { transition: none; }
+}
+
+
+/* ---- v4.5.4 修复：窄屏/矮屏不裁切，操作栏钉底，长名字省略 ---- */
+.net-seat { min-width: 0; overflow: hidden; }
+.net-seat .net-seat-sub { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.net-kick { margin-left: auto; }
+.net-sticky {
+    position: sticky; bottom: 0; z-index: 2; margin-top: 10px; padding-top: 8px;
+    background: linear-gradient(to bottom, rgba(10, 16, 24, 0), rgba(10, 16, 24, 0.96) 22%);
+}
+.net-sticky .net-row { margin-top: 8px; }
+.net-sticky .net-btn { min-width: 0; padding-left: 0.4em; padding-right: 0.4em; }
+@media (max-height: 560px) {
+    .net-code-btn { font-size: 26px !important; padding: 6px 8px !important; letter-spacing: 6px !important; }
+    .net-copy-hint, .net-label { margin-top: 2px; margin-bottom: 2px; }
+    .net-lobby-box { width: min(94vw, 520px); }
+}
+/* 联机房间需要比普通弹窗更高（座位表 + 操作栏），覆盖 04 里 300px 上限 */
+.hu-box.net-lobby-box { max-height: min(88vh, 580px); }
+@media (max-height: 560px) { .hu-box.net-lobby-box { max-height: 94vh; } }
+
+/* 次要按钮加描边，避免像纯文字一样不像可点 */
+.net-sticky .net-btn.ghost { border: 1px solid rgba(255, 255, 255, 0.22); border-radius: 10px; }
+
+/* 牌桌上的真人昵称（头像下方，单行省略） */
+.net-nick {
+    display: block; max-width: 84px; margin-top: 1px; padding: 0 6px;
+    font-size: 11px; line-height: 1.4; color: var(--gold-light, #ffd75e);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    text-align: center; pointer-events: none;
+}
+
+/* 真人昵称：头像下方小标签，长名省略 */
+.net-nick {
+    display: block; max-width: 72px; margin-top: 1px; padding: 0 6px;
+    font-size: 10px; line-height: 1.5; color: #e9f4ee; text-align: center;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    background: rgba(8, 16, 22, 0.72); border: 1px solid rgba(143, 220, 174, 0.35);
+    border-radius: 8px; pointer-events: none;
+}
+
+/* 分享行：复制链接 / 复制邀请 */
+.net-share-row { margin-top: 6px; gap: 8px; }
+.net-share-row .net-btn { font-size: 13px; min-height: 40px; padding: 0.5em 0.8em; border: 1px solid rgba(255, 255, 255, 0.22); border-radius: 10px; }
+
+/* 房主面板：内联二维码 + 分享按钮 */
+.net-share-box { display: flex; align-items: center; gap: 12px; margin: 6px 0 8px; }
+.net-qr-inline {
+    flex: 0 0 auto; width: 112px; height: 112px; padding: 0; border: 3px solid #fff; border-radius: 8px;
+    background: #fff; cursor: pointer; line-height: 0; overflow: hidden;
+}
+.net-qr-inline svg { width: 100%; height: 100%; display: block; }
+.net-share-btns { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+.net-share-btns .net-btn { width: 100%; min-width: 0; font-size: 13px; min-height: 38px; padding: 0.4em 0.6em; border: 1px solid rgba(255,255,255,0.22); border-radius: 10px; }
+.net-qr-tip { font-size: 12px; color: var(--text-muted, #9db3ad); text-align: center; }
+
+/* 二维码放大弹窗 */
+#net-qr-modal {
+    display: none; position: fixed; inset: 0; z-index: 10050; align-items: center; justify-content: center;
+    background: rgba(0, 0, 0, 0.66); padding: 16px; box-sizing: border-box;
+}
+#net-qr-modal.show { display: flex; }
+.net-qr-box { width: min(86vw, 340px); text-align: center; }
+.net-qr-img { width: min(64vw, 260px); margin: 6px auto; background: #fff; padding: 6px; border-radius: 10px; line-height: 0; }
+.net-qr-img svg { width: 100%; height: auto; display: block; }
+.net-qr-code { font-size: 22px; letter-spacing: 6px; font-weight: 700; color: var(--gold-light, #ffd75e); margin-top: 6px; }
+.net-qr-hint { font-size: 12px; color: var(--text-muted, #9db3ad); margin: 4px 0 6px; }
+.net-qr-warn { font-size: 12px; color: #ffb4b4; margin: 4px 0 6px; }
+@media (max-height: 560px) { .net-qr-img { width: min(40vh, 200px); } }
+
+/* 矮屏（横屏手机）：二维码缩小、去掉提示，给座位表和按钮留空间；固定栏底部不透字 */
+.net-sticky { background: linear-gradient(to bottom, rgba(10, 16, 24, 0), rgba(10, 16, 24, 1) 14%); }
+@media (max-height: 560px) {
+    .net-qr-inline { width: 84px; height: 84px; }
+    .net-qr-tip { display: none; }
+    .net-share-btns { flex-direction: row; gap: 8px; }
+    .net-share-box { margin: 4px 0; }
 }
