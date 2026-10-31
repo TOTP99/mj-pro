@@ -239,60 +239,51 @@ function aiDiscard(player) {
     if (Game.gameOver) return;
     const hand = Game.hands[player];
     if (hand.length === 0) { advanceTurn(); return; } // 防御性检查：正常情况下不会发生
-    // AI 加杠 / 暗杠：未听牌时执行（加杠需处理抢杠；暗杠不计抢杠）
-    // 补牌位检查（统一收口）：无补牌位时跳过杠，直接按保牌策略出牌
-    if (!Game.isTenpai(player) && Game.hasReplacementSlot()) {
-        for (const meld of Game.exposedMelds[player]) {
-            if (meld.type === 'peng' && hand.includes(meld.tiles[0])) {
-                const gTile = meld.tiles[0];
-                const robber = findRonPriority(player, gTile);
-                if (robber) {
-                    if (robber === 'bottom') {
-                        // 抢杠的牌直接转给 bottom（offerHu 内原子完成），不在此先拆
-                        Game.offerHu({ mode: 'dianpao', tile: gTile, fromPlayer: player, robGang: true });
-                        return;
-                    }
-                    Game.TileFlow.transfer(player, robber, gTile);
-                    Game.gameOver = true;
-                    Game.winner = robber;
-                    const before = [...Game.hands[robber]];
-                    before.splice(before.indexOf(gTile), 1);
-                    const bonus = Game.scoreWinningHand(before, gTile, Game.exposedMelds[robber], false);
-                    const result = Game.settleScore(robber, 'dianpao', player, bonus);
-                    Game.clearKongFlags();
-                    Game.logFlow(Game.nameOf(robber) + ' 抢杠胡了 ' + Game.nameOf(player) + '！' + result.detail);
-                    Game.speak('胡了，' + Game.voiceName(player) + '点炮');
-                    Game.learnFromWin(robber, player, { fan: bonus.mult, turns: Game.handTurnCount });
-                    Game.requestRender('aiDiscard/rob');
-                    Game.showResultModal(robber, 'dianpao', player, bonus, result, gTile);
-                    return;
-                }
-                Game.TileFlow.addGang(player, gTile);
-                Game.logFlow(Game.nameOf(player) + ' 加杠 ' + Game.tileGlyph(gTile));
-                Game.speak('杠' + Game.tileName(gTile));
-                Game.sfx.gang(); Game.feel.banner('杠！');
-                Game.requestRender('aiDiscard/jia');
-                aiDrawReplacement(player);
+    // AI 加杠 / 暗杠：由 aiPickSelfGang 统一决策（补牌位、不破坏牌型、加杠防抢杠风险）；
+    // 加杠需处理抢杠，暗杠不计抢杠。注意：此刻手牌是摸牌后的 14 张，
+    // 旧的 !isTenpai(player) 在这个张数下恒为真（getWinningTilesOf 只认 13 张），属于死条件，已由向听比较取代。
+    const sg = aiPickSelfGang(player);
+    if (sg && sg.type === 'jia') {
+        const gTile = sg.tile;
+        const robber = findRonPriority(player, gTile);
+        if (robber) {
+            if (robber === 'bottom') {
+                // 抢杠的牌直接转给 bottom（offerHu 内原子完成），不在此先拆
+                Game.offerHu({ mode: 'dianpao', tile: gTile, fromPlayer: player, robGang: true });
                 return;
             }
+            Game.TileFlow.transfer(player, robber, gTile);
+            Game.gameOver = true;
+            Game.winner = robber;
+            const before = [...Game.hands[robber]];
+            before.splice(before.indexOf(gTile), 1);
+            const bonus = Game.scoreWinningHand(before, gTile, Game.exposedMelds[robber], false);
+            const result = Game.settleScore(robber, 'dianpao', player, bonus);
+            Game.clearKongFlags();
+            Game.logFlow(Game.nameOf(robber) + ' 抢杠胡了 ' + Game.nameOf(player) + '！' + result.detail);
+            Game.speak('胡了，' + Game.voiceName(player) + '点炮');
+            Game.learnFromWin(robber, player, { fan: bonus.mult, turns: Game.handTurnCount });
+            Game.requestRender('aiDiscard/rob');
+            Game.showResultModal(robber, 'dianpao', player, bonus, result, gTile);
+            return;
         }
-        if (Game.exposedMelds[player].length < 3) {
-            const counts = {};
-            for (const t of hand) counts[t] = (counts[t] || 0) + 1;
-            let gangTile = null;
-            for (const t of Object.keys(counts)) {
-                if (counts[t] >= 4) { gangTile = t; break; }
-            }
-            if (gangTile) {
-                Game.TileFlow.meld(player, 'gang', [gangTile, gangTile, gangTile, gangTile], { concealed: true });
-                Game.logFlow(Game.nameOf(player) + ' 暗杠 ' + Game.tileGlyph(gangTile));
-                Game.speak('杠' + Game.tileName(gangTile));
-                Game.sfx.gang(); Game.feel.banner('杠！');
-                Game.requestRender('aiDiscard/an');
-                aiDrawReplacement(player);
-                return;
-            }
-        }
+        Game.TileFlow.addGang(player, gTile);
+        Game.logFlow(Game.nameOf(player) + ' 加杠 ' + Game.tileGlyph(gTile));
+        Game.speak('杠' + Game.tileName(gTile));
+        Game.sfx.gang(); Game.feel.banner('杠！');
+        Game.requestRender('aiDiscard/jia');
+        aiDrawReplacement(player);
+        return;
+    }
+    if (sg && sg.type === 'an') {
+        const gangTile = sg.tile;
+        Game.TileFlow.meld(player, 'gang', [gangTile, gangTile, gangTile, gangTile], { concealed: true });
+        Game.logFlow(Game.nameOf(player) + ' 暗杠 ' + Game.tileGlyph(gangTile));
+        Game.speak('杠' + Game.tileName(gangTile));
+        Game.sfx.gang(); Game.feel.banner('杠！');
+        Game.requestRender('aiDiscard/an');
+        aiDrawReplacement(player);
+        return;
     }
     // 保牌策略：孤立字牌 > 孤立中张(非4/5/6优先) > ... > 对子最后才拆，同等级优先选不点炮的
     const tile = chooseAiDiscardTile(hand, player);
@@ -352,13 +343,83 @@ function isGoingForTriplets(hand) {
     return true;
 }
 
+// ---------- 杠决策（明杠 / 加杠 / 暗杠） ----------
+// 旧问题：①shouldAiPeng 不看补牌位却按「杠」估 EV，aiPengClaim 无补牌位时又降成碰，判断与执行不一致；
+// ②只拿「杠 vs 不叫」比，杠 EV 略低但碰 EV 更高时直接放弃，白白错过碰；
+// ③杠不检查牌型：4 张里有张在顺子里时，杠会拆掉顺子；④听牌时一刀切不许明杠。
+// 现统一为 pickPengKind（碰/杠选型）+ aiPickSelfGang（自摸后的加杠/暗杠），决策与执行共用。
+
+/** 估计：玩家 p 手里这 3 张 tile 明杠后，听口是否不变（仅听牌中使用）。 */
+function mingGangKeepsWaits(p, tile) {
+    const hand = Game.hands[p], exposed = Game.exposedMelds[p];
+    const before = Game.getWinningTilesOf(hand, exposed, p);
+    if (!before.length) return false;
+    const after = hand.slice();
+    for (let i = 0; i < 3; i++) after.splice(after.indexOf(tile), 1);
+    const exAfter = exposed.concat([{ type: 'gang', tiles: [tile, tile, tile, tile] }]);
+    const w = Game.getWinningTilesOf(after, exAfter, p);
+    return w.length === before.length && before.every(t => w.includes(t));
+}
+
+/** 被叫牌是碰还是杠：手里≥3张且有补牌位时，EV 比较「明杠」与「碰」，且杠不得比碰更伤牌型。
+ *  返回 { kind:'peng'|'gang', r: 该选型的 meldCallEV 结果 }；shouldAiPeng 与 aiPengClaim 共用，保证判断=执行。 */
+function pickPengKind(p, tile) {
+    const cnt = Game.hands[p].filter(x => x === tile).length;
+    const rP = Game.meldCallEV(p, tile, 'peng', null);
+    if (cnt < 3 || !Game.hasReplacementSlot()) return { kind: 'peng', r: rP };
+    let rG;
+    try { rG = Game.meldCallEV(p, tile, 'gang', null); } catch (e) { return { kind: 'peng', r: rP }; }
+    if (rG.evCall > rP.evCall && rG.shanAfter <= rP.shanAfter) return { kind: 'gang', r: rG };
+    return { kind: 'peng', r: rP };
+}
+
+/** 摸牌后的杠：返回 { type:'jia'|'an', tile } 或 null。
+ *  条件：有补牌位；杠后向听不退步（否则拆了顺子）；加杠时按性格回避「对手看起来在听这张」的抢杠风险。 */
+function aiPickSelfGang(player) {
+    if (!Game.hasReplacementSlot()) return null;
+    const hand = Game.hands[player], exposed = Game.exposedMelds[player];
+    const style = aiPersonality[player] || 'shrewd';
+    const robThr = style === 'conservative' ? 0.2 : style === 'shrewd' ? 0.3 : Infinity;
+    const shanBefore = Game.estimateShanten(hand, exposed);
+    const cands = [];
+    for (const meld of exposed) {
+        if (meld.type === 'peng' && hand.includes(meld.tiles[0])) cands.push({ type: 'jia', tile: meld.tiles[0], meld });
+    }
+    if (exposed.length < 3) { // 穷胡：不能手把一
+        const counts = {};
+        for (const t of hand) counts[t] = (counts[t] || 0) + 1;
+        for (const t of Object.keys(counts)) if (counts[t] >= 4) cands.push({ type: 'an', tile: t });
+    }
+    for (const c of cands) {
+        const h2 = hand.slice();
+        let ex2;
+        if (c.type === 'jia') {
+            h2.splice(h2.indexOf(c.tile), 1);
+            ex2 = exposed.map(m => m === c.meld ? { type: 'gang', tiles: [c.tile, c.tile, c.tile, c.tile] } : m);
+        } else {
+            for (let i = 0; i < 4; i++) h2.splice(h2.indexOf(c.tile), 1);
+            ex2 = exposed.concat([{ type: 'gang', tiles: [c.tile, c.tile, c.tile, c.tile], concealed: true }]);
+        }
+        if (Game.estimateShanten(h2, ex2) > shanBefore) continue; // 杠后牌型退步：不杠
+        if (c.type === 'jia' && robThr !== Infinity &&
+            Game.turnOrder.some(o => o !== player && publicDangerVs(player, c.tile, o) >= robThr)) continue; // 防抢杠（公开信息）
+        return { type: c.type, tile: c.tile };
+    }
+    return null;
+}
+Game.aiPickSelfGang = aiPickSelfGang;
+Game.mingGangKeepsWaits = mingGangKeepsWaits;
+Game.pickPengKind = pickPengKind;
+
 /** 是否应该碰/杠：EV 统一比较为主（叫后状态期望 vs 不叫期望，取高者）。
  *  手里 3 张暗 + 这张时按"明杠"算 EV（含补牌期望），否则按"碰"算。
  *  中发白刻子×2番、补穷胡缺项的价值已进 EV（winValue 龙刻加成 / qhDiscount），不再另行加分。
  *  学习偏好（轴1 吃碰激进度 / 轴3 冲特殊牌型）以 EV 点数偏移参与；归因由 findAiPeng 做。 */
 function shouldAiPeng(p, tile, overrides) {
     overrides = overrides || {};
-    if (Game.isTenpai(p)) return false; // 已上听不碰，避免拆听
+    // 已上听不碰，避免拆听；唯一例外：手里已有暗刻、且明杠不动听口时允许杠（规则：听牌等胡时可以杠）
+    const tenpaiNow = Game.isTenpai(p);
+    if (tenpaiNow && Game.hands[p].filter(x => x === tile).length < 3) return false;
     const style = aiPersonality[p] || 'shrewd';
     const learn = Game.aiLearn.confidence[style] || {};
     // conf=轴1(吃碰激进度)的学习值；chaseConf=轴3(特殊牌型追逐)的学习值；两条轴分开学，互不影响
@@ -368,11 +429,13 @@ function shouldAiPeng(p, tile, overrides) {
     if (exposed.length >= 3) return false; // 穷胡：不能手把一
 
     const hand = Game.hands[p];
-    const cnt = hand.filter(x => x === tile).length;
-    const kind = cnt >= 3 ? 'gang' : 'peng';
-    let r;
-    try { r = Game.meldCallEV(p, tile, kind, null); }
+    let r, kind;
+    try { const pk = pickPengKind(p, tile); r = pk.r; kind = pk.kind; }
     catch (e) { return false; }
+    if (tenpaiNow) { // 听牌中：只在选杠、且听口不变、EV 不低于不叫时才杠
+        if (kind !== 'gang' || !mingGangKeepsWaits(p, tile)) return false;
+        return r.evCall > r.evPass;
+    }
 
     // 向听硬轨 + 特殊牌型追逐（AI 3.0 性格引擎）：
     // 静态 chaseSpecialSlack 是"冲碰碰胡时额外容忍的向听损失档数"，学习轴 chaseSpecial 是增量
@@ -509,16 +572,9 @@ function aiPengClaim(p, tile) {
     Game.lastCallTurn[p] = Game.handTurnCount; // 归因细化：记这次碰/杠发生在第几巡
     if (Game.trackAiCall) Game.trackAiCall(p); // AI 3.0 分化度：记一次吃碰
     const cnt = Game.hands[p].filter(x => x === tile).length;
-    // 凑齐3张暗的+这张：EV 比较"明杠（补牌期望+番）"vs"碰（手牌灵活）"，取高者；否则碰
-    // 补牌位检查（统一收口）：无补牌位时不选明杠，直接碰
-    let useGang = cnt >= 3 && Game.hasReplacementSlot();
-    if (useGang) {
-        try {
-            const rG = Game.meldCallEV(p, tile, 'gang', null);
-            const rP = Game.meldCallEV(p, tile, 'peng', null);
-            useGang = rG.evCall > rP.evCall;
-        } catch (e) { useGang = true; }
-    }
+    // 凑齐3张暗的+这张：碰/杠选型与 shouldAiPeng 共用 pickPengKind（含补牌位检查与牌型不退步），判断=执行
+    let useGang = false;
+    if (cnt >= 3) { try { useGang = pickPengKind(p, tile).kind === 'gang'; } catch (e) { useGang = false; } }
     const takeCount = useGang ? 3 : 2;
     Game.TileFlow.claim(p, useGang ? 'gang' : 'peng',
         Array(takeCount).fill(tile), null, useGang ? { concealed: false } : undefined);

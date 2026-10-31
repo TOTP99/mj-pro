@@ -154,7 +154,7 @@ Game.netHostSeatToAI = function (seat) {
 };
 
 // ---------- 等待远端意图 ----------
-var _awaits = {};
+var _awaits = Object.create(null); // 无原型：id 取 "constructor"/"__proto__" 等不会命中原型属性
 var _promptSeq = 0;
 Game.netOffers = {}; // seat -> 当前有效的 claim/reveal/turn offer（校验用）
 

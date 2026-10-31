@@ -263,13 +263,51 @@ Game.netPublicSeats = function () {
 };
 
 // ========== 消息安全校验 ==========
+/** 消息的 UTF-8 字节数（不是 JSON 字符数：中文 3 字节/字，emoji 4 字节，按 length 算会少估 3 倍）。
+ *  序列化失败（循环引用等）按超限处理。 */
+var _utf8Enc = (typeof TextEncoder === 'function') ? new TextEncoder() : null;
+function utf8Len(str) {
+    if (_utf8Enc) return _utf8Enc.encode(str).length;
+    var n = 0; // 无 TextEncoder 的兜底：按码点手算
+    for (var i = 0; i < str.length; i++) {
+        var c = str.charCodeAt(i);
+        if (c < 0x80) n += 1;
+        else if (c < 0x800) n += 2;
+        else if (c >= 0xD800 && c <= 0xDBFF && i + 1 < str.length &&
+                 str.charCodeAt(i + 1) >= 0xDC00 && str.charCodeAt(i + 1) <= 0xDFFF) { n += 4; i++; }
+        else n += 3;
+    }
+    return n;
+}
 function approxMsgBytes(d) {
     try {
-        return JSON.stringify(d).length;
+        var s = JSON.stringify(d);
+        if (typeof s !== 'string') return NET_CONFIG.MAX_MSG_BYTES + 1; // undefined/函数等不可序列化
+        return utf8Len(s);
     } catch (e) {
         return NET_CONFIG.MAX_MSG_BYTES + 1;
     }
 }
+Game.netMsgBytes = approxMsgBytes; // 供测试/诊断
+
+// 白名单查表一律用自有属性：{}[ 'constructor' / 'toString' / '__proto__' ] 在原型链上是真值，会被误放行
+var hasOwn = Object.prototype.hasOwnProperty;
+function ownKey(table, k) {
+    return typeof k === 'string' && hasOwn.call(table, k);
+}
+/** 是否为"普通对象"消息（排除数组、null、带非 Object 原型的实例） */
+function isPlainMsg(d) {
+    // 不用 === Object.prototype：跨 realm（iframe/vm）的 Object.prototype 不是同一个。
+    // 改为"原型是根原型（自己没有原型）"，这样继承了别人字段的对象、类实例都进不来。
+    if (!d || typeof d !== 'object' || Array.isArray(d)) return false;
+    if (Object.prototype.toString.call(d) !== '[object Object]') return false;
+    var proto = Object.getPrototypeOf(d);
+    return proto === null || Object.getPrototypeOf(proto) === null;
+}
+
+// 房主→客人 / 客人→房主 允许的消息类型（自有属性白名单）
+var HOST_MSG_TYPES = { welcome: 1, deny: 1, ping: 1, state: 1, prompt: 1, seats: 1, toast: 1, auto: 1, result: 1, hostbye: 1, kicked: 1 };
+var GUEST_MSG_TYPES = { hello: 1, intent: 1, bye: 1, ready: 1, resume: 1, pong: 1 };
 
 var INTENT_KINDS = { discard: 1, selfgang: 1, claim: 1, reveal: 1 };
 var CHOICES = { peng: 1, gang: 1, chi: 1, pass: 1 };
@@ -280,10 +318,10 @@ function isStr(x, max) {
 
 /** 校验客人 intent 结构（语义合法性由上层 offer 校验负责） */
 Game.netValidIntent = function (d) {
-    if (!d || d.t !== 'intent' || !isStr(d.id, 24) || !d.id || !INTENT_KINDS[d.kind]) return false;
+    if (!isPlainMsg(d) || d.t !== 'intent' || !isStr(d.id, 24) || !d.id || !ownKey(INTENT_KINDS, d.kind)) return false;
     if (d.tile !== undefined && !isStr(d.tile, 6)) return false;
     if (d.kind === 'claim') {
-        if (!CHOICES[d.choice]) return false;
+        if (!ownKey(CHOICES, d.choice)) return false;
         if (d.combo !== undefined && d.combo !== null &&
             !(Number.isInteger(d.combo) && d.combo >= 0 && d.combo < 8)) return false;
     }
@@ -464,7 +502,7 @@ Game.netJoinRoom = function (code, name, opts) {
                 }
             });
             conn.on('data', function (d) {
-                if (done || !d || typeof d !== 'object') return;
+                if (done || !isPlainMsg(d)) return;
                 if (approxMsgBytes(d) > NET_CONFIG.MAX_HOST_MSG_BYTES) return;
                 if (d.t === 'welcome') {
                     if (to) clearTimeout(to);
@@ -534,8 +572,12 @@ function wireHostPeer(peer) {
         }
 
         conn.on('data', function (d) {
-            if (!d || typeof d !== 'object' || typeof d.t !== 'string') {
+            if (!isPlainMsg(d) || typeof d.t !== 'string') {
                 violation('shape');
+                return;
+            }
+            if (!ownKey(GUEST_MSG_TYPES, d.t)) { // 含 'constructor'/'__proto__' 等原型名
+                violation('type:' + String(d.t).slice(0, 16));
                 return;
             }
             if (approxMsgBytes(d) > NET_CONFIG.MAX_MSG_BYTES) {
@@ -806,7 +848,7 @@ function hostDropSeat(seat, reason, keep) {
 function wireGuestConn(conn) {
     acquireWakeLock();
     conn.on('data', function (d) {
-        if (!d || typeof d !== 'object') return;
+        if (!isPlainMsg(d) || !ownKey(HOST_MSG_TYPES, d.t)) return; // 房主只会发白名单类型；其余静默丢弃
         var sz = approxMsgBytes(d);
         if (sz > NET_CONFIG.MAX_HOST_MSG_BYTES) { // 不再静默丢弃：留诊断，便于定位
             Game.netLog('guest:drop-oversize', { t: d.t, bytes: sz });
