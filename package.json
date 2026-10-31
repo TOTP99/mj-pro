@@ -1,8 +1,8 @@
 {
   "name": "mahjong-net",
-  "version": "4.5.7",
+  "version": "4.5.8",
   "private": true,
-  "description": "极简麻将 v4.5.7 — 联机（PeerJS）商业化加固版（23/26-net 已升级）",
+  "description": "极简麻将 v4.5.8 — 联机（PeerJS）商业化加固版（结构清理：删打包夹带与死代码，版本号收口）",
   "scripts": {
     "test": "npm run test:unit",
     "test:unit": "node tests/net-fixes.test.cjs && node tests/net-protocol.test.cjs && node tests/net-hardening.test.cjs && node tests/net-msg-validation.test.cjs && node tests/net-state.test.cjs && node tests/qr.test.cjs && node tests/net-config.test.cjs && node tests/ai-adaptive.test.cjs && node tests/ai-gang-decision.test.cjs && node tests/ai-adaptive-property.test.cjs && node tests/ai-decision-coordination.test.cjs && node tests/ai-opponent-inference.test.cjs && node tests/engine-rules.test.cjs && node tests/rob-kong-settlement.test.cjs && node tests/replacement-slot.test.cjs && node tests/net-reveal-after-kong.test.cjs",
