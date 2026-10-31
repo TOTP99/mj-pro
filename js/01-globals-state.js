@@ -449,10 +449,12 @@ function validateSavedSnapshot(saved) {
     return saved.gameOver || totalTilesOf(saved) === FULL_DECK_SIZE;
 }
 Game._lastTileWarnKey = '';
+/** 测试桩可设 Game.quietTileCheck = true，避免不完整手牌状态刷 [tile-check] 警告 */
 function checkTileConservation(reason) {
     if (Game.gameOver) return true;
     const n = totalTilesOf({ deck: Game.deck, discardPile: Game.discardPile, hands: Game.hands, exposedMelds: Game.exposedMelds });
     if (n === FULL_DECK_SIZE) return true;
+    if (Game.quietTileCheck) return false;
     const key = reason + ':' + n;
     if (key !== Game._lastTileWarnKey) {
         Game._lastTileWarnKey = key;
