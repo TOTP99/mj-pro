@@ -4,7 +4,7 @@
 // 并在随机时刻刷新页面，验证存档恢复后的牌局与刷新前完全一致且能继续打完。
 // 用法：node tests/solo-selfplay.pw.cjs [局数=20] [刷新次数=4]
 const path = require('path'), http = require('http'), fs = require('fs');
-const { chromium } = require(process.env.PLAYWRIGHT_PATH || '/opt/npm-tools/node_modules/playwright');
+const { chromium } = require('./pw-path.cjs');
 const ROOT = path.join(__dirname, '..');
 const HANDS = parseInt(process.argv[2] || '20', 10), RELOADS = parseInt(process.argv[3] || '4', 10);
 const PORT = 8766;

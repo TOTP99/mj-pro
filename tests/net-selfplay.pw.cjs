@@ -6,7 +6,7 @@
 // 中途让一位客人离开，再换一位新客人加入。
 // 用法：node tests/net-selfplay.pw.cjs [局数=12]
 const path = require('path'), http = require('http'), fs = require('fs');
-const { chromium } = require(process.env.PLAYWRIGHT_PATH || '/opt/npm-tools/node_modules/playwright');
+const { chromium } = require('./pw-path.cjs');
 const ROOT = path.join(__dirname, '..');
 const ARGS = process.argv.slice(2);
 const HANDS = parseInt(ARGS.find(a => /^\d+$/.test(a)) || '12', 10);

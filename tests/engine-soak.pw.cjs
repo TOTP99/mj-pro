@@ -5,7 +5,7 @@
 //       刷新后状态与存档逐项一致、刷新后不卡死、无页面异常。
 // 用法：node tests/engine-soak.pw.cjs [局数=20] [--daily|--advanced]
 const path = require('path'), http = require('http'), fs = require('fs');
-const { chromium } = require(process.env.PLAYWRIGHT_PATH || '/opt/npm-tools/node_modules/playwright');
+const { chromium } = require('./pw-path.cjs');
 const ROOT = path.join(__dirname, '..');
 const ARGS = process.argv.slice(2);
 const HANDS = parseInt(ARGS.find(a => /^\d+$/.test(a)) || '20', 10);

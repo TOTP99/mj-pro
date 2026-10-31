@@ -9,8 +9,16 @@ node tests/ai-adaptive.test.cjs
 node tests/ai-adaptive-property.test.cjs
 node tests/ai-decision-coordination.test.cjs
 node tests/ai-opponent-inference.test.cjs
+node tests/ai-gang-decision.test.cjs
 node tests/ai-selfplay.cjs --hands 10 --seed 12345
+
+# 大样本配对对照（同种子同牌序；A=基线 AI，B=基线+自适应层）
+node tests/ai-selfplay.cjs --hands 20 --seeds 10 --seed 777 --out result.json
+# 改动前后对照（A=旧版项目目录，B=当前目录；例如比较杠决策改动）
+node tests/ai-selfplay.cjs --hands 20 --seeds 10 --baseline-root /path/to/old-project --out result.json
 ```
+
+`--seeds N` 输出每个指标的 A/B 均值、B−A 差值、95% CI（t 分布，以种子批次为独立单位）、`seedsBetter/seedsWorse`，并给出胜率 Wilson 区间与非法动作总数。约 1.5 秒/局，请按需控制样本量。
 
 `--hands` 指每个版本模拟的局数；基线版与自适应版使用相同的初始牌序列。建议先运行 10 局烟雾测试，再用多组种子和更大样本评估。
 
@@ -57,3 +65,17 @@ node tests/ai-selfplay.cjs --hands 10 --seed 12345
 ## 第四阶段听牌推断测试补充
 
 本轮额外通过 `node tests/ai-opponent-inference.test.cjs`：对同一目标玩家保持弃牌序列不变、仅改变其他玩家的弃牌数量时，目标玩家听牌概率保持不变；该玩家自身巡数增加或公开副露增加时，估计值按预期温和上升。
+
+
+## 杠决策改动（明杠 / 加杠 / 暗杠）
+
+- `Game.pickPengKind(p, tile)`：被叫牌是碰还是杠的唯一决策点，`shouldAiPeng` 与 `aiPengClaim` 共用。手里≥3 张且有补牌位时比较「明杠」与「碰」的 EV，且杠不得比碰更伤牌型；无补牌位直接碰（旧版 `shouldAiPeng` 按杠估值、执行时却降成碰）。
+- `Game.aiPickSelfGang(player)`：加杠/暗杠统一入口。要求有补牌位、杠后向听不退步（避免拆顺子）、加杠时按性格（保守 0.2 / 精明 0.3 / 激进不限）用公开信息危险度回避抢杠风险。
+- 听牌中：旧 `shouldAiPeng` 一刀切拒绝；现允许「手里已有暗刻、明杠后听口完全不变且 EV 不低于不叫」的明杠（`Game.mingGangKeepsWaits`）。旧 `aiDiscard` 里的 `!isTenpai(player)` 在摸牌后 14 张手牌下恒为真（`getWinningTilesOf` 只认 13 张），属死条件，已由向听比较取代。
+- 自对弈测试器改走上述生产函数，不再自带「能杠就杠」的简化逻辑；对照臂若是旧版目录（没有这两个函数），退回旧规则。
+
+### 杠改动前后配对对照（10 种子 × 20 局 × 2 臂 = 各 200 局，A=改动前、B=改动后）
+
+- 非法动作 0；胜率 A 66.0% / B 65.0%（差 −1.0pp，95% CI −2.5..+0.5pp）；流局率、自摸/点炮率、平均巡数、明杠/加杠频率、四家场均得分差的 95% CI 均包含 0。
+- 唯一"显著"项是每局吃碰杠次数 +0.075（CI 0.009..0.141），属多指标检验下可能的假阳性，且量级很小。
+- 多数种子两臂的牌谱完全相同（杠只在约 0.3 次/局出现），样本不足以判断杠改动对强弱的影响；这次改动的价值在于**判断与执行一致、不拆顺子、不白送抢杠、听牌时可安全杠**，而非可测量的胜率提升。若要检出 ±1 分/局量级的得分差，需要远大于现在的样本（数千局以上）。
