@@ -111,34 +111,6 @@ function cmpDiscard(a, b, wantDecider) {
     return r;
 }
 
-// 字典序选最优弃牌。返回 { tile, scores, decider }
-// 剪枝：先按（向听，穷胡）粗排，只对最优向听+1 档内的候选算进张
-function chooseDiscardLex(hand, exposed, player) {
-    const uniq = [...new Set(hand)];
-    const scored = [];
-    for (const t of uniq) {
-        const s = scoreDiscard(hand, exposed, player, t);
-        if (s) scored.push(s);
-    }
-    if (!scored.length) return null;
-    // 先按向听粗排
-    scored.sort((a, b) => a.shanten - b.shanten);
-    const bestShan = scored[0].shanten;
-    // 只保留向听最优+1 档内的候选（性格松紧可调，这里先硬剪枝保证速度）
-    const pruned = scored.filter(s => s.shanten <= bestShan + 1);
-    fillUkeire(pruned, hand, exposed);
-    // 按 (shanten, uk1) 排序（uk2 已从热路径移除：单次 ~100ms 太贵）
-    pruned.sort((a, b) => {
-        if (a.shanten !== b.shanten) return a.shanten - b.shanten;
-        return b.uk1 - a.uk1;
-    });
-    const decider = { by: '' };
-    pruned.sort((a, b) => cmpDiscard(a, b));
-    if (pruned.length > 1) cmpDiscard(pruned[0], pruned[1], decider);
-    else decider.by = 'only';
-    return { tile: pruned[0].tile, scores: pruned[0], decider: decider.by, all: pruned };
-}
-
 /* ---- 对外接口 ---- */
 Game.indexToTile = indexToTile;
 Game.remainingCount = remainingCount;
