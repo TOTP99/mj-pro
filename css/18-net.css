@@ -246,10 +246,6 @@
     border-radius: 8px; pointer-events: none;
 }
 
-/* 分享行：复制链接 / 复制邀请 */
-.net-share-row { margin-top: 6px; gap: 8px; }
-.net-share-row .net-btn { font-size: 13px; min-height: 40px; padding: 0.5em 0.8em; border: 1px solid rgba(255, 255, 255, 0.22); border-radius: 10px; }
-
 /* 房主面板：内联二维码 + 分享按钮 */
 .net-share-box { display: flex; align-items: center; gap: 12px; margin: 6px 0 8px; }
 .net-qr-inline {

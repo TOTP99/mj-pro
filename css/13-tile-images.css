@@ -14,13 +14,3 @@
 .tile      { box-shadow: 0 2px 3px rgba(0,0,0,0.4); }
 .pool-tile { box-shadow: 0 2px 3px rgba(0,0,0,0.4); }
 .discardTile { box-shadow: 0 1px 2px rgba(0,0,0,0.35); }
-
-/* 听牌提示等行内文字里的小牌 */
-.tile-img-inline {
-    display: inline-block;
-    width: auto;
-    height: 1.5em;
-    aspect-ratio: 250 / 358;
-    vertical-align: middle;
-}
-#tenpai-hint .th-w b .tile-img-inline { height: 1em; }   /* b 自身已是 1.6em */
