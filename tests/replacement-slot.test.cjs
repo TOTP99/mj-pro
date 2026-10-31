@@ -4,8 +4,8 @@
 // 规则：牌墙剩余 > 16（DEAD_WALL）才有补牌位置；剩 16 张时杠不执行、风牌不动牌、不流局；
 // 剩 17 张时补牌允许（补走最后一张可摸牌），补牌者仍正常出牌；中发白亮牌不用补牌，不受影响。
 // 只加载 01/06/08（状态 + 牌工具 + 主流程），其余用桩；玩家/AI/房主的 offer 与执行层共用这一个函数。
-// 注意：桩里只有 bottom 一家有牌，其余三家为空，TileFlow 的牌数守恒检查会打 [tile-check] 警告，
-// 那是桩状态不完整所致，不是断言失败；断言本身只验本家手牌/副露/牌墙。
+// 桩里只有 bottom 一家有牌，其余三家为空 → 牌数守恒必然不成立。
+// 通过 Game.quietTileCheck 静音 [tile-check] 警告，避免测试输出噪音。
 const fs = require('fs'), path = require('path'), vm = require('vm'), assert = require('assert');
 const ROOT = path.join(__dirname, '..');
 const ctx = {
@@ -20,6 +20,7 @@ for (const f of ['js/01-globals-state.js', 'js/06-tiles-utils.js', 'js/08-game-f
   vm.runInContext(fs.readFileSync(path.join(ROOT, f), 'utf8'), ctx, { filename: f });
 }
 const Game = ctx.Game;
+Game.quietTileCheck = true; // 桩状态不完整，静音守恒警告
 Game.render = () => {};
 Game.nameOf = p => p;
 Game.hideIndicator = () => {};

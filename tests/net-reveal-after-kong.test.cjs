@@ -19,6 +19,7 @@ vm.createContext(ctx);
 for (const f of ['js/01-globals-state.js', 'js/02-scoring.js', 'js/06-tiles-utils.js', 'js/08-game-flow-core.js', 'js/23-net.js', 'js/24-net-host.js'])
   vm.runInContext(fs.readFileSync(path.join(ROOT, f), 'utf8'), ctx, { filename: f });
 const Game = ctx.Game;
+Game.quietTileCheck = true; // 桩状态不完整，静音守恒警告
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 
 // ---- 桩 ----
