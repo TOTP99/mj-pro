@@ -513,3 +513,7 @@
 .net-qr-invite-text {
     font-size: var(--fs-b1); font-weight: 700; letter-spacing: 0.1em;
 }
+
+/* ---- 二维码弹窗：自己的高度上限 + 铁律结构（标题钉死、中间滚动、关闭钉死），横竖屏都不裁内容、不挡关闭 ---- */
+.hu-box.net-qr-box { max-height: min(88vh, 560px); }
+.net-qr-box > .net-row { flex: 0 0 auto; }
