@@ -337,8 +337,15 @@ function renderCreate() {
         '</div>' +
         '<div class="net-err" id="net-err"></div>';
     var nameInput = $('net-name');
-    try { nameInput.focus(); nameInput.select(); } catch (e) {}
+    // 手机端不自动聚焦：iOS 会因此弹起键盘 + 顶部那条 ^ ∨ ✓ ··· 工具条，盖住输入框和确认按钮；
+    // 桌面端保留聚焦 + 全选，方便直接打字替换
+    try {
+        if (!window.matchMedia || !window.matchMedia('(pointer: coarse)').matches) {
+            nameInput.focus(); nameInput.select();
+        }
+    } catch (e) {}
     $('net-do-create').onclick = function () {
+        try { if (document.activeElement) document.activeElement.blur(); } catch (e) {} // 先收键盘 + iOS 工具条，再建房
         var name = Game.netCleanName(nameInput.value, '房主');
         Game.netRememberName(name);
         var code = Game.netGenCode();
@@ -414,9 +421,12 @@ function renderJoin(prefillCode) {
         '<div class="net-err" id="net-err"></div>';
     var codeEl = $('net-code');
     var nameEl = $('net-name2');
+    // 同上：手机端不自动聚焦，避免 iOS 键盘工具条一进来就盖住输入框和确认按钮
     try {
-        if (initialCode.length >= Game.netCodeLen) nameEl.focus();
-        else codeEl.focus();
+        if (!window.matchMedia || !window.matchMedia('(pointer: coarse)').matches) {
+            if (initialCode.length >= Game.netCodeLen) nameEl.focus();
+            else codeEl.focus();
+        }
     } catch (e) {}
 
     // 自动转大写、去杂质；满码后聚焦名字；支持粘贴
@@ -433,6 +443,7 @@ function renderJoin(prefillCode) {
     });
 
     $('net-do-join').onclick = function () {
+        try { if (document.activeElement) document.activeElement.blur(); } catch (e) {} // 先收键盘 + iOS 工具条，再加入
         var code = Game.netNormCode(codeEl.value);
         var name = Game.netCleanName(nameEl.value, '客人');
         if (!Game.netValidCode(code)) {
