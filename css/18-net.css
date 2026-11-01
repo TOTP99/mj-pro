@@ -56,8 +56,6 @@
 .net-err.busy { color: var(--text-muted); }
 
 /* 座位表：猫龙虎狮固定顺序（human 边框色见下方 v2 座位块，合并避免重复） */
-.net-seat.ai { opacity: 0.6; }
-.net-seat.empty { opacity: 0.35; border-style: dashed; }
 
 /* 头像徽标：真人绿点 / AI 灰字 */
 .avatar { position: relative; }
@@ -484,7 +482,6 @@
     #net-notice-modal.show .net-notice-box,
     #net-qr-modal.show .net-qr-box,
     #net-countdown.show,
-    #net-countdown.show.warn,
     #net-reconnect.show,
     #net-auto-banner.show {
         animation: none;
