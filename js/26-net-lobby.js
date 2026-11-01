@@ -805,6 +805,11 @@ function setErr(t) {
 }
 
 function updatePill() {
+    // 自保：刷新恢复后可能还没打开过大厅，元素根本不存在——先建出来（只建不弹大厅），
+    // 否则刷新回来的局里房间键永远出不来，客人连离开房间的路都没有
+    if (!statusPill) {
+        try { ensureLobbyDom(); } catch (e) {}
+    }
     if (!statusPill) return;
     if (Game.net) {
         // 桌面上不再显示联机状态那句话：只留一个 44px「房间」键当房间面板入口
@@ -905,6 +910,7 @@ function restoreGuestAfterJoin(r) {
     if (!r || !r.ok) return false;
     try { if (typeof Game.netGuestInit === 'function') Game.netGuestInit(r.welcome); } catch (e) {}
     try { hideModeSelect(); } catch (e) {}
+    try { updatePill(); } catch (e) {}
     if (r.welcome && r.welcome.started) {
         try { Game.netLobbyClose(); } catch (e) {}
     } else {
