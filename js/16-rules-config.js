@@ -232,10 +232,15 @@ function clearSelectGlow() {
     hideTablePrompt();
 }
 
+// 联机进行中拦模式切换时统一提示（开局选模式、规则页返回两处共用）
+function netModeBlockedToast() {
+    try { if (typeof Game.netToastUI === 'function') Game.netToastUI('联机进行中，不能切换模式'); } catch (e) {}
+}
+
 function openModeSelect() {
     if (typeof Game.netGuestBlock === 'function' && Game.netGuestBlock()) return; // 联机客人：由房主设置
     if (Game.net) { // 联机进行中（房主）：模式由房间面板决定，模式选择不得出现在联机牌桌上
-        try { if (typeof Game.netToastUI === 'function') Game.netToastUI('联机进行中，不能切换模式'); } catch (e) {}
+        netModeBlockedToast();
         return;
     }
     Game.setPhase(Game.PHASE.MODE_SELECT, 'openModeSelect');
@@ -348,7 +353,7 @@ function confirmRules() {
 
 function backToModeSelect() {
     if (Game.net) { // 联机进行中：规则页返回也不得回到模式选择，只关规则页
-        try { if (typeof Game.netToastUI === 'function') Game.netToastUI('联机进行中，不能切换模式'); } catch (e) {}
+        netModeBlockedToast();
         hideModal('rules-modal');
         return;
     }

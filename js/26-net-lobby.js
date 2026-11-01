@@ -132,15 +132,31 @@ function netToastUI(text) {
 }
 Game.netToastUI = netToastUI;
 
-/* ---------- 大厅开关 ---------- */
-Game.netLobbyOpen = function () {
-    // 进联机大厅必先收起模式选择（弹窗 + 桌面中央提示 + 按钮呼吸光），
-    // 无论从模式弹窗、状态 pill 还是深链进来，联机牌桌上都不许残留模式选择
+/* 模式选择收起（弹窗 + 桌面中央提示 + 按钮呼吸光）：三处入口共用一处，改一处即全改 */
+function hideModeSelect() {
     try {
         var mm = $('mode-select-modal');
         if (mm) mm.classList.remove('show');
         if (typeof Game.clearSelectGlow === 'function') Game.clearSelectGlow();
     } catch (e) {}
+}
+
+// 桌面端才自动聚焦：手机端自动聚焦会弹 iOS 键盘 + 顶部 ^ ∨ ✓ ··· 工具条，盖住输入框
+function netCanAutoFocus() {
+    try {
+        return !window.matchMedia || !window.matchMedia('(pointer: coarse)').matches;
+    } catch (e) { return false; }
+}
+
+// 点确认前先收键盘 + iOS 工具条，再执行联网
+function netBlurActive() {
+    try { if (document.activeElement) document.activeElement.blur(); } catch (e) {}
+}
+
+/* ---------- 大厅开关 ---------- */
+Game.netLobbyOpen = function () {
+    // 进联机大厅必先收起模式选择，无论从模式弹窗、状态 pill 还是深链进来，联机牌桌上都不许残留模式选择
+    hideModeSelect();
     ensureLobbyDom();
     // 已在房间里：回到当前房间面板（不能再建/加入别的房间）
     if (Game.net && Game.net.role === 'host') renderHostRoom();
@@ -337,15 +353,10 @@ function renderCreate() {
         '</div>' +
         '<div class="net-err" id="net-err"></div>';
     var nameInput = $('net-name');
-    // 手机端不自动聚焦：iOS 会因此弹起键盘 + 顶部那条 ^ ∨ ✓ ··· 工具条，盖住输入框和确认按钮；
-    // 桌面端保留聚焦 + 全选，方便直接打字替换
-    try {
-        if (!window.matchMedia || !window.matchMedia('(pointer: coarse)').matches) {
-            nameInput.focus(); nameInput.select();
-        }
-    } catch (e) {}
+    // 桌面端保留聚焦 + 全选，方便直接打字替换；手机端不自动聚焦（会弹 iOS 键盘工具条盖住输入框）
+    try { if (netCanAutoFocus()) { nameInput.focus(); nameInput.select(); } } catch (e) {}
     $('net-do-create').onclick = function () {
-        try { if (document.activeElement) document.activeElement.blur(); } catch (e) {} // 先收键盘 + iOS 工具条，再建房
+        netBlurActive(); // 先收键盘，再建房
         var name = Game.netCleanName(nameInput.value, '房主');
         Game.netRememberName(name);
         var code = Game.netGenCode();
@@ -421,9 +432,9 @@ function renderJoin(prefillCode) {
         '<div class="net-err" id="net-err"></div>';
     var codeEl = $('net-code');
     var nameEl = $('net-name2');
-    // 同上：手机端不自动聚焦，避免 iOS 键盘工具条一进来就盖住输入框和确认按钮
+    // 同上：桌面端才自动聚焦（满码跳名字、未满码聚焦房间码）
     try {
-        if (!window.matchMedia || !window.matchMedia('(pointer: coarse)').matches) {
+        if (netCanAutoFocus()) {
             if (initialCode.length >= Game.netCodeLen) nameEl.focus();
             else codeEl.focus();
         }
@@ -443,7 +454,7 @@ function renderJoin(prefillCode) {
     });
 
     $('net-do-join').onclick = function () {
-        try { if (document.activeElement) document.activeElement.blur(); } catch (e) {} // 先收键盘 + iOS 工具条，再加入
+        netBlurActive(); // 先收键盘，再加入
         var code = Game.netNormCode(codeEl.value);
         var name = Game.netCleanName(nameEl.value, '客人');
         if (!Game.netValidCode(code)) {
@@ -846,14 +857,7 @@ function injectEntry() {
             );
             return;
         }
-        try {
-            var m = $('mode-select-modal');
-            if (m) m.classList.remove('show');
-        } catch (e) {}
-        // 联机入口：模式选择弹窗关掉的同时，必须清掉开局时留在桌面中央的
-        // “请选择模式”提示和按钮呼吸光，否则回到牌桌时提示还杵在桌面上
-        try { if (typeof Game.clearSelectGlow === 'function') Game.clearSelectGlow(); } catch (e) {}
-        Game.netLobbyOpen();
+        Game.netLobbyOpen(); // 大厅打开时自带收起模式选择（弹窗 + 提示 + 呼吸光）
     };
     box.appendChild(b);
 }
@@ -869,11 +873,7 @@ function tryDeepLinkJoin() {
     if (Game.net) return;
     var code = readRoomFromUrl();
     if (!code || !Game.netPeerJsReady()) return;
-    try {
-        var m = $('mode-select-modal');
-        if (m) m.classList.remove('show');
-    } catch (e) {}
-    try { if (typeof Game.clearSelectGlow === 'function') Game.clearSelectGlow(); } catch (e) {}
+    hideModeSelect();
     ensureLobbyDom();
     renderJoin(code);
     lobbyEl.classList.add('show');
