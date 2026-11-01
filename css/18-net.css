@@ -84,6 +84,11 @@
     border: 1px solid var(--gold-line); border-radius: 8px;
     pointer-events: auto; cursor: pointer;
 }
+/* 横屏：房间键改到桌面内右下角（竖屏仍左下角不动；right 含刘海安全区，iPhone 横屏框边距约 8px，键正好落在框内角） */
+body:not(.portrait-layout) #net-status-pill {
+    left: auto;
+    right: calc(8px + var(--sar, 0px));
+}
 #net-status-pill.warn { color: #ffe1a8; border-color: rgba(255, 193, 7, 0.55); }
 
 /* ---- 通知弹窗（替代 alert）：复用 hu-box 弹窗结构 ---- */
