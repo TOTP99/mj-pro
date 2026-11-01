@@ -96,6 +96,7 @@ body.portrait-layout #credit-label-2 {
     margin: 0 !important;
     padding: 10px 16px !important;
     font-size: 14px !important;
+    display: inline-block !important; /* 竖屏：此条盖掉 .credit-btn-ls 的 display:none，设置键恢复可见、✕ 可点 */
 }
 #settings-modal .settings-btns .settings-x {
     color: var(--danger) !important;

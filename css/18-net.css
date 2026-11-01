@@ -65,8 +65,8 @@
 }
 .net-badge.net-human {
     width: 11px; height: 11px; border-radius: 50%;
-    background: var(--success); border: 2px solid var(--pine);
-    box-shadow: 0 0 4px rgba(46, 204, 113, 0.8);
+    background: #2f9bff; border: 2px solid #0b3d66;
+    box-shadow: 0 0 4px rgba(47, 155, 255, 0.8);
 }
 .net-badge.net-ai {
     font-size: 9px; font-weight: 700; color: var(--pine);
@@ -74,13 +74,15 @@
     border: 1px solid var(--pine);
 }
 
-/* 联机状态小 pill */
+/* 联机房间入口键（原状态 pill 那句话已拿掉，只留此键进房间面板） */
 #net-status-pill {
     position: fixed; left: 8px; bottom: 8px; z-index: 8000;
-    font-size: 11px; color: #bdf0d2;
+    display: flex; align-items: center; justify-content: center;
+    min-height: 44px; padding: 0 16px;
+    font-size: 13px; font-weight: 700; color: var(--gold-cream);
     background: rgba(13, 43, 38, 0.85);
-    border: 1px solid var(--success-line); border-radius: 12px;
-    padding: 4px 10px; pointer-events: auto; cursor: pointer;
+    border: 1px solid var(--gold-line); border-radius: 8px;
+    pointer-events: auto; cursor: pointer;
 }
 #net-status-pill.warn { color: #ffe1a8; border-color: rgba(255, 193, 7, 0.55); }
 
