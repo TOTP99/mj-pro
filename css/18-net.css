@@ -321,14 +321,16 @@
 .net-code-btn,
 .net-code,
 .net-code-inline,
-.net-qr-code {
+.net-qr-code,
+.net-qr-invite-text {
     color: var(--gold-light);
 }
 @supports ((-webkit-background-clip: text) or (background-clip: text)) {
     .net-code-btn,
     .net-code,
     .net-code-inline,
-    .net-qr-code {
+    .net-qr-code,
+    .net-qr-invite-text {
         background: linear-gradient(180deg, #ffecab 0%, var(--gold-light) 45%, var(--gold-deep) 100%);
         -webkit-background-clip: text;
         background-clip: text;
@@ -493,4 +495,21 @@
     .hu-btn {
         transition: none;
     }
+}
+
+/* ---- 二维码请帖行：叠放头像 + 邀请文案（二维码本体不动） ---- */
+.net-qr-invite {
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+    margin: 2px 0 10px;
+}
+.net-qr-faces { display: flex; }
+.net-qr-faces img {
+    width: 26px; height: 26px; border-radius: 50%; object-fit: cover;
+    border: 1px solid var(--gold-line);
+    margin-left: -6px;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.35);
+}
+.net-qr-faces img:first-child { margin-left: 0; }
+.net-qr-invite-text {
+    font-size: var(--fs-b1); font-weight: 700; letter-spacing: 0.1em;
 }

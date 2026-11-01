@@ -253,3 +253,27 @@
     animation: btnGlowPulse 1.6s ease-in-out infinite;
     border-color: var(--gold, #d4af37) !important;
 }
+
+/* ---- 模式选择门面（第一屏第一眼）：角色行 + 主次按钮 ---- */
+.mode-hero-row {
+    flex: 0 0 auto;
+    display: flex; justify-content: center; gap: 10px;
+    margin: 2px 0 var(--sp-2);
+}
+.mode-hero-row img {
+    width: 40px; height: 40px; border-radius: 50%; object-fit: cover;
+    border: 1px solid var(--gold-line);
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.35);
+}
+#mode-select-modal .mode-option.mode-hero {
+    background: var(--primary-bg);
+    border-color: var(--gold-light);
+    color: #191307;
+    box-shadow: var(--primary-shadow);
+}
+#mode-select-modal .mode-option.mode-hero .mode-text i { opacity: 0.75; }
+#mode-select-modal .mode-option.mode-hero .mode-check { display: none; }
+#mode-select-modal .mode-option.mode-hero:active { filter: brightness(0.95); }
+#mode-select-modal .mode-option.mode-sub {
+    border-color: rgba(255, 255, 255, 0.22);
+}
