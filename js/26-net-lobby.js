@@ -566,11 +566,13 @@ function showQr() {
     qrEl.innerHTML =
         '<div class="hu-box net-qr-box">' +
         '<div class="hu-title">扫码加入</div>' +
+        '<div class="hu-scroll">' +
         '<div class="net-qr-invite" aria-hidden="true"><span class="net-qr-faces"><img src="avatars/stat-cat.webp" alt=""><img src="avatars/stat-dragon.webp" alt=""><img src="avatars/stat-tiger.webp" alt=""><img src="avatars/stat-lion.webp" alt=""></span><span class="net-qr-invite-text">来打一局</span></div>' +
         '<div class="net-qr-img">' + svg + '</div>' +
         '<div class="net-qr-code">' + esc(code) + '</div>' +
         '<div class="net-qr-hint">朋友用手机相机或微信「扫一扫」即可打开加入页</div>' +
         warn +
+        '</div>' +
         '<div class="net-row"><button type="button" class="hu-btn net-btn" id="net-qr-close">关闭</button></div>' +
         '</div>';
     qrEl.classList.add('show');
