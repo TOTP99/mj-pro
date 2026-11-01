@@ -407,6 +407,10 @@ document.documentElement.style.setProperty('--view-pan-y', '0px');
 function bootGame() {
     if (Game._booted) return; // 幂等：防止动态注入时 DOMContentLoaded 与 setTimeout 双跑
     Game._booted = true;
+    // 联机刷新恢复优先于单机存档/模式选择（有会话时异步回房，失败则回模式选择）
+    if (typeof Game.netTryRestoreSession === 'function') {
+        try { if (Game.netTryRestoreSession()) return; } catch (e) {}
+    }
     if (Game.loadGameProgress()) {
         Game.resumeFromSave();
     } else if (typeof Game.openModeSelect === 'function') {

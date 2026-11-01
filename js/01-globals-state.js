@@ -683,36 +683,42 @@ function flushSaveProgress() {
 }
 
 Game.netNoSave = false; // 联机中不读写单机存档（23/24/25 设置）
+/** 引擎快照对象（单机存档 v2 同款，供单机存档与联机房主会话共用） */
+function buildEngineSnapshot() {
+    return {
+        v: 2,
+        scores: Game.scores, dealer: Game.dealer, currentIndex: Game.currentIndex, gameOver: Game.gameOver, winner: Game.winner,
+        selectedIndex: Game.selectedIndex, lastDrawnIndex: Game.lastDrawnIndex,
+        deck: cloneState(Game.deck),
+        hands: cloneState(Game.hands),
+        exposedMelds: cloneState(Game.exposedMelds),
+        discardPile: cloneState(Game.discardPile),
+        windDragonBonus: cloneState(Game.windDragonBonus),
+        firstTurnPending: cloneState(Game.firstTurnPending),
+        lastDrawnTile: cloneState(Game.lastDrawnTile),
+        lastDrawWasFinal: cloneState(Game.lastDrawWasFinal),
+        aiWaitTiles: cloneState(Game.aiWaitTiles),
+        // 仅持久化「下一局」；进行中吃碰杠刷新后由玩家重选，避免半自动卡死
+        pendingClaimMode: Game.pendingClaim && Game.pendingClaim.mode === 'nextGame' ? 'nextGame' : null,
+        // 等你选「亮牌/不亮」时刷新：记下类型，读档后重新弹窗
+        pendingRevealKind: (typeof Game.pendingReveal !== 'undefined') ? Game.pendingReveal : null,
+        // 亮牌拒绝记录 & 已见牌型：刷新后不重复询问、牌型重凑后恢复提示资格
+        revealDeclined: cloneState(Game.revealDeclined),
+        revealPatternSeen: cloneState(Game.revealPatternSeen),
+        // 本局巡数：刷新恢复后 AI 学习评分（胡得快不快）不受影响
+        handTurnCount: Game.handTurnCount,
+        // 杠上开花/杠后点炮标记：刷新后不能丢，否则这一局少算 ×2
+        afterKongDrawPlayer: Game.afterKongDrawPlayer || null,
+        afterKongDiscardPlayer: Game.afterKongDiscardPlayer || null
+    };
+}
+Game.buildEngineSnapshot = buildEngineSnapshot;
+
 function saveGameProgress() {
     if (Game.restoringGame || Game.netNoSave) return;
     if (!checkTileConservation('save')) return; // 牌数不对的异常状态不落盘，保留上一份正常存档
     try {
-        localStorage.setItem(MAHJONG_STORAGE_KEY, JSON.stringify({
-            v: 2,
-            scores: Game.scores, dealer: Game.dealer, currentIndex: Game.currentIndex, gameOver: Game.gameOver, winner: Game.winner,
-            selectedIndex: Game.selectedIndex, lastDrawnIndex: Game.lastDrawnIndex,
-            deck: cloneState(Game.deck),
-            hands: cloneState(Game.hands),
-            exposedMelds: cloneState(Game.exposedMelds),
-            discardPile: cloneState(Game.discardPile),
-            windDragonBonus: cloneState(Game.windDragonBonus),
-            firstTurnPending: cloneState(Game.firstTurnPending),
-            lastDrawnTile: cloneState(Game.lastDrawnTile),
-            lastDrawWasFinal: cloneState(Game.lastDrawWasFinal),
-            aiWaitTiles: cloneState(Game.aiWaitTiles),
-            // 仅持久化「下一局」；进行中吃碰杠刷新后由玩家重选，避免半自动卡死
-            pendingClaimMode: Game.pendingClaim && Game.pendingClaim.mode === 'nextGame' ? 'nextGame' : null,
-            // 等你选「亮牌/不亮」时刷新：记下类型，读档后重新弹窗
-            pendingRevealKind: (typeof Game.pendingReveal !== 'undefined') ? Game.pendingReveal : null,
-            // 亮牌拒绝记录 & 已见牌型：刷新后不重复询问、牌型重凑后恢复提示资格
-            revealDeclined: cloneState(Game.revealDeclined),
-            revealPatternSeen: cloneState(Game.revealPatternSeen),
-            // 本局巡数：刷新恢复后 AI 学习评分（胡得快不快）不受影响
-            handTurnCount: Game.handTurnCount,
-            // 杠上开花/杠后点炮标记：刷新后不能丢，否则这一局少算 ×2
-            afterKongDrawPlayer: Game.afterKongDrawPlayer || null,
-            afterKongDiscardPlayer: Game.afterKongDiscardPlayer || null
-        }));
+        localStorage.setItem(MAHJONG_STORAGE_KEY, JSON.stringify(buildEngineSnapshot()));
     } catch (e) { /* 隐私模式等不可用时忽略 */ }
 }
 
@@ -729,13 +735,16 @@ document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'hidden') flushSaveProgress();
 });
 
-function loadGameProgress() {
+function loadGameProgress(savedOverride) {
     try {
-        let raw = localStorage.getItem(MAHJONG_STORAGE_KEY);
-        if (!raw) {
-            return false; // 无完整对局，走 initGame
+        let saved = savedOverride || null;
+        if (!saved) {
+            let raw = localStorage.getItem(MAHJONG_STORAGE_KEY);
+            if (!raw) {
+                return false; // 无完整对局，走 initGame
+            }
+            saved = JSON.parse(raw);
         }
-        const saved = JSON.parse(raw);
         if (!saved || typeof saved !== 'object') return false;
 
         // 始终恢复跨局指标

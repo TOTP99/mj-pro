@@ -807,15 +807,10 @@ function setErr(t) {
 function updatePill() {
     if (!statusPill) return;
     if (Game.net) {
+        // 桌面上不再显示联机状态那句话：只留一个 44px「房间」键当房间面板入口
+        // （刷新重连后若没有这个入口，客人连离开房间的路都没有）
         statusPill.style.display = '';
-        statusPill.className = '';
-        var role = Game.net.role === 'host' ? '房主' : '客人';
-        var extra = Game.net.role === 'host'
-            ? '·' + humanCount(Game.net.seats) + '/4人' + (Game.net.locked ? '·已锁' : '')
-            : '';
-        statusPill.textContent =
-            '联机中·' + role + '·' + seatLabel(Game.net.seat) +
-            ' #' + Game.net.code + extra;
+        statusPill.textContent = '房间';
     } else {
         statusPill.style.display = 'none';
         lastHumanJson = '';
@@ -883,6 +878,106 @@ function tryDeepLinkJoin() {
     netToastUI('正在加入房间 ' + code + '…');
     var btn = $('net-do-join');
     if (btn) btn.click();
+}
+
+/** 刷新恢复：启动时若有联机会话，自动回房（客人凭令牌、房主凭原码重建）。
+ *  返回 true 表示已接管启动（bootGame 不再走单机恢复/模式选择）；无会话或 URL 深链优先时返回 false。 */
+Game.netTryRestoreSession = function () {
+    try {
+        if (typeof readRoomFromUrl === 'function' && readRoomFromUrl()) return false; // 深链新房间优先
+        var s = (typeof Game.netReadSession === 'function') ? Game.netReadSession() : null;
+        if (!s) return false;
+        if (typeof netToastUI === 'function') netToastUI('正在回到房间…');
+        try { hideModeSelect(); } catch (e) {}
+        if (s.role === 'guest') restoreGuestSession(s);
+        else restoreHostSession(s, 0);
+        return true;
+    } catch (e) { return false; }
+};
+
+function restoreSessionFail(msg) {
+    try { Game.netClearSession(); } catch (e) {}
+    try { if (typeof netToastUI === 'function') netToastUI(msg); } catch (e) {}
+    try { if (typeof Game.openModeSelect === 'function') Game.openModeSelect(); } catch (e) {}
+}
+
+function restoreGuestAfterJoin(r) {
+    if (!r || !r.ok) return false;
+    try { if (typeof Game.netGuestInit === 'function') Game.netGuestInit(r.welcome); } catch (e) {}
+    try { hideModeSelect(); } catch (e) {}
+    if (r.welcome && r.welcome.started) {
+        try { Game.netLobbyClose(); } catch (e) {}
+    } else {
+        try { Game.netLobbyOpen(); } catch (e) {}
+    }
+    return true;
+}
+
+function restoreGuestSession(s) {
+    Game.netJoinRoom(s.code, s.name, { token: s.token, resume: true }).then(function (r) {
+        if (r.ok) { restoreGuestAfterJoin(r); return; }
+        if (r.fatal && s.token) {
+            // 座位已过期（保座 90 秒已过）：改走一次全新加入，房主会给空位或顶掉 AI
+            Game.netJoinRoom(s.code, s.name).then(function (r2) {
+                if (!restoreGuestAfterJoin(r2)) restoreSessionFail('没能回到房间（' + (r2.err || '加入失败') + '）');
+            }).catch(function () { restoreSessionFail('没能回到房间'); });
+            return;
+        }
+        restoreSessionFail('没能回到房间（' + (r.err || '加入失败') + '）');
+    }).catch(function () { restoreSessionFail('没能回到房间'); });
+}
+
+function validRestoreSeats(seats) {
+    if (!Array.isArray(seats) || !seats.length) return false;
+    var ok = false;
+    for (var i = 0; i < seats.length; i++) {
+        var m = seats[i];
+        if (!m || ['top', 'left', 'right', 'bottom'].indexOf(m.seat) < 0) return false;
+        if (m.seat === 'bottom' && m.kind === 'human') ok = true;
+    }
+    return ok;
+}
+
+function restoreHostSession(s, attempt) {
+    Game.netCreateRoom(s.code, s.name, { noJoinFallback: true }).then(function (r) {
+        if (!r || r.role !== 'host') {
+            if (attempt < 2) { setTimeout(function () { restoreHostSession(s, attempt + 1); }, 2000); return; }
+            restoreSessionFail('房间恢复失败，请重新建房');
+            return;
+        }
+        // 同步恢复座位（客人凭令牌回原座；本段全同步，客人重连 hello 到达前已完成）
+        if (validRestoreSeats(s.seats)) {
+            Game.net.seats = s.seats;
+            Game.net.locked = !!s.locked;
+        }
+        Game.netNoSave = true;
+        var engineOk = false;
+        if (s.engine && typeof Game.loadGameProgress === 'function') {
+            try { engineOk = !!Game.loadGameProgress(s.engine); } catch (e) { engineOk = false; }
+        }
+        if (engineOk && s.field) {
+            try {
+                if (typeof s.field.active === 'boolean') Game.fieldActive = s.field.active;
+                if (typeof s.field.count === 'number') Game.fieldGameCount = s.field.count;
+            } catch (e) {}
+        }
+        if (engineOk && s.started) {
+            try { if (typeof Game.netHostInit === 'function') Game.netHostInit(); } catch (e) {}
+            try {
+                if (typeof Game.netHostRestoreContinue === 'function') Game.netHostRestoreContinue();
+                else Game.resumeFromSave();
+            } catch (e) {}
+        } else {
+            // 牌局快照无效或尚未开局：房间保住，牌局从房间面板重开
+            try { if (typeof Game.netBroadcastSeats === 'function') Game.netBroadcastSeats(); } catch (e) {}
+            try { Game.netLobbyOpen(); } catch (e) {}
+        }
+        try { hideModeSelect(); } catch (e) {}
+        try { updatePill(); } catch (e) {}
+    }).catch(function () {
+        if (attempt < 2) { setTimeout(function () { restoreHostSession(s, attempt + 1); }, 2000); return; }
+        restoreSessionFail('房间恢复失败，请重新建房');
+    });
 }
 
 if (document.readyState === 'loading') {

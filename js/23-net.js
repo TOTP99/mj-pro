@@ -56,6 +56,42 @@ Game.netCodeLen = CODE_LEN;
 Game.netTimeouts = NET_CONFIG.timeouts;
 Game.net = null; // {role, code, name, seat, peer, seats, conns, guestConn, token, started, seq, ...}
 
+// ========== 刷新恢复：联机会话（sessionStorage：同标签页刷新保留，新标签页不恢复） ==========
+// 会话只含房间码/名字/令牌/座位/牌局快照，不含任何手牌以外的隐私；离开/被踢/解散即清。
+var NET_SESSION_KEY = 'qj_mj_net_session';
+function netSessionStorage() {
+    try { return (typeof sessionStorage !== 'undefined') ? sessionStorage : null; } catch (e) { return null; }
+}
+Game.netReadSession = function () {
+    try {
+        var ss = netSessionStorage();
+        if (!ss) return null;
+        var raw = ss.getItem(NET_SESSION_KEY);
+        if (!raw) return null;
+        var s = JSON.parse(raw);
+        if (!s || typeof s !== 'object' || s.v !== 1) return null;
+        if ((s.role !== 'host' && s.role !== 'guest') || !Game.netValidCode(s.code)) return null;
+        return s;
+    } catch (e) { return null; }
+};
+Game.netSaveSession = function (patch) {
+    try {
+        var ss = netSessionStorage();
+        if (!ss || !patch || typeof patch !== 'object') return;
+        var cur = Game.netReadSession() || { v: 1 };
+        var keys = Object.keys(patch);
+        for (var i = 0; i < keys.length; i++) cur[keys[i]] = patch[keys[i]];
+        cur.v = 1;
+        ss.setItem(NET_SESSION_KEY, JSON.stringify(cur));
+    } catch (e) {}
+};
+Game.netClearSession = function () {
+    try {
+        var ss = netSessionStorage();
+        if (ss) ss.removeItem(NET_SESSION_KEY);
+    } catch (e) {}
+};
+
 // ========== 诊断日志（环形，不含手牌等隐私） ==========
 var logBuf = [];
 Game.netLog = function (ev, data) {
@@ -350,7 +386,8 @@ function rateAllow(guard) {
 
 // ========== 建房 / 加入 ==========
 /** 建房：抢注房间号，抢到=房主；已被占 → 自动转客人 */
-Game.netCreateRoom = function (code, name) {
+Game.netCreateRoom = function (code, name, opts) {
+    opts = opts || {};
     code = Game.netNormCode(code);
     return new Promise(function (resolve) {
         if (!peerJsReady()) {
@@ -400,6 +437,7 @@ Game.netCreateRoom = function (code, name) {
                 heartbeat: null
             };
             Game.netLog('host:open', code);
+            try { Game.netSaveSession({ role: 'host', code: code, name: name, seats: Game.net.seats, started: false, locked: false }); } catch (e) {}
             wireHostPeer(peer);
             resolve({ ok: true, role: 'host', peer: peer });
         });
@@ -431,7 +469,7 @@ Game.netCreateRoom = function (code, name) {
             if (done && Game.net && Game.net.peer === peer && peer.disconnected) sigRetry();
             if (done && t !== 'unavailable-id') return;
             clearTimeout(openTimer);
-            if (t === 'unavailable-id' || t === 'peer-unavailable') {
+            if ((t === 'unavailable-id' || t === 'peer-unavailable') && !opts.noJoinFallback) {
                 try { peer.destroy(); } catch (e) {}
                 Game.netJoinRoom(code, name).then(resolve);
             } else if (!done) {
@@ -439,6 +477,7 @@ Game.netCreateRoom = function (code, name) {
                 try { peer.destroy(); } catch (e) {}
                 resolve({ ok: false, err: '网络错误：' + (t || 'unknown') });
             }
+            // noJoinFallback 且已建房成功：忽略该错误（房间已在，不改投客人）
         });
     });
 };
@@ -530,6 +569,7 @@ Game.netJoinRoom = function (code, name, opts) {
                         hostSilentTimer: null
                     };
                     Game.netLog('join:ok', d.seat + (d.resumed ? ' resumed' : ''));
+                    try { Game.netSaveSession({ role: 'guest', code: code, name: Game.net.name, token: d.token }); } catch (e) {}
                     wireGuestConn(conn);
                     startGuestHostWatch();
                     resolve({ ok: true, role: 'guest', welcome: d, peer: peer });
@@ -1060,6 +1100,7 @@ Game.netRefreshAvatarBadges = function () {
 
 /** 离开联机：完整清理连接、定时器、标记 */
 Game.netLeave = function () {
+    try { Game.netClearSession(); } catch (e) {} // 离开即清会话，刷新不再自动回房
     if (!Game.net) return;
     try { if (wakeLock) { wakeLock.release(); wakeLock = null; } } catch (e) {}
     var wasGuest = Game.net.role === 'guest';

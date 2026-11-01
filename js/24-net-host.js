@@ -46,6 +46,7 @@ Game.netHostInit = function () {
                 try { Game.netRefreshAvatarBadges(); } catch (e) {}
                 if (_t) clearTimeout(_t);
                 _t = setTimeout(function () { _t = 0; Game.netBroadcastState(false); }, 400);
+                try { saveHostSessionSoon(); } catch (e) {}
             }
         };
         var _dd = Game.declareDraw;
@@ -63,12 +64,48 @@ Game.netHostInit = function () {
 function restoreSaves() { Game.netNoSave = false; }
 Game.netHostRestore = restoreSaves;
 
+/** 刷新恢复：房主会话快照（防抖 400ms，与渲染广播同节拍；pagehide 时同步刷盘）。
+ *  座位含令牌（客人凭令牌回原座），引擎快照即单机存档 v2 同款，恢复时先校验再应用。 */
+var _hostSaveT = 0;
+function saveHostSessionNow() {
+    if (!Game.net || Game.net.role !== 'host') return;
+    try {
+        if (typeof Game.buildEngineSnapshot !== 'function') return;
+        var snap = Game.buildEngineSnapshot();
+        Game.netSaveSession({ role: 'host', code: Game.net.code, name: Game.net.name, seats: Game.net.seats, started: !!Game.net.started, locked: !!Game.net.locked, engine: snap, field: { active: !!Game.fieldActive, count: Game.fieldGameCount || 0 } });
+    } catch (e) {}
+}
+function saveHostSessionSoon() {
+    if (_hostSaveT) clearTimeout(_hostSaveT);
+    _hostSaveT = setTimeout(function () { _hostSaveT = 0; saveHostSessionNow(); }, 400);
+}
+window.addEventListener('pagehide', function () { try { saveHostSessionNow(); } catch (e) {} });
+
+/** 刷新恢复：房主续局（单机 resumeFromSave 的联机版）。
+ *  只有一种情形不能走单机逻辑：轮到一位真人客人出牌（14 张待出牌）——
+ *  单机逻辑会直接 AI 代打；这里改走 hostAwaitTurn 等客人出牌（45 秒超时仍 AI 代打，
+ *  客人重连回来时凭 _awaits 补发要约）。其余情形（等吃碰杠重走 checkClaimOrAdvance、
+ *  AI 座位、房主自己、结算后下一局）单机逻辑本身就是对的，直接复用。 */
+Game.netHostRestoreContinue = function () {
+    var player = Game.turnOrder[Game.currentIndex];
+    var m = seatMeta(player);
+    var remoteTurn = !Game.gameOver && player !== 'bottom' && m && m.kind === 'human' && !m.auto;
+    if (remoteTurn && Game.hands[player] && Game.hands[player].length % 3 === 2) {
+        Game.requestRender('netRestore');
+        Game.highlightActive(player);
+        hostAwaitTurn(player);
+        return;
+    }
+    Game.resumeFromSave();
+};
+
 /** 给所有客人广播座位表 */
 Game.netBroadcastSeats = function () {
     if (!isHost()) return;
     Game.netBroadcast({ t: 'seats', seats: Game.netPublicSeats() });
     if (typeof Game.netLobbyRender === 'function') Game.netLobbyRender();
     try { Game.netRefreshAvatarBadges(); } catch (e) {}
+    try { saveHostSessionSoon(); } catch (e) {}
 };
 
 /** 构造给某客人的快照（只含他自己的手牌） */
@@ -139,6 +176,7 @@ Game.netSetLocked = function (on) {
     Game.net.locked = !!on;
     Game.netLog('host:lock', !!on);
     if (typeof Game.netLobbyRender === 'function') Game.netLobbyRender();
+    try { saveHostSessionSoon(); } catch (e) {}
 };
 
 /** 客人掉线：座位转 AI；若正等他，做 AI 兜底 */
