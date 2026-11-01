@@ -44,13 +44,14 @@
 <div id="mode-select-modal">
     <div class="hu-box">
         <div class="hu-title">模式选择</div>
+        <div class="mode-hero-row" aria-hidden="true"><img src="avatars/stat-cat.webp" alt=""><img src="avatars/stat-dragon.webp" alt=""><img src="avatars/stat-tiger.webp" alt=""><img src="avatars/stat-lion.webp" alt=""></div>
         <div class="hu-scroll">
         <div class="mode-options">
-            <button type="button" class="mode-option" data-mode="daily" onclick="Game.chooseMode('daily')">
+            <button type="button" class="mode-option mode-sub" data-mode="daily" onclick="Game.chooseMode('daily')">
                 <span class="mode-check" aria-hidden="true"></span>
                 <span class="mode-text"><b>日常模式</b><i>经典玩法不变</i></span>
             </button>
-            <button type="button" class="mode-option" data-mode="advanced" onclick="Game.chooseMode('advanced')">
+            <button type="button" class="mode-option mode-sub" data-mode="advanced" onclick="Game.chooseMode('advanced')">
                 <span class="mode-check" aria-hidden="true"></span>
                 <span class="mode-text"><b>高阶模式</b><i>自定义规则</i></span>
             </button>
