@@ -134,6 +134,13 @@ Game.netToastUI = netToastUI;
 
 /* ---------- 大厅开关 ---------- */
 Game.netLobbyOpen = function () {
+    // 进联机大厅必先收起模式选择（弹窗 + 桌面中央提示 + 按钮呼吸光），
+    // 无论从模式弹窗、状态 pill 还是深链进来，联机牌桌上都不许残留模式选择
+    try {
+        var mm = $('mode-select-modal');
+        if (mm) mm.classList.remove('show');
+        if (typeof Game.clearSelectGlow === 'function') Game.clearSelectGlow();
+    } catch (e) {}
     ensureLobbyDom();
     // 已在房间里：回到当前房间面板（不能再建/加入别的房间）
     if (Game.net && Game.net.role === 'host') renderHostRoom();
@@ -829,6 +836,9 @@ function injectEntry() {
             var m = $('mode-select-modal');
             if (m) m.classList.remove('show');
         } catch (e) {}
+        // 联机入口：模式选择弹窗关掉的同时，必须清掉开局时留在桌面中央的
+        // “请选择模式”提示和按钮呼吸光，否则回到牌桌时提示还杵在桌面上
+        try { if (typeof Game.clearSelectGlow === 'function') Game.clearSelectGlow(); } catch (e) {}
         Game.netLobbyOpen();
     };
     box.appendChild(b);
@@ -849,6 +859,7 @@ function tryDeepLinkJoin() {
         var m = $('mode-select-modal');
         if (m) m.classList.remove('show');
     } catch (e) {}
+    try { if (typeof Game.clearSelectGlow === 'function') Game.clearSelectGlow(); } catch (e) {}
     ensureLobbyDom();
     renderJoin(code);
     lobbyEl.classList.add('show');

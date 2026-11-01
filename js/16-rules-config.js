@@ -234,6 +234,10 @@ function clearSelectGlow() {
 
 function openModeSelect() {
     if (typeof Game.netGuestBlock === 'function' && Game.netGuestBlock()) return; // 联机客人：由房主设置
+    if (Game.net) { // 联机进行中（房主）：模式由房间面板决定，模式选择不得出现在联机牌桌上
+        try { if (typeof Game.netToastUI === 'function') Game.netToastUI('联机进行中，不能切换模式'); } catch (e) {}
+        return;
+    }
     Game.setPhase(Game.PHASE.MODE_SELECT, 'openModeSelect');
     // 标出当前模式（打勾）
     document.querySelectorAll('#mode-select-modal .mode-option').forEach(function (b) {
@@ -343,6 +347,11 @@ function confirmRules() {
 }
 
 function backToModeSelect() {
+    if (Game.net) { // 联机进行中：规则页返回也不得回到模式选择，只关规则页
+        try { if (typeof Game.netToastUI === 'function') Game.netToastUI('联机进行中，不能切换模式'); } catch (e) {}
+        hideModal('rules-modal');
+        return;
+    }
     hideModal('rules-modal');
     Game.setPhase(Game.PHASE.MODE_SELECT, 'backToModeSelect');
     Game.syncAssistUI();
