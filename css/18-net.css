@@ -55,8 +55,7 @@
 .net-err { min-height: 20px; font-size: 13px; color: var(--danger); margin-top: 10px; }
 .net-err.busy { color: var(--text-muted); }
 
-/* 座位表：猫龙虎狮固定顺序 */
-.net-seat.human { border-color: var(--success-line); color: #bdf0d2; }
+/* 座位表：猫龙虎狮固定顺序（human 边框色见下方 v2 座位块，合并避免重复） */
 .net-seat.ai { opacity: 0.6; }
 .net-seat.empty { opacity: 0.35; border-style: dashed; }
 
@@ -83,7 +82,7 @@
     font-size: 11px; color: #bdf0d2;
     background: rgba(13, 43, 38, 0.85);
     border: 1px solid var(--success-line); border-radius: 12px;
-    padding: 4px 10px; pointer-events: auto;
+    padding: 4px 10px; pointer-events: auto; cursor: pointer;
 }
 #net-status-pill.warn { color: #ffe1a8; border-color: rgba(255, 193, 7, 0.55); }
 
@@ -198,7 +197,6 @@
     box-shadow: var(--primary-shadow);
 }
 #net-auto-banner.show { display: block; }
-#net-status-pill { cursor: pointer; }
 @keyframes net-pulse { 50% { opacity: 0.55; } }
 @media (prefers-reduced-motion: reduce) {
     .net-spinner, #net-countdown.warn { animation: none; }
@@ -213,7 +211,8 @@
 .net-kick { margin-left: auto; }
 .net-sticky {
     position: sticky; bottom: 0; z-index: 2; margin-top: 10px; padding-top: 8px;
-    background: linear-gradient(to bottom, rgba(10, 16, 24, 0), rgba(10, 16, 24, 0.96) 22%);
+    background: linear-gradient(to bottom, rgba(10, 16, 24, 0), rgba(10, 16, 24, 1) 14%);
+    box-shadow: 0 -8px 16px rgba(0, 0, 0, 0.35);
 }
 .net-sticky .net-row { margin-top: 8px; }
 .net-sticky .net-btn { min-width: 0; padding-left: 0.4em; padding-right: 0.4em; }
@@ -228,14 +227,6 @@
 
 /* 次要按钮加描边，避免像纯文字一样不像可点 */
 .net-sticky .net-btn.ghost { border: 1px solid rgba(255, 255, 255, 0.22); border-radius: 10px; }
-
-/* 牌桌上的真人昵称（头像下方，单行省略） */
-.net-nick {
-    display: block; max-width: 84px; margin-top: 1px; padding: 0 6px;
-    font-size: 11px; line-height: 1.4; color: var(--gold-light, #ffd75e);
-    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-    text-align: center; pointer-events: none;
-}
 
 /* 真人昵称：头像下方小标签，长名省略 */
 .net-nick {
@@ -271,11 +262,235 @@
 .net-qr-warn { font-size: 12px; color: #ffb4b4; margin: 4px 0 6px; }
 @media (max-height: 560px) { .net-qr-img { width: min(40vh, 200px); } }
 
-/* 矮屏（横屏手机）：二维码缩小、去掉提示，给座位表和按钮留空间；固定栏底部不透字 */
-.net-sticky { background: linear-gradient(to bottom, rgba(10, 16, 24, 0), rgba(10, 16, 24, 1) 14%); }
+/* 矮屏（横屏手机）：二维码缩小、去掉提示，给座位表和按钮留空间 */
 @media (max-height: 560px) {
     .net-qr-inline { width: 84px; height: 84px; }
     .net-qr-tip { display: none; }
     .net-share-btns { flex-direction: row; gap: 8px; }
     .net-share-box { margin: 4px 0; }
+}
+
+/* ============================================================
+ * 联机 UI 商业级立体升级（9.9 打磨，纯视觉层，不碰逻辑）
+ * 手段只有三样：分层深度（渐变 + 内高光 + 外阴影）、克制动效
+ * （弹窗入场、座位入场、倒计时滑入、状态圆点呼吸）、触感反馈
+ * （按压下沉、焦点金环、44px 热区）。尺寸/层级/文案/流程一律不动。
+ * ============================================================ */
+
+/* ---- 入场动效 ---- */
+@keyframes net-pop {
+    from { opacity: 0; transform: translateY(12px) scale(0.96); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
+}
+@keyframes net-drop {
+    from { opacity: 0; transform: translate(-50%, -10px); }
+    to { opacity: 1; transform: translate(-50%, 0); }
+}
+@keyframes net-rise {
+    from { opacity: 0; transform: translate(-50%, 12px); }
+    to { opacity: 1; transform: translate(-50%, 0); }
+}
+@keyframes net-dot {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.55; transform: scale(0.8); }
+}
+#net-lobby-modal.show .net-lobby-box,
+#net-notice-modal.show .net-notice-box,
+#net-qr-modal.show .net-qr-box {
+    animation: net-pop 0.3s cubic-bezier(0.22, 0.9, 0.32, 1.2);
+}
+#net-countdown.show:not(.warn),
+#net-reconnect.show {
+    animation: net-drop 0.3s ease-out;
+}
+#net-countdown.show.warn {
+    animation: net-drop 0.3s ease-out, net-pulse 0.8s ease-in-out 0.3s infinite;
+}
+#net-auto-banner.show {
+    animation: net-rise 0.3s ease-out;
+}
+
+/* ---- 弹窗盒分层阴影（在 hu-box 玻璃底上再加一层环境阴影） ---- */
+.hu-box.net-lobby-box,
+.hu-box.net-notice-box,
+.hu-box.net-qr-box {
+    box-shadow: var(--shadow-soft), 0 24px 48px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+
+/* ---- 房间码：金渐变字 + 柔光（字号/间距/布局不动；不支持 background-clip 时回落纯金字，绝不隐形） ---- */
+.net-code-btn,
+.net-code,
+.net-code-inline,
+.net-qr-code {
+    color: var(--gold-light);
+}
+@supports ((-webkit-background-clip: text) or (background-clip: text)) {
+    .net-code-btn,
+    .net-code,
+    .net-code-inline,
+    .net-qr-code {
+        background: linear-gradient(180deg, #ffecab 0%, var(--gold-light) 45%, var(--gold-deep) 100%);
+        -webkit-background-clip: text;
+        background-clip: text;
+        -webkit-text-fill-color: transparent;
+        color: transparent;
+        filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.45));
+    }
+}
+.net-code-btn:focus-visible {
+    outline: 2px solid var(--gold-light);
+    outline-offset: 4px;
+    border-radius: 12px;
+}
+
+/* ---- 座位卡：分层深度（顶亮底暗 + 外阴影）；身份决定光晕强度 ---- */
+.net-seat {
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.07), rgba(255, 255, 255, 0.03));
+    box-shadow: 0 6px 14px rgba(0, 0, 0, 0.28), inset 0 1px 0 rgba(255, 255, 255, 0.07);
+}
+.net-seat.human {
+    box-shadow: 0 6px 14px rgba(0, 0, 0, 0.28), inset 0 1px 0 rgba(255, 255, 255, 0.07), 0 0 12px rgba(46, 204, 113, 0.18);
+}
+.net-seat.you {
+    background: linear-gradient(180deg, rgba(255, 215, 94, 0.14), rgba(255, 215, 94, 0.05));
+    box-shadow: 0 6px 14px rgba(0, 0, 0, 0.28), inset 0 1px 0 rgba(255, 255, 255, 0.1), 0 0 14px rgba(255, 215, 94, 0.22);
+}
+.net-seat.ai,
+.net-seat.empty {
+    box-shadow: none;
+}
+/* 头像：内圈高光 + 身份光环（尺寸不动，仍是 36px） */
+.net-seat-avatar {
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4), inset 0 0 0 1px rgba(255, 255, 255, 0.12);
+}
+.net-seat.human .net-seat-avatar {
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(46, 204, 113, 0.4);
+}
+.net-seat.you .net-seat-avatar {
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4), 0 0 0 2px rgba(255, 215, 94, 0.55);
+}
+.net-you-tag {
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
+}
+
+/* ---- 座位入场：滑入 + 轻微放大（原 0.38s 时长不变） ---- */
+@keyframes net-seat-in {
+    from { opacity: 0; transform: translateX(16px) scale(0.96); }
+    to { opacity: 1; transform: translateX(0) scale(1); }
+}
+
+/* ---- 按钮触感：按压下沉（主按钮已有渐变 + 内高光，此处只补位移） ---- */
+.hu-btn {
+    transition: background 0.15s, box-shadow 0.15s, transform 0.12s;
+}
+.hu-btn:active {
+    transform: translateY(1px);
+}
+.hu-btn.ghost:active {
+    transform: translateY(1px);
+}
+.net-code-btn:active {
+    transform: scale(0.98);
+}
+.net-kick:active {
+    transform: scale(0.92);
+}
+.net-qr-inline:active {
+    transform: scale(0.97);
+}
+
+/* ---- 次要按钮必须像可点：幽灵按钮统一给细边（此前大厅主屏的返回/说明是纯文字状） ---- */
+.hu-btn.ghost,
+.net-btn.ghost {
+    border-color: rgba(255, 255, 255, 0.22);
+    border-radius: 10px;
+}
+
+/* ---- 输入框焦点金环（键盘/粘贴用户可见，原 16px 字号防 iOS 缩放不变） ---- */
+.net-input:focus {
+    outline: none;
+    border-color: var(--gold-light);
+    box-shadow: 0 0 0 3px rgba(255, 215, 94, 0.18), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+
+/* ---- 踢人：视觉仍是 30px 圆，热区扩到 44px（不改布局） ---- */
+.net-kick {
+    position: relative;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.35);
+}
+.net-kick::after {
+    content: '';
+    position: absolute;
+    inset: -7px;
+}
+
+/* ---- 二维码白卡：阴影 + 按压回馈 ---- */
+.net-qr-inline {
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.45);
+}
+.net-qr-img {
+    box-shadow: 0 12px 28px rgba(0, 0, 0, 0.5);
+}
+
+/* ---- 状态 pill：玻璃渐变 + 呼吸圆点 + 窄屏省略（位置/层级不动） ---- */
+#net-status-pill {
+    background: linear-gradient(180deg, rgba(20, 60, 50, 0.92), rgba(13, 43, 38, 0.88));
+    box-shadow: 0 6px 14px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+    max-width: calc(100vw - 16px);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+#net-status-pill::before {
+    content: '';
+    display: inline-block;
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--success);
+    margin-right: 6px;
+    vertical-align: 1px;
+    box-shadow: 0 0 6px rgba(46, 204, 113, 0.9);
+    animation: net-dot 2s ease-in-out infinite;
+}
+#net-status-pill.warn::before {
+    background: #ffc107;
+    box-shadow: 0 0 6px rgba(255, 193, 7, 0.9);
+}
+
+/* ---- 轻提示与倒计时环：阴影与辉光（位置/时长不动） ---- */
+#net-toast {
+    box-shadow: 0 10px 24px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+.net-ring-fg {
+    filter: drop-shadow(0 0 3px rgba(255, 215, 94, 0.55));
+}
+
+/* ---- 横屏：盒子放宽、座位留白放大（竖屏 380px 不动，矮屏收缩规则仍生效） ---- */
+@media (orientation: landscape) {
+    .net-lobby-box {
+        width: min(92vw, 520px);
+    }
+    .net-seats {
+        gap: 10px;
+    }
+}
+
+/* ---- 减动效：新动效全部关闭（与原有减动效块并列，后加载者胜） ---- */
+@media (prefers-reduced-motion: reduce) {
+    #net-lobby-modal.show .net-lobby-box,
+    #net-notice-modal.show .net-notice-box,
+    #net-qr-modal.show .net-qr-box,
+    #net-countdown.show,
+    #net-countdown.show.warn,
+    #net-reconnect.show,
+    #net-auto-banner.show {
+        animation: none;
+    }
+    #net-status-pill::before {
+        animation: none;
+    }
+    .hu-btn {
+        transition: none;
+    }
 }
