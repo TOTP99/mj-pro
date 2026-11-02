@@ -57,65 +57,192 @@ function remapAvatars() {
 }
 Game.netGuestRemapAvatars = remapAvatars;
 
-/** 应用房主快照（canonical → view 重映射后喂给渲染） */
-Game.netGuestApplyState = function (snap) {
-    if (!Game.net || Game.net.role !== 'guest') return;
-    if (typeof snap.seq === 'number') { // 乱序/过期快照直接丢弃
-        if (snap.seq <= Game.net.seq) return;
-        Game.net.seq = snap.seq;
+// ---------- 房主消息校验（客人不信任线上数据：房主可能是改过的客户端，或数据在途中损坏） ----------
+var SEAT_SET = { top: 1, left: 1, right: 1, bottom: 1 };
+var MELD_TYPES = { chi: 1, peng: 1, gang: 1, dragons: 1, winds: 1 };
+var hasOwnP = Object.prototype.hasOwnProperty;
+function isObj(x) { return !!x && typeof x === 'object' && !Array.isArray(x); }
+function isSeatId(x) { return typeof x === 'string' && hasOwnP.call(SEAT_SET, x); }
+function isInt(x, lo, hi) { return typeof x === 'number' && Number.isInteger(x) && x >= lo && x <= hi; }
+function isNum(x, lim) { return typeof x === 'number' && isFinite(x) && Math.abs(x) <= lim; }
+function tileOk(t) { return Game.netValidTile(t); }
+function tilesOk(a, max) { return Array.isArray(a) && a.length <= max && a.every(tileOk); }
+
+/** 校验并规范化一个副露组；非法返回 null（只保留已知字段） */
+function cleanMeld(m) {
+    if (!isObj(m) || typeof m.type !== 'string' || !hasOwnP.call(MELD_TYPES, m.type)) return null;
+    if (!tilesOk(m.tiles, 4) || m.tiles.length < 3) return null;
+    var out = { type: m.type, tiles: m.tiles.slice() };
+    if (m.concealed === true) out.concealed = true;
+    return out;
+}
+
+/**
+ * 校验房主快照，返回「规范化后的新对象」；任何一项不合法返回 null（整份丢弃，不应用半份）。
+ * 只做结构/范围/牌种/张数上限检查——不要求总牌数=136（客人看不到别家暗牌，且房主有过渡态快照）。
+ */
+function validateSnapshot(snap, my) {
+    if (!isObj(snap)) return null;
+    if (snap.seq !== undefined && !isInt(snap.seq, 0, 1e9)) return null;
+    if (!isInt(snap.epoch, 0, 1e9)) return null;
+    if (!isSeatId(snap.currentPlayer) || !isSeatId(snap.dealer)) return null;
+    if (!isInt(snap.deckCount, 0, 136)) return null;
+    if (!isObj(snap.handCounts) || !isObj(snap.melds) || !isObj(snap.scores)) return null;
+    var out = { seq: snap.seq, epoch: snap.epoch, currentPlayer: snap.currentPlayer, dealer: snap.dealer, deckCount: snap.deckCount,
+        handCounts: {}, melds: {}, scores: {}, names: {}, discards: [], hand: null, allHands: null, drawnIdx: null };
+    var i, c;
+    for (i = 0; i < SEATS.length; i++) {
+        c = SEATS[i];
+        if (!isInt(snap.handCounts[c], 0, 14)) return null;
+        out.handCounts[c] = snap.handCounts[c];
+        if (!Array.isArray(snap.melds[c]) || snap.melds[c].length > 4) return null;
+        out.melds[c] = [];
+        for (var k = 0; k < snap.melds[c].length; k++) {
+            var cm = cleanMeld(snap.melds[c][k]);
+            if (!cm) return null;
+            out.melds[c].push(cm);
+        }
+        if (!isNum(snap.scores[c], 1e9)) return null;
+        out.scores[c] = snap.scores[c];
+        var nm = isObj(snap.names) ? snap.names[c] : '';
+        out.names[c] = (typeof nm === 'string' && nm) ? Game.netCleanName(nm, '') : '';
     }
+    if (!Array.isArray(snap.discards) || snap.discards.length > 136) return null;
+    for (i = 0; i < snap.discards.length; i++) {
+        var d = snap.discards[i];
+        if (!isObj(d) || !tileOk(d.tile)) return null;
+        if (d.player != null && !isSeatId(d.player)) return null;
+        out.discards.push({ tile: d.tile, player: d.player || undefined });
+    }
+    if (snap.hand != null) {
+        if (!tilesOk(snap.hand, 14) || snap.hand.length !== out.handCounts[my]) return null;
+        out.hand = snap.hand.slice();
+    }
+    if (snap.allHands != null) {
+        if (!isObj(snap.allHands)) return null;
+        out.allHands = {};
+        for (i = 0; i < SEATS.length; i++) {
+            c = SEATS[i];
+            if (!tilesOk(snap.allHands[c], 14) || snap.allHands[c].length !== out.handCounts[c]) return null;
+            out.allHands[c] = snap.allHands[c].slice();
+        }
+    }
+    if (snap.drawnIdx != null) {
+        // 房主用 lastIndexOf 求下标：刚摸的牌已不在手里（碰/吃之后）时是 -1，意思是「没有刚摸的牌」，不是坏数据
+        if (!isInt(snap.drawnIdx, -1, 13)) return null;
+        out.drawnIdx = snap.drawnIdx >= 0 ? snap.drawnIdx : null;
+        if (out.drawnIdx != null && out.hand && out.drawnIdx >= out.hand.length) return null;
+    }
+    // 全桌牌张合计：同一种牌（可见部分）不得超过 4 张，牌码必须合法
+    var groups = [], pile = out.discards.map(function (x) { return x.tile; });
+    groups.push(pile);
+    for (i = 0; i < SEATS.length; i++) {
+        c = SEATS[i];
+        out.melds[c].forEach(function (m) { groups.push(m.tiles); });
+    }
+    if (out.allHands) { for (i = 0; i < SEATS.length; i++) groups.push(out.allHands[SEATS[i]]); }
+    else if (out.hand) groups.push(out.hand);
+    var seen = {};
+    for (i = 0; i < groups.length; i++) {
+        for (var j = 0; j < groups[i].length; j++) {
+            var tc = groups[i][j];
+            seen[tc] = (seen[tc] || 0) + 1;
+            if (seen[tc] > 4) return null;
+        }
+    }
+    if (snap.winner != null && !isSeatId(snap.winner)) return null;
+    out.winner = snap.winner || null;
+    out.gameOver = snap.gameOver === true;
+    out.started = snap.started === true;
+    out.fieldActive = snap.fieldActive === true;
+    if (snap.fieldCount !== undefined) {
+        if (!isInt(snap.fieldCount, 0, 1e6)) return null;
+        out.fieldCount = snap.fieldCount;
+    }
+    return out;
+}
+Game.netValidateSnapshot = validateSnapshot;
+
+/** 应用房主快照（canonical → view 重映射后喂给渲染）。
+ *  先整体校验、整体构建，最后一次性提交：任何一步失败，本机状态原样保留（不会出现「更新了一半」）。 */
+Game.netGuestApplyState = function (snap) {
+    if (!Game.net || Game.net.role !== 'guest') return false;
     var my = mySeat();
-    try {
-        Game.gameEpoch = snap.epoch;
-        Game.hands = {}; Game.exposedMelds = {};
+    var v = validateSnapshot(snap, my);
+    if (!v) { // 异常快照：丢弃、留诊断；seq 也不推进（否则一个伪造的大 seq 会让之后所有真快照被当成过期）
+        Game.netLog('guest:bad-snapshot');
+        return false;
+    }
+    if (typeof v.seq === 'number') { // 乱序/过期快照直接丢弃
+        if (v.seq <= Game.net.seq) return false;
+    }
+    var nx;
+    try { // ---- 构建阶段：只读 + 纯计算，不碰任何全局状态 ----
+        nx = { hands: {}, melds: {}, scores: {}, drawnTile: { top: null, left: null, right: null, bottom: null } };
         SEATS.forEach(function (c) {
-            var v = viewOf(c);
-            Game.hands[v] = (c === my) ? (snap.hand || []).slice()
-                : (snap.allHands && snap.allHands[c]) ? snap.allHands[c].slice() // 结算摊牌
-                : new Array(snap.handCounts[c] || 0).fill('x');
-            Game.exposedMelds[v] = (snap.melds[c] || []).slice();
+            var vw = viewOf(c);
+            nx.hands[vw] = (c === my) ? (v.hand || [])
+                : (v.allHands && v.allHands[c]) ? v.allHands[c] // 结算摊牌
+                : new Array(v.handCounts[c]).fill('x');
+            nx.melds[vw] = v.melds[c];
+            nx.scores[vw] = v.scores[c];
         });
-        Game.discardPile = (snap.discards || []).map(function (d) { return { tile: d.tile, player: d.player ? viewOf(d.player) : undefined }; });
-        Game.deck = new Array(snap.deckCount || 0).fill('x');
-        Game.scores = {};
-        SEATS.forEach(function (c) { Game.scores[viewOf(c)] = snap.scores[c]; });
-        Game.dealer = viewOf(snap.dealer);
-        Game.currentIndex = Game.turnOrder.indexOf(viewOf(snap.currentPlayer));
-        Game.gameOver = !!snap.gameOver;
-        Game.winner = snap.winner ? viewOf(snap.winner) : null;
-        // 有待回应的 prompt 时保留 UI 状态：防抖快照晚于 prompt 到达会把要约清掉
-        if (!Game.netPrompt) Game.selectedIndex = null;
-        else if (Game.selectedIndex != null && !Game.hands.bottom[Game.selectedIndex]) Game.selectedIndex = null;
-        Game.lastDrawnIndex = (snap.drawnIdx != null && snap.drawnIdx >= 0) ? snap.drawnIdx : null;
-        Game.lastDrawnTile = { top: null, left: null, right: null, bottom: null };
-        if (Game.lastDrawnIndex != null && Game.hands.bottom[Game.lastDrawnIndex])
-            Game.lastDrawnTile.bottom = Game.hands.bottom[Game.lastDrawnIndex];
-        if (!Game.netPrompt) Game.pendingClaim = null;
-        Game.netNames = snap.names || {};
-        // 开局标志：优先用快照 started；兼容旧房主仅靠手牌/牌墙推断（房间面板据此显示"对局进行中"）
-        if (snap.started || (snap.hand && snap.hand.length) || snap.gameOver) Game.net.started = true;
-        if (typeof snap.fieldCount === 'number') { // 局/风/圈 以房主为准，不读客人本机的单机数据
-            Game.fieldGameCount = snap.fieldCount;
-            Game.fieldActive = !!snap.fieldActive;
+        nx.discards = v.discards.map(function (d) { return { tile: d.tile, player: d.player ? viewOf(d.player) : undefined }; });
+        nx.deck = new Array(v.deckCount).fill('x');
+        nx.dealer = viewOf(v.dealer);
+        nx.currentIndex = Game.turnOrder.indexOf(viewOf(v.currentPlayer));
+        nx.winner = v.winner ? viewOf(v.winner) : null;
+        nx.drawnIdx = (v.drawnIdx != null && v.drawnIdx < nx.hands.bottom.length) ? v.drawnIdx : null;
+        if (nx.drawnIdx != null) nx.drawnTile.bottom = nx.hands.bottom[nx.drawnIdx];
+        if (nx.currentIndex < 0 || nx.dealer == null) throw new Error('bad-seat-map');
+    } catch (e) { Game.netLog('guest:bad-snapshot', 'build'); return false; }
+
+    // ---- 提交阶段：纯赋值，不会抛错 ----
+    if (typeof v.seq === 'number') Game.net.seq = v.seq;
+    Game.gameEpoch = v.epoch;
+    Game.hands = nx.hands;
+    Game.exposedMelds = nx.melds;
+    Game.discardPile = nx.discards;
+    Game.deck = nx.deck;
+    Game.scores = nx.scores;
+    Game.dealer = nx.dealer;
+    Game.currentIndex = nx.currentIndex;
+    Game.gameOver = v.gameOver;
+    Game.winner = nx.winner;
+    // 有待回应的 prompt 时保留 UI 状态：防抖快照晚于 prompt 到达会把要约清掉
+    if (!Game.netPrompt) Game.selectedIndex = null;
+    else if (Game.selectedIndex != null && !Game.hands.bottom[Game.selectedIndex]) Game.selectedIndex = null;
+    Game.lastDrawnIndex = nx.drawnIdx;
+    Game.lastDrawnTile = nx.drawnTile;
+    if (!Game.netPrompt) Game.pendingClaim = null;
+    Game.netNames = v.names;
+    // 开局标志：优先用快照 started；兼容旧房主仅靠手牌/牌墙推断（房间面板据此显示"对局进行中"）
+    if (v.started || (v.hand && v.hand.length) || v.gameOver) Game.net.started = true;
+    var hasHand = !!(v.hand && v.hand.length);
+    try {
+        if (typeof v.fieldCount === 'number') { // 局/风/圈 以房主为准，不读客人本机的单机数据
+            Game.fieldGameCount = v.fieldCount;
+            Game.fieldActive = v.fieldActive;
             try { if (typeof Game.renderFieldAmounts === 'function') Game.renderFieldAmounts(); } catch (e2) {}
         }
         // 新局开始（非结束态）：收起上一局残留的结算弹窗；开局后关掉等待大厅
-        if (!snap.gameOver) {
+        if (!v.gameOver) {
             try { var rm = Game.$('result-modal'); if (rm && rm.classList.contains('show')) rm.classList.remove('show'); } catch (e) {}
             Game.lastSettlement = null;
         }
-        try { if (Game.netLobbyIsOpen && Game.netLobbyIsOpen() && (snap.hand || []).length) Game.netLobbyClose(); } catch (e) {}
-        if ((snap.hand || []).length) { // 开局后收起本机残留的模式/筹码/规则弹窗（客人不设置这些）
+        try { if (Game.netLobbyIsOpen && Game.netLobbyIsOpen() && hasHand) Game.netLobbyClose(); } catch (e) {}
+        if (hasHand) { // 开局后收起本机残留的模式/筹码/规则弹窗（客人不设置这些）
             try { ['mode-select-modal', 'amount-modal', 'rules-modal'].forEach(function (id) { var m = Game.$(id); if (m) m.classList.remove('show'); }); if (Game.clearSelectGlow) Game.clearSelectGlow(); } catch (e) {}
         }
         // 客人本机启动时残留的"请选择模式/筹码"桌面提示：对局开始后清掉
         try {
             var tp = Game.$('table-center-prompt');
-            if (tp && tp.classList.contains('show') && (snap.hand || []).length && /^请选择/.test(tp.textContent)) tp.classList.remove('show');
+            if (tp && tp.classList.contains('show') && hasHand && /^请选择/.test(tp.textContent)) tp.classList.remove('show');
         } catch (e) {}
         Game.requestRender('netGuest/state');
         try { Game.netRefreshAvatarBadges(); } catch (e) {}
-    } catch (e) { /* 快照异常不炸，下一帧会再来 */ }
+    } catch (e) { /* UI 副作用异常不炸：状态已完整提交，下一帧会再来 */ }
+    return true;
 };
 
 /** 收到房主消息总入口 */
@@ -123,8 +250,8 @@ Game.netGuestOnMsg = function (d) {
     if (!Game.net || Game.net.role !== 'guest') return;
     if (d.t === 'state') Game.netGuestApplyState(d.snap);
     else if (d.t === 'prompt') onPrompt(d);
-    else if (d.t === 'seats') { Game.net.seats = d.seats; if (typeof Game.netLobbyRender === 'function') Game.netLobbyRender(); try { Game.netRefreshAvatarBadges(); } catch (e) {} }
-    else if (d.t === 'toast') { try { Game.logFlow('[联机] ' + d.text); if (Game.netToastUI) Game.netToastUI(String(d.text).slice(0, 60)); } catch (e) {} }
+    else if (d.t === 'seats') { Game.net.seats = Game.netSanitizeSeats(d.seats); if (typeof Game.netLobbyRender === 'function') Game.netLobbyRender(); try { Game.netRefreshAvatarBadges(); } catch (e) {} }
+    else if (d.t === 'toast') { if (typeof d.text !== 'string') return; var tx = d.text.slice(0, 120); try { Game.logFlow('[联机] ' + tx); if (Game.netToastUI) Game.netToastUI(tx.slice(0, 60)); } catch (e) {} }
     else if (d.t === 'auto') setAutoBanner(!!d.on);
     else if (d.t === 'result') onResult(d);
     else if (d.t === 'hostbye') Game.netGuestOnHostLeft();
@@ -261,8 +388,10 @@ Game.netSendIntent = function (intent) {
 };
 
 /** 清掉当前 prompt 的 UI */
+var promptExpiryTimer = 0;
 Game.netClearPrompt = function () {
     Game.netPrompt = null;
+    if (promptExpiryTimer) { clearTimeout(promptExpiryTimer); promptExpiryTimer = 0; }
     try { Game.netCountdownHide(); } catch (e) {}
     Game.pendingClaim = null;
     try {
@@ -271,8 +400,56 @@ Game.netClearPrompt = function () {
     } catch (e) {}
 };
 
-function onPrompt(p) {
+/** 校验并规范化房主要约；非法返回 null（不弹任何 UI） */
+function cleanPrompt(p) {
+    if (!isObj(p) || typeof p.id !== 'string' || !p.id || p.id.length > 24) return null;
+    var ms = (p.ms === undefined || p.ms === null) ? 0 : p.ms;
+    if (!isNum(ms, 10 * 60 * 1000) || ms < 0) return null;
+    var out = { id: p.id, kind: p.kind, ms: ms };
+    var i;
+    if (p.kind === 'turn') {
+        var gangs = p.gangs === undefined ? [] : p.gangs;
+        if (!Array.isArray(gangs) || gangs.length > 8) return null;
+        out.gangs = [];
+        for (i = 0; i < gangs.length; i++) {
+            var g = gangs[i];
+            if (!isObj(g) || !tileOk(g.tile) || !(g.kind === 'an' || g.kind === 'jia')) return null;
+            out.gangs.push({ tile: g.tile, kind: g.kind });
+        }
+    } else if (p.kind === 'claim') {
+        if (!tileOk(p.tile) || !isObj(p.opts) || !isSeatId(p.from)) return null;
+        var chi = p.opts.chi === undefined ? [] : p.opts.chi;
+        if (!Array.isArray(chi) || chi.length > 3) return null;
+        out.tile = p.tile;
+        out.from = p.from;
+        out.opts = { peng: p.opts.peng === true, gang: p.opts.gang === true, chi: [] };
+        for (i = 0; i < chi.length; i++) {
+            if (!tilesOk(chi[i], 2) || chi[i].length !== 2) return null;
+            out.opts.chi.push(chi[i].slice());
+        }
+        if (!out.opts.peng && !out.opts.gang && !out.opts.chi.length) return null; // 没有任何可选项的要约没有意义
+    } else if (p.kind === 'reveal') {
+        if (p.revealKind !== 'winds' && p.revealKind !== 'dragons') return null;
+        out.revealKind = p.revealKind;
+    } else return null;
+    return out;
+}
+Game.netCleanPrompt = cleanPrompt;
+
+function onPrompt(raw) {
+    var p = cleanPrompt(raw);
+    if (!p) { Game.netLog('guest:bad-prompt'); return; }
+    if (Game.netPrompt && Game.netPrompt.id === p.id) return; // 同一要约重复到达（重连补发/重复消息）：幂等，不重复弹 UI
     Game.netPrompt = p;
+    // 过期保护：房主超时后已按「过/AI 代打」处理，这里到点收起 UI，避免对已作废的要约点击后无人响应
+    if (promptExpiryTimer) clearTimeout(promptExpiryTimer);
+    promptExpiryTimer = 0;
+    if (p.ms) {
+        promptExpiryTimer = setTimeout(function () {
+            promptExpiryTimer = 0;
+            if (Game.netPrompt === p) Game.netClearPrompt();
+        }, p.ms + 1500);
+    }
     try { if (p.ms) Game.netCountdownShow(p.ms, p.kind === 'turn' ? '请出牌 ' : '请选择 '); } catch (e) {}
     try {
         if (p.kind === 'turn') {
@@ -309,8 +486,43 @@ function onPrompt(p) {
     } catch (e) {}
 }
 
+/** 校验并规范化结算消息；非法返回 null。所有进入弹窗 innerHTML 的字段都在这里收窄成数字/白名单/限长字符串。 */
+function cleanResult(d) {
+    if (!isObj(d)) return null;
+    var epoch = (d.epoch === undefined) ? Game.gameEpoch : d.epoch;
+    if (!isInt(epoch, 0, 1e9)) return null;
+    var detail = (typeof d.detail === 'string') ? d.detail.slice(0, 200) : '';
+    if (d.draw === true) return { draw: true, epoch: epoch, detail: detail };
+    if (!isSeatId(d.winner) || !(d.mode === 'selfdraw' || d.mode === 'dianpao')) return null;
+    if (d.mode === 'dianpao' && !isSeatId(d.payer)) return null;
+    if (!tileOk(d.tile)) return null;
+    var r = d.result;
+    if (!isObj(r) || !isObj(r.payouts) || !Array.isArray(r.tags) || r.tags.length > 16) return null;
+    var out = { epoch: epoch, winner: d.winner, mode: d.mode, payer: d.mode === 'dianpao' ? d.payer : null, tile: d.tile,
+        result: { payouts: {}, tags: [], total: 0, noKaimenPlayers: [], detail: detail } };
+    for (var i = 0; i < SEATS.length; i++) {
+        if (!isNum(r.payouts[SEATS[i]], 1e9)) return null;
+        out.result.payouts[SEATS[i]] = r.payouts[SEATS[i]];
+    }
+    for (i = 0; i < r.tags.length; i++) {
+        if (typeof r.tags[i] !== 'string' || r.tags[i].length > 40) return null;
+        out.result.tags.push(r.tags[i]);
+    }
+    out.result.total = isNum(r.total, 1e9) ? r.total : 0;
+    if (Array.isArray(r.noKaimenPlayers)) {
+        r.noKaimenPlayers.forEach(function (x) { if (isSeatId(x) && out.result.noKaimenPlayers.indexOf(x) < 0) out.result.noKaimenPlayers.push(x); });
+    }
+    out.bonus = { mult: (d.bonus && isNum(d.bonus.mult, 1e9)) ? d.bonus.mult : 1, tags: out.result.tags.slice() };
+    return out;
+}
+Game.netCleanResult = cleanResult;
+
 /** 结算消息 → 复用单机结算弹窗（座位转成 view） */
-function onResult(d) {
+function onResult(raw) {
+    var d = cleanResult(raw);
+    if (!d) { Game.netLog('guest:bad-result'); return; }
+    if (Game.net._resultEpoch === d.epoch) return; // 同一局的结算重复到达（重连补发等）：幂等，只处理一次
+    Game.net._resultEpoch = d.epoch;
     try {
         Game.netClearPrompt();
         if (d.draw) {
@@ -327,15 +539,13 @@ function onResult(d) {
         Game.winner = w;
         Game.requestRender('netGuest/result');
         // 结算 payouts 按 canonical 键下发，转成 view 键再进弹窗（09 内部按 view 座位读）
-        if (d.result && d.result.payouts) {
-            var vp = {};
-            SEATS.forEach(function (c) { vp[viewOf(c)] = d.result.payouts[c]; });
-            d.result.payouts = vp;
-            if (d.result.noKaimenPlayers) d.result.noKaimenPlayers = d.result.noKaimenPlayers.map(viewOf);
-        }
+        var vp = {};
+        SEATS.forEach(function (c) { vp[viewOf(c)] = d.result.payouts[c]; });
+        d.result.payouts = vp;
+        d.result.noKaimenPlayers = d.result.noKaimenPlayers.map(viewOf);
         // detail 里的"XX 点炮"是房主视角的座位名，按客人视角重写
         try {
-            if (d.mode === 'dianpao' && payer && d.result && typeof d.result.detail === 'string') {
+            if (d.mode === 'dianpao' && payer && typeof d.result.detail === 'string') {
                 var ix = d.result.detail.indexOf(' 点炮');
                 if (ix > 0) d.result.detail = Game.nameOf(payer) + d.result.detail.slice(ix);
             }

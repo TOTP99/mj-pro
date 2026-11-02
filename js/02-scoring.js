@@ -31,7 +31,7 @@ function hasSiGuiYi(decomp, exposed) {
 function scoreWinningHand(concealedBeforeWin, winTile, exposed, isLastTile) {
     const concealed = [...concealedBeforeWin, winTile].sort(Game.tileCompare);
     // 七小对特例：手里 7 对 14 张即胡，×8（可与海底捞叠加）
-    if (Game.ruleAllowsSevenPairs() && Game.isSevenPairs(concealed)) {
+    if (Game.ruleAllowsSevenPairs() && Game.isSevenPairs(concealed, exposed)) {
         let mult = 8;
         const tags = ['七小对×8'];
         if (isLastTile) { mult *= 2; tags.push('海底捞×2'); }

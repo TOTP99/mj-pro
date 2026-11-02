@@ -1,16 +1,14 @@
 ;(function(){
-// ============ 20-ai-danger-ev.js：EV 攻守框架 ============
-// AI 3.0 P0-4。EV = P和×和牌价值 − P放铳×损失 − P被自摸×损失 + P流局听牌×价值
-// 只用公开信息 + 自己的手牌，不读对手暗牌。
+// ---------- 20-ai-danger-ev.js：EV 攻守框架 ----------
+// EV = P和×价值 − P放铳×损失 − P被自摸×损失 + P流局听牌×价值
+// 只用公开信息 + 自己手牌，不读对手暗牌。
 
-// ---------- 放铳概率 ----------
-// 单张弃牌的放铳概率 ≈ 综合危险度（多家）：1 - Π(1 - Pdeal)
+// 单张弃牌放铳概率 ≈ 综合危险度
 function pDealIn(player, tile) {
     return Game.combinedDanger(player, tile);
 }
 
-// ---------- 听口分类 + 剩余张数完整建模（AI 3.0 P1） ----------
-// 听口类型与基础和率系数（以双面听为锚 1.0）
+// 听口类型与基础和率系数（双面听为锚 1.0）
 const WAIT_COEFF = {
     ryanmen: 1.00,  // 双面听
     shanpon: 0.80,  // 双碰听
@@ -21,7 +19,11 @@ const WAIT_COEFF = {
 };
 const WAIT_NAMES = { ryanmen: '双面听', shanpon: '双碰听', kanchan: '嵌张听', penchan: '边张听', tanki: '单钓听', multi: '多面听' };
 
-// 听口分类缓存：同一（暗牌+副露+亮牌加成）在一次决策里反复问，直接命中
+function sevenPairsAllowed() {
+    try { return !!(Game.ruleAllowsSevenPairs && Game.ruleAllowsSevenPairs()); } catch (e) { return false; }
+}
+
+// 听口分类缓存：同一（规则+暗牌+副露+亮牌加成）在一次决策里反复问，直接命中
 const _waitClassCache = new Map();
 
 // 七小对听牌形（6对+1单张）→ 单钓
@@ -37,7 +39,10 @@ function isChiitoiTenpaiShape(hand) {
 // 只用 Game.decompose（公开算法）+ 自己的手牌，不读对手暗牌。
 function classifyWait(hand, exposed, player) {
     const bonus = (player && Game.windDragonBonus && Game.windDragonBonus[player]) ? '+' : '-';
-    const key = bonus + '|' + hand.slice().sort().join(',') + '|'
+    // 听口取决于「能胡哪些牌」，而胡牌条件随模式/规则开关变化：规则签名必须进缓存键（getWinningTilesOf 的缓存同理），
+    // 否则中途切模式/改规则后会读到旧规则下的分类。
+    const rulesSig = Game.gameMode === 'advanced' ? 'A' + JSON.stringify(Game.rulesConfig || {}) : 'D';
+    const key = rulesSig + '#' + bonus + '|' + hand.slice().sort().join(',') + '|'
         + (exposed || []).map(m => m.type + (m.concealed ? 'c' : '') + m.tiles.join('')).join(';');
     let hit = _waitClassCache.get(key);
     if (hit) return hit;
@@ -57,7 +62,9 @@ function classifyWaitRaw(hand, exposed, player) {
         try { wins = Game.allTileTypes().filter(t => Game.checkHu([...hand, t], exposed, player)); } catch (e) {}
     }
     if (!wins.length) return fallback;
-    if (isChiitoiTenpaiShape(hand)) return { type: 'tanki', coeff: WAIT_COEFF.tanki, tiles: wins };
+    // 七小对听牌形（6 对 + 1 单张）：规则允许七小对、且听口确实只有那一张单张时才算单钓；
+    // 规则不允许七小对，或同时还有别的听口（常规拆法也能胡），交给下面的通用分类。
+    if (isChiitoiTenpaiShape(hand) && sevenPairsAllowed() && wins.length === 1) return { type: 'tanki', coeff: WAIT_COEFF.tanki, tiles: wins };
     const needMelds = 4 - (exposed ? exposed.length : 0);
     const types = new Set();
     const sorted = hand.slice().sort(Game.tileCompare);
@@ -94,9 +101,19 @@ function classifyWaitRaw(hand, exposed, player) {
             }
         }
     }
+    // 「多面听」按听口张数界定：3 种及以上牌能胡才是多面听。
+    //  - 旧逻辑先看读法种类：3 种听口但每张都读成同一类（如全是两面）被误归成该单类，低估了听口；
+    //  - 同一张牌在不同拆法里扮演多种角色（嵌张/单钓…）只是读法多，听口仍只有 1 张，不能判成多面听（系数最高）。
     let type = 'ryanmen';
-    if (types.size === 1) type = [...types][0];
-    else if (types.size > 1 || wins.length >= 3) type = 'multi';
+    if (wins.length >= 3) type = 'multi';
+    else if (types.size === 1) type = [...types][0];
+    else if (types.size > 1) {
+        if (wins.length === 1) { // 单张听口：取系数最高的那种读法，与其余单张听口一致
+            let best = null;
+            for (const k of types) if (best === null || WAIT_COEFF[k] > WAIT_COEFF[best]) best = k;
+            type = best;
+        } else type = 'multi'; // 2 张听口且读法不同
+    }
     return { type, coeff: WAIT_COEFF[type], tiles: wins };
 }
 
@@ -302,6 +319,8 @@ function estimateOppTenpai(opp) {
     if (wall <= 12 && f.ownTurns >= 6) p += 0.04;
     return Math.min(0.88, Math.max(0.025, p));
 }
+Game.classifyWait = classifyWait;   // 听口分类（回归测试/诊断用）
+Game.waitQuality = waitQuality;
 Game.getOppTenpaiFeatures = getOppTenpaiFeatures;
 Game.estimateOppTenpai = estimateOppTenpai;
 

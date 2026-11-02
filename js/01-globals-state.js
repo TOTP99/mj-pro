@@ -1,5 +1,5 @@
 var Game = {};
-Game.VERSION = '4.5.8';
+Game.VERSION = '4.5.10';
 ;(function(){
 // ---------- 基础常量与全局状态 ----------
 const suits = ['万', '条', '筒'];
@@ -77,14 +77,14 @@ function loadAiLearn() {
         if (!raw) return;
         const parsed = JSON.parse(raw);
         if (!parsed || !parsed.confidence) return;
-        const out = { games: parsed.games || 0, confidence: {} };
+        const out = { games: (Number.isFinite(parsed.games) && parsed.games > 0) ? Math.floor(parsed.games) : 0, confidence: {} };
         for (const style of ['conservative', 'aggressive', 'shrewd']) {
             const saved = parsed.confidence[style];
             const fresh = freshAxisConfidence();
             // 旧版本(改7轴之前)是一个性格一个数字，直接读到的是number；这种情况没法对应到某条轴，
             // 清零重新开始学，不强行套用（新老结构对不上，硬套没有意义）
             if (saved && typeof saved === 'object') {
-                for (const ax of AI_AXES) fresh[ax] = typeof saved[ax] === 'number' ? saved[ax] : 0;
+                for (const ax of AI_AXES) fresh[ax] = Number.isFinite(saved[ax]) ? Math.max(-3, Math.min(3, saved[ax])) : 0;
             }
             out.confidence[style] = fresh;
         }
@@ -95,7 +95,7 @@ function loadAiLearn() {
                 const saved = parsed.samples[style];
                 if (saved && typeof saved === 'object') {
                     for (const ax of AI_AXES) {
-                        if (typeof saved[ax] === 'number' && saved[ax] > 0)
+                        if (Number.isFinite(saved[ax]) && saved[ax] > 0)
                             out.samples[style][ax] = Math.min(500, saved[ax]);
                     }
                 }
@@ -297,9 +297,7 @@ function gameTimeout(fn, ms) {
     return setTimeout(run, ms);
 }
 
-// ---------- AI 回调调度（四期）：驱动 AI 回合的延时回调统一走这里 ----------
-// 包 gameTimeout（局号作废 + 骰子仪式顺延语义不变），多记 aiScheduleLog（最近 20 次），
-// 定位"AI 怎么不动了"时看最后一次调度。时序、延迟一字不动。
+// ---------- AI 回调调度：统一经 Game.scheduleAi（局号作废 + 骰子仪式顺延），记最近 20 次便于诊断 ----------
 Game.aiScheduleLog = [];
 Game.scheduleAi = function (fn, ms, reason) {
     Game.aiScheduleLog.push({ reason: reason || '', ms, t: Date.now() });
@@ -307,8 +305,7 @@ Game.scheduleAi = function (fn, ms, reason) {
     return gameTimeout(fn, ms);
 };
 
-// ---------- 渲染解耦（四期）：逻辑层统一走 requestRender，不再直调 Game.render() ----------
-// 同步渲染（时序不变），多记 renderCount + lastRenderReason，定位"这次重绘是谁触发的"用。
+// ---------- 渲染解耦：逻辑层统一 requestRender，记 renderCount / lastRenderReason ----------
 Game.renderCount = 0;
 Game.lastRenderReason = '';
 Game.requestRender = function (reason) {
@@ -317,15 +314,9 @@ Game.requestRender = function (reason) {
     Game.render();
 };
 
-// ---------- 显式状态机（二期） ----------
-// 把原来散落在各处的隐式流程控制（gameOver 布尔、pendingClaim 四种 mode、
-// pendingReveal、firstTurnPending、setTimeout 链）收敛为一个权威的 Game.phase。
-// 约定：
-// - setPhase 只做"记录 + 转移合法性检查"，非法转移记违规、打 console.warn，
-//   但不拦截、不改任何原有行为（行为零变化是二期的硬约束）。
-// - 骰子仪式是覆盖态：pushPhase 压栈进入，popPhase 恢复；
-//   调庄/清零会另起一局，走 setPhase('dealing') 并清空压栈。
-// - 纯展示浮层（牌池、头像介绍等）不设 phase。
+// ---------- 显式状态机 Game.phase ----------
+// setPhase 只记录 + 合法性检查（非法打 warn，不拦截行为）。
+// 骰子仪式用 pushPhase/popPhase 压栈；纯展示浮层不设 phase。
 Game.PHASE = {
     BOOT: 'boot',               // 脚本加载、尚未决定入口
     MODE_SELECT: 'modeSelect',  // 模式选择弹窗
@@ -346,8 +337,7 @@ Game.PHASE = {
     DICE_RITUAL: 'diceRitual',  // 骰子仪式（覆盖态）
     DICE_MENU: 'diceMenu',      // 清零/继续菜单（覆盖态）
 };
-// 合法转移表：从已确认的状态转移图整理。sim 跑 3000 局断言零违规，
-// 若某条真实路径不在表里，说明表漏了（补表），而不是逻辑错了（不动逻辑）。
+// 合法转移表（sim 断言零违规；真实路径若缺失则补表，不改逻辑）
 const PHASE_TRANSITIONS = {
     boot: ['modeSelect', 'dealing', 'draw', 'revealPrompt', 'waitDiscard', 'claimPrompt', 'nextGame'],
     modeSelect: ['rulesEdit', 'amountSelect', 'dealing', 'modeSelect'],
@@ -421,6 +411,25 @@ const VALID_TILE_TYPES = new Set([
     ...suits.flatMap(suit => Array.from({ length: 9 }, (_, i) => (i + 1) + suit)),
     ...honors.map((_, i) => (i + 1) + '字')
 ]);
+/** 牌码是否合法（'1万'..'9筒'、'1字'..'7字'）；联机快照、存档、胡牌判定共用 */
+function isValidTile(t) { return typeof t === 'string' && VALID_TILE_TYPES.has(t); }
+/** 多组牌合计是否合法：每张牌码合法，且同一种牌合计不超过 4 张（一副牌每种只有 4 张） */
+function tileGroupsLegal() {
+    const counts = new Map();
+    for (let i = 0; i < arguments.length; i++) {
+        const g = arguments[i];
+        if (!Array.isArray(g)) return false;
+        for (const t of g) {
+            if (!VALID_TILE_TYPES.has(t)) return false;
+            const n = (counts.get(t) || 0) + 1;
+            if (n > 4) return false;
+            counts.set(t, n);
+        }
+    }
+    return true;
+}
+Game.isValidTile = isValidTile;
+Game.tileGroupsLegal = tileGroupsLegal;
 function validateSavedSnapshot(saved) {
     if (!saved || !Array.isArray(saved.deck) || !saved.hands || typeof saved.hands !== 'object') return false;
     if (!saved.exposedMelds || typeof saved.exposedMelds !== 'object' || !Array.isArray(saved.discardPile)) return false;
@@ -750,7 +759,7 @@ function loadGameProgress(savedOverride) {
         // 始终恢复跨局指标
         if (saved.scores) {
             for (const p of PLAYERS) {
-                if (typeof saved.scores[p] === 'number') Game.scores[p] = saved.scores[p];
+                if (Number.isFinite(saved.scores[p])) Game.scores[p] = saved.scores[p];
             }
         }
         if (PLAYERS.includes(saved.dealer)) {

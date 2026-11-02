@@ -72,6 +72,7 @@ function analyzeHu(concealed, exposed = [], player = null) {
 }
 
 function checkHu(concealed, exposed = [], player = null) {
+    if (!tilesLegalForHu(concealed, exposed)) return false; // 拦截非法牌张组合（五张同牌、未知牌码等）
     // 日常模式：旧版逻辑，一字不改
     if (typeof Game.isDailyMode === 'function' && Game.isDailyMode()) {
         const a = analyzeHu(concealed, exposed, player);
@@ -82,17 +83,34 @@ function checkHu(concealed, exposed = [], player = null) {
 }
 
 /** 七小对特例：手里 7 对 14 张即胡，不要求开门/亮牌 */
-function isSevenPairs(concealed) {
+function isSevenPairs(concealed, exposed) {
     if (!concealed || concealed.length !== 14) return false;
+    // 七小对必须是纯暗手 14 张：有任何副露（吃/碰/杠/亮牌）就不可能是七小对
+    if (exposed && exposed.length) return false;
+    if (typeof Game.isValidTile === 'function' && !concealed.every(Game.isValidTile)) return false;
     const counts = {};
     for (const t of concealed) counts[t] = (counts[t] || 0) + 1;
     return Object.values(counts).every(c => c === 2);
 }
 
+/** 牌张合法性：牌码合法且同一种牌（暗牌+副露合计）不超过 4 张；非法组合一律不可胡 */
+function tilesLegalForHu(concealed, exposed) {
+    if (typeof Game.tileGroupsLegal !== 'function') return true; // 兼容最小测试桩
+    if (!Array.isArray(concealed)) return false;
+    const groups = [concealed];
+    if (exposed && exposed.length) {
+        for (const m of exposed) {
+            if (!m || !Array.isArray(m.tiles)) return false;
+            groups.push(m.tiles);
+        }
+    }
+    return Game.tileGroupsLegal.apply(null, groups);
+}
+
 /** 高阶胡牌判定：按 9 开关组合（默认配置 ≡ 日常旧版） */
 function checkHuAdvanced(concealed, exposed = [], player = null) {
     // 七小对优先：手里 7 对 14 张即胡，开门/亮牌都不要求
-    if (Game.ruleAllowsSevenPairs() && isSevenPairs(concealed)) {
+    if (Game.ruleAllowsSevenPairs() && isSevenPairs(concealed, exposed)) {
         return true;
     }
     const a = analyzeHu(concealed, exposed, player);

@@ -37,6 +37,12 @@ function seatLabel(p) {
     return a ? (w + ' ' + a) : w;
 }
 
+function escapeResultHtml(s) {
+    return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+/** 结算数字：非有限数一律按 0，避免带进 innerHTML / input value */
+function safeResultNum(x) { return (typeof x === 'number' && isFinite(x)) ? x : 0; }
+
 // 显示验胡结算画面：谁胡/自摸or点炮/完整手牌/吃碰杠亮/计分明细/每家加减分
 function showResultModal(winnerPlayer, mode, payer, bonus, result, winTile) {
     Game.setPhase(Game.PHASE.SETTLING, 'showResultModal');
@@ -59,16 +65,17 @@ function showResultModal(winnerPlayer, mode, payer, bonus, result, winTile) {
         Game.exposedMelds[winnerPlayer].map(Game.renderMeldGroup).join('') || '（无）';
 
     const lines = [mode === 'selfdraw' ? '底分 ×1' : '底分 ×2'];
-    result.tags.forEach(t => lines.push(t.replace(/×/g, ' ×')));
-    Game.$('result-score-lines').innerHTML = lines.map(l => `<div>${l}</div>`).join('');
+    result.tags.forEach(t => lines.push(String(t).replace(/×/g, ' ×')));
+    // 联机客人的 tags 来自网络：一律转义后再进 innerHTML（本地计分生成的标签只含中文和 ×，转义后不变）
+    Game.$('result-score-lines').innerHTML = lines.map(l => `<div>${escapeResultHtml(l)}</div>`).join('');
 
     Game.lastSettlement = {
         mode,
         winner: winnerPlayer,
         payer: payer || null,
-        systemPayouts: { top: result.payouts.top, left: result.payouts.left, right: result.payouts.right, bottom: result.payouts.bottom },
-        payouts: { top: result.payouts.top, left: result.payouts.left, right: result.payouts.right, bottom: result.payouts.bottom },
-        systemTotal: result.total,
+        systemPayouts: { top: safeResultNum(result.payouts.top), left: safeResultNum(result.payouts.left), right: safeResultNum(result.payouts.right), bottom: safeResultNum(result.payouts.bottom) },
+        payouts: { top: safeResultNum(result.payouts.top), left: safeResultNum(result.payouts.left), right: safeResultNum(result.payouts.right), bottom: safeResultNum(result.payouts.bottom) },
+        systemTotal: safeResultNum(result.total),
         noKaimenPlayers: result.noKaimenPlayers || [],
         adjusting: false
     };

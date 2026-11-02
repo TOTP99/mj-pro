@@ -208,19 +208,17 @@ Game.netValidCode = function (s) {
     return new RegExp('^[' + CODE_ALPHABET + ']{' + CODE_LEN + '}$').test(Game.netNormCode(s));
 };
 
+/** 重连令牌 = 座位凭证：只能来自 CSPRNG。没有 crypto 时宁可拒绝入座，也不退回可预测的 Math.random。 */
 function genToken() {
-    try {
-        var bytes = new Uint8Array(NET_CONFIG.TOKEN_BYTES);
-        crypto.getRandomValues(bytes);
-        var s = '';
-        for (var i = 0; i < bytes.length; i++) s += bytes[i].toString(16).padStart(2, '0');
-        return s;
-    } catch (e) {
-        var out = '', j;
-        for (j = 0; j < 8; j++) out += Math.floor(Math.random() * 0x100000000).toString(36);
-        return out;
-    }
+    var c = (typeof crypto !== 'undefined') ? crypto : null;
+    if (!c || typeof c.getRandomValues !== 'function') throw new Error('no-secure-random');
+    var bytes = new Uint8Array(NET_CONFIG.TOKEN_BYTES);
+    c.getRandomValues(bytes);
+    var s = '';
+    for (var i = 0; i < bytes.length; i++) s += bytes[i].toString(16).padStart(2, '0');
+    return s;
 }
+Game.netGenToken = genToken; // 供测试
 
 /** 名字净化：去控制字符/尖括号/危险符号，Unicode 规范化，限长 */
 Game.netCleanName = function (n, dflt) {
@@ -347,6 +345,13 @@ var GUEST_MSG_TYPES = { hello: 1, intent: 1, bye: 1, ready: 1, resume: 1, pong: 
 
 var INTENT_KINDS = { discard: 1, selfgang: 1, claim: 1, reveal: 1 };
 var CHOICES = { peng: 1, gang: 1, chi: 1, pass: 1 };
+var SEAT_NAMES = { top: 1, left: 1, right: 1, bottom: 1 };
+var SEAT_KINDS = { human: 1, ai: 1 };
+/** 牌码严格校验（'5万' '3条' '7筒' '1字'..'7字'）；不依赖引擎是否已加载 */
+function validTileCode(t) {
+    return typeof t === 'string' && /^(?:[1-9](?:万|条|筒)|[1-7]字)$/.test(t);
+}
+Game.netValidTile = validTileCode;
 
 function isStr(x, max) {
     return typeof x === 'string' && x.length <= max;
@@ -355,7 +360,9 @@ function isStr(x, max) {
 /** 校验客人 intent 结构（语义合法性由上层 offer 校验负责） */
 Game.netValidIntent = function (d) {
     if (!isPlainMsg(d) || d.t !== 'intent' || !isStr(d.id, 24) || !d.id || !ownKey(INTENT_KINDS, d.kind)) return false;
-    if (d.tile !== undefined && !isStr(d.tile, 6)) return false;
+    if (d.tile !== undefined && !validTileCode(d.tile)) return false;
+    if (d.kind === 'discard' && d.tile === undefined) return false; // 出牌必须指明哪张
+    if (d.kind === 'selfgang' && d.tile === undefined) return false;
     if (d.kind === 'claim') {
         if (!ownKey(CHOICES, d.choice)) return false;
         if (d.combo !== undefined && d.combo !== null &&
@@ -364,6 +371,25 @@ Game.netValidIntent = function (d) {
     if (d.kind === 'selfgang' && !(d.gangKind === 'an' || d.gangKind === 'jia')) return false;
     if (d.kind === 'reveal' && typeof d.accept !== 'boolean') return false;
     return true;
+};
+
+/** 客人收到的座位表：只保留已知字段并限长，名字再净化一次（房主可能是改过的客户端） */
+Game.netSanitizeSeats = function (seats) {
+    if (!Array.isArray(seats)) return [];
+    var out = [], seen = {};
+    for (var i = 0; i < seats.length && i < 4; i++) {
+        var s = seats[i];
+        if (!isPlainMsg(s) || !ownKey(SEAT_NAMES, s.seat) || seen[s.seat]) continue;
+        seen[s.seat] = true;
+        out.push({
+            seat: s.seat,
+            kind: ownKey(SEAT_KINDS, s.kind) ? s.kind : 'ai',
+            name: (typeof s.name === 'string' && s.name) ? Game.netCleanName(s.name, '') : '',
+            away: s.away === true,
+            auto: s.auto === true
+        });
+    }
+    return out;
 };
 
 // ========== Token-bucket 限流（每连接独立） ==========
@@ -551,6 +577,12 @@ Game.netJoinRoom = function (code, name, opts) {
                         resolve({ ok: false, err: '版本不一致，请刷新页面', fatal: true });
                         return;
                     }
+                    if (!ownKey(SEAT_NAMES, d.seat) || d.seat === 'bottom') { // 客人只可能坐 龙/虎/狮；房主座位不会发给客人
+                        try { peer.destroy(); } catch (e) {}
+                        Game.netLog('join:bad-welcome', 'seat');
+                        resolve({ ok: false, err: '房主返回的座位无效', fatal: true });
+                        return;
+                    }
                     if (Game.net && Game.net.hostSilentTimer) { // 重连换新 net：清掉旧定时器，防泄漏
                         try { clearInterval(Game.net.hostSilentTimer); } catch (e) {}
                     }
@@ -561,15 +593,16 @@ Game.netJoinRoom = function (code, name, opts) {
                         seat: d.seat,
                         peer: peer,
                         guestConn: conn,
-                        seats: d.seats || [],
-                        token: d.token || null,
+                        seats: Game.netSanitizeSeats(d.seats),
+                        token: (typeof d.token === 'string' && /^[0-9a-f]{16,64}$/.test(d.token)) ? d.token : null,
                         lastHostMsg: Date.now(),
                         seq: 0,
                         started: !!d.started,
                         hostSilentTimer: null
                     };
+                    d.seats = Game.net.seats; // 下游（大厅/等待页）只看到净化后的座位表
                     Game.netLog('join:ok', d.seat + (d.resumed ? ' resumed' : ''));
-                    try { Game.netSaveSession({ role: 'guest', code: code, name: Game.net.name, token: d.token }); } catch (e) {}
+                    try { Game.netSaveSession({ role: 'guest', code: code, name: Game.net.name, token: Game.net.token }); } catch (e) {}
                     wireGuestConn(conn);
                     startGuestHostWatch();
                     resolve({ ok: true, role: 'guest', welcome: d, peer: peer });
@@ -807,10 +840,17 @@ function hostAdmitGuest(conn, d) {
         deny(conn, '房间已满');
         return;
     }
+    var token;
+    try {
+        token = genToken();
+    } catch (e) { // 无安全随机源：拒绝入座，且不动现有座位表
+        Game.netLog('host:no-secure-random');
+        deny(conn, '房主浏览器不支持安全随机数，无法入座', true);
+        return;
+    }
     if (evictAI || taken[seat]) {
         net.seats = net.seats.filter(function (s) { return s.seat !== seat; });
     }
-    var token = genToken();
     net.seats.push({
         seat: seat,
         kind: 'human',
@@ -1108,6 +1148,7 @@ Game.netLeave = function () {
     setTimeout(function () { Game._leaving = false; }, 2500);
     Game.netLog('leave', wasGuest ? 'guest' : 'host');
     try { Game.netCountdownHide(); } catch (e) {}
+    try { if (Game.netCancelAwaits) Game.netCancelAwaits('leave'); } catch (e) {} // 房主：撤销所有等待中的要约/计时器
     try {
         if (Game.netGuestStopReconnect) Game.netGuestStopReconnect();
     } catch (e) {}

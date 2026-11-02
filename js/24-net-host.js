@@ -49,12 +49,20 @@ Game.netHostInit = function () {
                 try { saveHostSessionSoon(); } catch (e) {}
             }
         };
+        var _ig = Game.initGame;
+        if (typeof _ig === 'function') {
+            Game.initGame = function () {
+                if (isHost()) Game.netCancelAwaits('newGame'); // 上一局遗留的要约/计时器全部作废
+                return _ig.apply(this, arguments);
+            };
+        }
         var _dd = Game.declareDraw;
         Game.declareDraw = function () {
             _dd();
             if (isHost()) {
                 Game.netBroadcastState(true);
-                Game.netBroadcast({ t: 'result', draw: true, detail: '牌墙已尽，流局' });
+                rememberResult({ t: 'result', draw: true, detail: '牌墙已尽，流局' });
+                Game.netBroadcast(Game.net.lastResult.msg);
             }
         };
     }
@@ -150,10 +158,20 @@ Game.netBroadcastState = function (immediate) {
     });
 };
 
+/** 本局结算消息留底：结算阶段掉线重连的客人要补发，否则回来只看到空桌面、没有结算弹窗 */
+function rememberResult(msg) {
+    if (!Game.net) return;
+    msg.epoch = Game.gameEpoch; // 客人按 epoch 去重
+    Game.net.lastResult = { epoch: Game.gameEpoch, msg: msg };
+}
+
 /** 新客人中途加入：同步当前状态 */
 Game.netHostSyncGuest = function (seat, resumed) {
     try { Game.net.conns[seat].send({ t: 'state', snap: buildSnapshot(seat) }); } catch (e) {}
-    if (!resumed) Game.netToast(seatName(seat) + ' 加入对局（当前对局继续）');
+    if (!resumed) { Game.netToast(seatName(seat) + ' 加入对局（当前对局继续）'); return; }
+    // 重连：结算阶段补发本局结算；对局中补发正在等他的要约
+    var lr = Game.net && Game.net.lastResult;
+    if (Game.gameOver && lr && lr.epoch === Game.gameEpoch) Game.netSendTo(seat, lr.msg);
     else Game.netHostResendPrompt(seat);
 };
 
@@ -209,25 +227,65 @@ function noteTimeout(seat) {
         Game.netBroadcastSeats();
     }
 }
+/** 撤销所有等待中的要约：清计时器、清 offer，等待方按「已取消」收尾（离开房间 / 新局开始时调用）。
+ *  取消不算挂机：不会累计托管次数。 */
+Game.netCancelAwaits = function (reason) {
+    Object.keys(_awaits).forEach(function (id) {
+        var a = _awaits[id];
+        delete _awaits[id];
+        try { clearTimeout(a.timer); } catch (e) {}
+        try { a.settle({ cancelled: true, reason: reason || '' }); } catch (e) {}
+    });
+    Game.netOffers = {};
+    if (Game.netLocalAwait) { // 房主本机的吃碰杠要约：同样作废，别留着悬空回调
+        Game.netLocalAwait = null;
+        try { Game.pendingClaim = null; Game.hideIndicator(); } catch (e) {}
+    }
+    Game.netLog('host:cancel-awaits', reason || '');
+};
+Game.netPendingAwaitCount = function () { return Object.keys(_awaits).length; };
+
 function awaitIntent(seat, msg, timeoutMs) {
     return new Promise(function (resolve) {
         var epoch = Game.gameEpoch;
         var id = 'p' + (++_promptSeq);
+        // 同一座位同一时刻只有一个有效要约：新要约顶替旧的（旧的按「已取消」收尾，不计挂机）
+        Object.keys(_awaits).forEach(function (oid) {
+            if (_awaits[oid].seat !== seat) return;
+            var old = _awaits[oid];
+            delete _awaits[oid];
+            try { clearTimeout(old.timer); } catch (e) {}
+            try { old.settle({ cancelled: true, reason: 'superseded' }); } catch (e) {}
+        });
         Game.netSendTo(seat, Object.assign({ t: 'prompt', id: id, ms: timeoutMs }, msg));
+        var settled = false;
+        function settle(r) { // 唯一出口：只 resolve 一次
+            if (settled) return;
+            settled = true;
+            delete _awaits[id];
+            if (Game.netOffers[seat] && Game.netOffers[seat]._id === id) delete Game.netOffers[seat];
+            resolve(r);
+        }
         var timer = setTimeout(function () {
-            delete _awaits[id]; delete Game.netOffers[seat];
+            if (settled) return;
+            // 局已换（或房间已散）：这是上一局遗留的要约，不是这位玩家挂机，不能计托管
+            if (!Game.net || Game.gameEpoch !== epoch) { settle({ epochChanged: true }); return; }
             // 吃碰杠要约超时＝默认"过"，不算挂机（否则不想吃碰又没点过的人会被误托管）
             if (msg.kind !== 'claim') noteTimeout(seat);
-            resolve({ timeout: true });
+            settle({ timeout: true });
         }, timeoutMs);
+        if (Game.netOffers[seat]) Game.netOffers[seat]._id = id;
         _awaits[id] = {
             seat: seat,
             msg: msg,
+            kind: msg.kind,
+            timer: timer,
+            settle: settle,
             deadline: Date.now() + timeoutMs,
             resolve: function (r) {
-                clearTimeout(timer); delete _awaits[id]; delete Game.netOffers[seat];
-                if (Game.gameEpoch !== epoch) resolve({ epochChanged: true });
-                else resolve(r);
+                clearTimeout(timer);
+                if (Game.gameEpoch !== epoch) settle({ epochChanged: true });
+                else settle(r);
             }
         };
     });
@@ -242,16 +300,42 @@ Game.netHostOnGuestMsg = function (conn, d) {
     Game.net.lastSeen[seat] = Date.now();
     var m = seatMeta(seat);
     if (d.t === 'bye') { hostDropSeatBye(seat); return; }
-    if (d.t === 'ready') { Game.net.ready[seat] = Game.gameEpoch; return; }
+    if (d.t === 'ready') {
+        // 带 epoch 的确认只认当前局：上一局迟到/重放的 ready 不能替本局的结算确认
+        if (d.epoch !== undefined && d.epoch !== Game.gameEpoch) { Game.netLog('host:stale-ready', seat); return; }
+        Game.net.ready[seat] = Game.gameEpoch;
+        return;
+    }
     if (d.t === 'resume') { // 取消托管
         if (m && m.auto) { m.auto = false; m.timeouts = 0; Game.netToast(seatName(seat) + ' 回来了'); Game.netBroadcastSeats(); }
         return;
     }
-    if (d.t !== 'intent' || !d.id || !_awaits[d.id]) return;
-    if (_awaits[d.id].seat !== seat) return; // 不是等他，别人的 id 不能用
+    if (d.t !== 'intent' || !d.id || !_awaits[d.id]) return; // 要约已超时/已处理/从未存在：过期或重复的意图直接丢弃
+    var aw = _awaits[d.id];
+    if (aw.seat !== seat) return; // 不是等他，别人的 id 不能用
+    if (!intentMatchesAwait(seat, aw, d)) { // 类型/内容与当前要约不符：忽略，要约继续有效（不误触发 AI 代打、不清挂机计数）
+        Game.netLog('host:intent-mismatch', seat + ' ' + aw.kind + '<-' + d.kind);
+        return;
+    }
     if (m) m.timeouts = 0;
-    _awaits[d.id].resolve({ intent: d });
+    aw.resolve({ intent: d });
 };
+/** 意图必须与当前要约同类，且内容在要约范围内（出牌必须是手里的牌、自杠必须是被提供的杠） */
+function intentMatchesAwait(seat, aw, d) {
+    if (!Game.netValidTile || !Game.netValidIntent(d)) return false;
+    if (aw.kind === 'turn') {
+        if (d.kind === 'discard') return validDiscard(seat, d.tile);
+        if (d.kind === 'selfgang') {
+            var gs = (aw.msg && aw.msg.gangs) || [];
+            for (var i = 0; i < gs.length; i++) if (gs[i].tile === d.tile && gs[i].kind === d.gangKind) return true;
+            return false;
+        }
+        return false;
+    }
+    if (aw.kind === 'claim') return d.kind === 'claim';
+    if (aw.kind === 'reveal') return d.kind === 'reveal';
+    return false;
+}
 function hostDropSeatBye(seat) {
     // 23-net.js 的 hostDropSeat 在作用域外？它是 IIFE 内部函数——通过 Game 暴露
     if (typeof Game.netHostDropSeat === 'function') Game.netHostDropSeat(seat, 'bye', false);
@@ -271,8 +355,12 @@ Game.netHostStartGate = function (proceed) {
     Game.logFlow('[联机] 等待 ' + names + ' 确认结算…');
     try { if (Game.netToastUI) Game.netToastUI('等待 ' + names + ' 确认结算…'); } catch (e) {}
     var t0 = Date.now();
+    var gateNet = Game.net, gateEpoch = Game.gameEpoch;
     var iv = setInterval(function () {
-        if (!Game.net || !isHost()) { clearInterval(iv); return; }
+        if (!Game.net || Game.net !== gateNet || !isHost()) { clearInterval(iv); return; }
+        if (Game.gameEpoch !== gateEpoch || !Game.gameOver) { // 门闩等待期间局已经换了：不再重复开局
+            clearInterval(iv); Game.net._gate = false; return;
+        }
         if (!pending().length || Date.now() - t0 > Game.netTimeouts.ready) {
             clearInterval(iv); Game.net._gate = false; proceed();
         }
@@ -296,7 +384,7 @@ Game.netRevealRemote = function (player, kind) {
         var epoch = Game.gameEpoch;
         Game.netOffers[player] = { kind: 'reveal', revealKind: kind };
         var r = await awaitIntent(player, { kind: 'reveal', revealKind: kind }, Game.netTimeouts.reveal);
-        if (Game.gameEpoch !== epoch || Game.gameOver) return;
+        if (Game.gameEpoch !== epoch || Game.gameOver || r.cancelled) return; // 要约被撤销（离开/新局/被顶替）：不再续行
         var accept = r.intent && r.intent.kind === 'reveal' && r.intent.accept;
         if (accept) {
             var ok = Game.applyReveal(player, kind);
@@ -343,7 +431,7 @@ function hostAwaitTurn(player) {
         Game.netOffers[player] = { kind: 'turn', gangs: gangs };
         Game.netBroadcastState(true);
         var r = await awaitIntent(player, { kind: 'turn', gangs: gangs }, Game.netTimeouts.turn);
-        if (Game.gameEpoch !== epoch || Game.gameOver) return;
+        if (Game.gameEpoch !== epoch || Game.gameOver || r.cancelled) return; // 要约被撤销：不再替他出牌
         var it = r.intent;
         if (!r.timeout && it && it.kind === 'selfgang') {
             var g = null;
@@ -428,7 +516,7 @@ function gangReplacement(player, epoch) {
         (async function () {
             Game.netOffers[player] = { kind: 'reveal', revealKind: rk };
             var r = await awaitIntent(player, { kind: 'reveal', revealKind: rk }, Game.netTimeouts.reveal);
-            if (Game.gameEpoch !== epoch || Game.gameOver) return;
+            if (Game.gameEpoch !== epoch || Game.gameOver || r.cancelled) return;
             if (r.intent && r.intent.kind === 'reveal' && r.intent.accept) {
                 if (revealAfterReplacement(player, rk)) return; // 亮牌补牌后自摸/流局已结算
                 Game.netBroadcastState(true);
@@ -471,7 +559,8 @@ function settleRon(winner, discarder, tile, robGang) {
     try { Game.speak('胡了'); Game.learnFromWin(winner, discarder, { fan: bonus.mult, turns: Game.handTurnCount }); } catch (e) {}
     Game.requestRender('netSettleRon');
     Game.netBroadcastState(true);
-    Game.netBroadcast({ t: 'result', winner: winner, mode: 'dianpao', payer: discarder, bonus: bonus, result: result, tile: tile, detail: result.detail });
+    rememberResult({ t: 'result', winner: winner, mode: 'dianpao', payer: discarder, bonus: bonus, result: result, tile: tile, detail: result.detail });
+    Game.netBroadcast(Game.net.lastResult.msg);
     Game.showResultModal(winner, 'dianpao', discarder, bonus, result, tile);
 }
 function settleSelfDraw(player, winTile) {
@@ -489,7 +578,8 @@ function settleSelfDraw(player, winTile) {
     try { Game.speak('胡了，自摸'); Game.learnFromWin(player, null, { fan: bonus.mult, turns: Game.handTurnCount }); } catch (e) {}
     Game.requestRender('netSettleSelf');
     Game.netBroadcastState(true);
-    Game.netBroadcast({ t: 'result', winner: player, mode: 'selfdraw', payer: null, bonus: bonus, result: result, tile: winTile, detail: result.detail });
+    rememberResult({ t: 'result', winner: player, mode: 'selfdraw', payer: null, bonus: bonus, result: result, tile: winTile, detail: result.detail });
+    Game.netBroadcast(Game.net.lastResult.msg);
     Game.showResultModal(player, 'selfdraw', null, bonus, result, winTile);
 }
 
@@ -558,6 +648,7 @@ function _claims(discarder, tile, epoch) {
             });
         }));
         if (Game.gameEpoch !== epoch || Game.gameOver) return;
+        if (results.some(function (r) { return r && r.cancelled; })) return; // 任一要约被撤销：本轮吃碰杠作废，不再推进回合
         // 裁决：杠/碰 > 吃；同级按下家距离 discarder 最近者胜
         var order = turnOrderFrom(discarder);
         var dist = function (s) { return order.indexOf(s); };
@@ -571,6 +662,7 @@ function _claims(discarder, tile, epoch) {
 }
 
 function normalizeClaimIntent(o, r) {
+    if (r && r.cancelled) return { seat: o.seat, choice: 'pass', cancelled: true };
     var it = r.intent;
     if (!r.timeout && it && it.kind === 'claim') {
         if (it.choice === 'peng' && o.peng) return { seat: o.seat, choice: 'peng' };
