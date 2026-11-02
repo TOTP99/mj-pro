@@ -62,3 +62,10 @@
 - **消息上限**：客人→房主 4KB；房主→客人 16KB（UTF-8 字节）。超限的房主消息在客人侧记 `guest:drop-oversize` 到诊断日志。
 - **阶段**：`Game.netGetPhase()` → `offline | lobby | playing | settling`，结算门闩只在 `settling` 生效；诊断信息含 `phase`。
 - **邀请链接/二维码**：`?room=ABC234`（或 `#room=`）打开页面时自动加入（昵称取本机已存或默认「客人NN」），随后用 `history.replaceState` 清掉地址栏参数，刷新不会重复触发；失败则停在预填好的加入页。二维码编码的就是这条链接。
+
+## v4.5.10 补充
+- **客人不信任线上数据**：`state` 先校验后整体提交，任一字段不合法整份丢弃且不推进 `seq`；`prompt`/`result`/`seats`/`welcome` 同样先校验并规范化。
+- **意图与要约匹配**：`intent` 必须与对应 `prompt` 同类（turn→discard/selfgang，claim→claim，reveal→reveal），内容须在要约范围内；不符则忽略，要约保持有效。
+- **幂等**：同一 `prompt.id` 重复到达不重复弹 UI；同一局 `result` 只处理一次（`result.epoch`）；`ready` 带 `epoch` 时只认当前局；已处理/过期的 `intent.id` 被丢弃。
+- **重连**：令牌重连成功后，房主补发 `state`；结算阶段补发本局 `result`，对局中补发正在等该座位的 `prompt`（同 id，剩余时间）。
+- **令牌**：仅 CSPRNG（128 位）；无安全随机源时房主 `deny`（fatal）。
