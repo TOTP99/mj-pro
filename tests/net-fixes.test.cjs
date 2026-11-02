@@ -19,7 +19,8 @@ Game.net = { role: 'guest', seat: 'top', seats: [], guestConn: { send: m => sent
 Game.netGuestInit({ seat: 'top' });
 Game.netGuestOnMsg({ t: 'prompt', id: 'p1', kind: 'claim', tile: '3万', from: 'bottom', opts: { peng: true, gang: false, chi: [] } });
 Game.netGuestApplyState({ epoch: 1, currentPlayer: 'top', dealer: 'bottom', deckCount: 50, discards: [{ tile: '1万', player: 'bottom' }],
-  handCounts: { top: 13, left: 13, right: 13, bottom: 13 }, melds: {}, scores: { top: 0, left: 0, right: 0, bottom: 0 }, names: {}, hand: ['1万'] });
+  handCounts: { top: 13, left: 13, right: 13, bottom: 13 }, melds: { top: [], left: [], right: [], bottom: [] }, scores: { top: 0, left: 0, right: 0, bottom: 0 }, names: {},
+  hand: ['1万', '2万', '3万', '4万', '5万', '6万', '7万', '8万', '9万', '1条', '2条', '3条', '4条'] }); // 快照现在要先过校验：字段须完整、手牌张数须与 handCounts 一致
 assert(Game.pendingClaim, 'pendingClaim 应被保留');
 assert.strictEqual(Game.discardPile[0].player, Game.netViewSeatOf('bottom', 'top'), '弃牌出牌人应映射为 view 座位');
 assert(Game.netClaimIntent('accept'), '确认应被联机钩子接管');
