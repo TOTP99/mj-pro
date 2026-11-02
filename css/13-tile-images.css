@@ -10,6 +10,15 @@
     user-select: none;
     -webkit-user-drag: none;
 }
+/* 行内小牌（教练推荐、听牌提示等）：随文字字号缩放，避免 webp 原尺寸（250×358）撑爆布局 */
+.tile-img-inline {
+    display: inline-block;
+    width: 1.15em;
+    height: 1.55em;
+    vertical-align: -0.28em;
+    object-fit: fill;
+    border-radius: 2px;
+}
 .tile, .pool-tile, .discardTile { background: transparent; border: 0; }
 .tile      { box-shadow: 0 2px 3px rgba(0,0,0,0.4); }
 .pool-tile { box-shadow: 0 2px 3px rgba(0,0,0,0.4); }
